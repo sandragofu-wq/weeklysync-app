@@ -86,7 +86,7 @@ const PROJECTS = [
       { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
     ],
   },
-   {
+  {
     id: 6, name: "ELVIRIA-MARLOW", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -96,10 +96,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 16, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 7, name: "PLAZA DEL MAR", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -109,10 +109,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 17, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 8, name: "ALTOS DE LOS MONTEROS", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -122,10 +122,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 18, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 9, name: "LOMAS DEL TENIS", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -135,10 +135,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 19, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 10, name: "SAN ROQUE", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -148,10 +148,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 20, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 11, name: "PINTOR LOSADA - SANTUTXU TERRAZAS", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -161,10 +161,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 21, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 12, name: "ISASI - MOZART PLAZA", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -174,10 +174,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 22, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 13, name: "MONCADA", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -187,10 +187,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 23, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 14, name: "FUENTEOVEJUNA", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -200,10 +200,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 24, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 15, name: "SALAMANCA - OASIS VISTAHERMOSA", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -213,10 +213,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 25, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 16, name: "COTILLO ARENA", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -226,10 +226,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 26, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 17, name: "COTILLO OASIS", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -239,10 +239,10 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 27, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-      {
+  },
+  {
     id: 18, name: "BOTÁNICO", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
@@ -252,21 +252,8 @@ const PROJECTS = [
     ],
     blockers: [],
     tasks: [
-      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
-      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+      { id: 28, text: "Pendiente", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
     ],
-  },
-  },
-  },
-  },
-  },
-  },
-  },
-  },
-  },
-  },
-  },
-  },
   },
 ];
 
@@ -317,7 +304,6 @@ export default function WeeklySync() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif", background: "#0d0f14", color: "#e8eaf2", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", borderBottom: "1px solid #252a3a", background: "#141720", flexShrink: 0 }}>
         <div style={{ fontWeight: 800, fontSize: "1.1rem", letterSpacing: "-0.02em" }}>
           Weekly<span style={{ color: "#4f8ef7" }}>Sync</span>
@@ -337,11 +323,10 @@ export default function WeeklySync() {
       </div>
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* SIDEBAR */}
         <div style={{ width: 240, background: "#141720", borderRight: "1px solid #252a3a", overflowY: "auto", flexShrink: 0 }}>
           <div style={{ margin: "16px 14px", padding: "14px", background: "#1c2030", borderRadius: 12, border: "1px solid #252a3a" }}>
             {[
-              { label: "Proyectos", val: 5, color: "#4f8ef7" },
+              { label: "Proyectos", val: projects.length, color: "#4f8ef7" },
               { label: "Bloqueados", val: projects.filter(p => p.status === "blocked").length, color: "#f05a5a" },
               { label: "Tareas pendientes", val: projects.flatMap(p => p.tasks).filter(t => !t.done).length, color: "#f5c842" },
             ].map(s => (
@@ -365,7 +350,6 @@ export default function WeeklySync() {
           })}
         </div>
 
-        {/* MAIN */}
         <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px", background: "#0d0f14" }}>
           {!project ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#6b7394", textAlign: "center" }}>
@@ -467,7 +451,6 @@ export default function WeeklySync() {
         </div>
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div onClick={(e) => e.target === e.currentTarget && setShowModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#141720", border: "1px solid #252a3a", borderRadius: 16, padding: 28, width: 440, maxWidth: "95vw" }}>
