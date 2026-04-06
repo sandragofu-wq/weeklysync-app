@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const PROJECTS = [
   {
-    id: 1, name: "App Móvil v2.0", status: "on-track", statusLabel: "En marcha",
+    id: 1, name: "MERAL", status: "on-track", statusLabel: "En marcha",
     progress: 68, tag: "DEV", deadline: "15 Jun", owner: "Carlos M.", budget: "€42K / €60K",
     phases: [
       { name: "Discovery", done: true }, { name: "Diseño UI", done: true },
@@ -21,7 +21,7 @@ const PROJECTS = [
     ],
   },
   {
-    id: 2, name: "Rediseño Web", status: "at-risk", statusLabel: "En riesgo",
+    id: 2, name: "MEDHILLS", status: "at-risk", statusLabel: "En riesgo",
     progress: 41, tag: "DESIGN", deadline: "28 May", owner: "Ana García", budget: "€18K / €20K",
     phases: [
       { name: "Auditoría", done: true }, { name: "Wireframes", done: true },
