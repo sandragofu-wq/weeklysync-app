@@ -2,7 +2,7 @@ import { useState } from "react";
 
 const PROJECTS = [
   {
-    id: 1, name: "MERAL", status: "on-track", statusLabel: "En marcha",
+    id: 1, name: "OVERVIEW", status: "on-track", statusLabel: "En marcha",
     progress: 68, tag: "DEV", deadline: "15 Jun", owner: "Carlos M.", budget: "€42K / €60K",
     phases: [
       { name: "Discovery", done: true }, { name: "Diseño UI", done: true },
@@ -38,7 +38,7 @@ const PROJECTS = [
     ],
   },
   {
-    id: 3, name: "Dashboard Analytics", status: "on-track", statusLabel: "En marcha",
+    id: 3, name: "MERAL", status: "on-track", statusLabel: "En marcha",
     progress: 85, tag: "DATA", deadline: "10 Jun", owner: "David R.", budget: "€28K / €30K",
     phases: [
       { name: "ETL Pipeline", done: true }, { name: "Data Model", done: true },
@@ -55,7 +55,7 @@ const PROJECTS = [
     ],
   },
   {
-    id: 4, name: "Migración Cloud", status: "blocked", statusLabel: "Bloqueado",
+    id: 4, name: "ATABAL", status: "blocked", statusLabel: "Bloqueado",
     progress: 22, tag: "INFRA", deadline: "31 Jul", owner: "Carlos M.", budget: "€75K / €80K",
     phases: [
       { name: "Inventario", done: true }, { name: "Arquitectura", done: true },
@@ -73,7 +73,7 @@ const PROJECTS = [
     ],
   },
   {
-    id: 5, name: "CRM Integración", status: "planning", statusLabel: "Planificación",
+    id: 5, name: "ALMAYATE", status: "planning", statusLabel: "Planificación",
     progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
     phases: [
       { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
@@ -85,6 +85,188 @@ const PROJECTS = [
       { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
       { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
     ],
+  },
+   {
+    id: 6, name: "ELVIRIA-MARLOW", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 7, name: "PLAZA DEL MAR", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 8, name: "ALTOS DE LOS MONTEROS", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 9, name: "LOMAS DEL TENIS", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 10, name: "SAN ROQUE", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 11, name: "PINTOR LOSADA - SANTUTXU TERRAZAS", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 12, name: "ISASI - MOZART PLAZA", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 13, name: "MONCADA", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 14, name: "FUENTEOVEJUNA", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 15, name: "SALAMANCA - OASIS VISTAHERMOSA", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 16, name: "COTILLO ARENA", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 17, name: "COTILLO OASIS", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+      {
+    id: 18, name: "BOTÁNICO", status: "planning", statusLabel: "Planificación",
+    progress: 8, tag: "CRM", deadline: "15 Sep", owner: "Sara P.", budget: "€12K / €35K",
+    phases: [
+      { name: "Kickoff", done: true }, { name: "Req. Analysis", done: false, active: true },
+      { name: "Diseño", done: false }, { name: "Desarrollo", done: false },
+      { name: "Testing", done: false }, { name: "Go-Live", done: false },
+    ],
+    blockers: [],
+    tasks: [
+      { id: 14, text: "Entrevistas con equipo de ventas", done: false, assignee: "Sara P.", due: "10 Jun", priority: "#f5c842" },
+      { id: 15, text: "Mapa de integración con ERP actual", done: false, assignee: "Ana García", due: "14 Jun", priority: "#22d3a0" },
+    ],
+  },
+  },
+  },
+  },
+  },
+  },
+  },
+  },
+  },
+  },
+  },
+  },
   },
 ];
 
