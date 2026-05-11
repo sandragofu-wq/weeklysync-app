@@ -89,87 +89,71 @@ const parseBP = wb => {
       if(!ws) return [];
       return X.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
     };
+    const n = (r,c) => { try { return Number(r[c])||0; } catch { return 0; } };
+    const t = (r,c) => { try { return String(r[c]||"").trim(); } catch { return ""; } };
 
     // ── 1. MONITORING sheet ──
-    // Confirmed column layout from file inspection:
-    // col 4 = label A (VENTAS, COMPRA SUELO etc)
-    // col 5 = label B (TOTAL GASTOS, RESULTADO etc)
-    // col 32 = BP Base value
-    // col 37 = BP Actual (Monitoring) value
-    // col 42 = Diferencia
-    // Datos básicos: col 4=label, col 15=value | col 32=calendar label, col 41=date, col 42=date
+    // CONFIRMED layout from file:
+    //   col 4  = label (Parcela, Localidad, Número de Viviendas, Edificabilidad)
+    //   col 15 = value for col4 labels
+    //   col 32 = calendar label (Fecha inicio obra, escritura, etc.) OR BP Base value
+    //   col 37 = BP Actual value
+    //   col 5  = P&L labels (VENTAS, COMPRA SUELO, SOFT COST, TOTAL GASTOS, etc.)
+    //   col 3  = KPI labels (Fondos Propios, Beneficio, MgV, TIR, etc.)
+    // Calendar rows: col32=label text, col41=meses, col42=date
     const mon = sheetRows("Monitoring");
     const fin = {};
     for(let i=0;i<mon.length;i++){
       const r=mon[i];
-      if(!r) continue;
-      const t0 = String(r[0]||"").trim();
-      const t4 = String(r[4]||"").trim();
-      const t5 = String(r[5]||"").trim();
-      const t32 = String(r[32]||"").trim();
-      const num32 = () => Number(r[32])||0;
-      const num37 = () => Number(r[37])||0;
-      const num15 = () => Number(r[15])||0;
-      const num41 = () => Number(r[41])||0;
-      const num42 = () => Number(r[42])||0;
+      if(!r||r.length<10) continue;
 
-      // Basic project info (col 4=label, col 15=value)
-      if(t4==="Parcela") fin.nombre = String(r[15]||"").trim();
-      if(t4==="Localidad") fin.localidad = String(r[15]||"").trim();
-      if(t4==="Número de Viviendas") fin.numViviendas = num15();
-      if(t4==="Edificabilidad") fin.edificabilidad = num15();
+      const t4=t(r,4), t5=t(r,5), t3=t(r,3), t32=t(r,32);
 
-      // Calendar (col 32=label, col 41=meses offset, col 42=date)
-      if(t32.includes("inicio del proyecto")) fin.fechaInicio = excelDateToISO(r[41]);
-      if(t32.includes("Obtención licencia")) fin.fechaLicencia = excelDateToISO(r[42]);
-      if(t32.includes("inicio de obra")) fin.fechaInicioObra = excelDateToISO(r[42]);
-      if(t32.includes("escritura")) fin.fechaEntrega = excelDateToISO(r[42]);
-      if(t32.includes("Duración de obra")) fin.duracionObra = num41();
+      // Basic project info — col4=label, col15=value
+      if(t4==="Parcela")              fin.nombre        = t(r,15);
+      if(t4==="Localidad")            fin.localidad     = t(r,15);
+      if(t4==="Número de Viviendas")  fin.numViviendas  = n(r,15);
+      if(t4==="Edificabilidad")       fin.edificabilidad= n(r,15);
 
-      // P&L — col 32 = BP Base, col 37 = BP Actual
-      if(t4==="VENTAS") { fin.ventasPrev=num32(); fin.ventasActual=num37(); }
-      if(t4==="COMPRA SUELO") { fin.sueloPrev=num32(); fin.sueloActual=num37(); }
-      if(t4==="SOFT COST") { fin.softPrev=num32(); fin.softActual=num37(); }
-      if(t4.includes("COSTES CONSTRUCCIÓN")||t4.includes("HARD COST")) { fin.hardPrev=num32(); fin.hardActual=num37(); }
-      if(t4==="GASTOS FINANCIEROS") { fin.financieroPrev=num32(); fin.financieroActual=num37(); }
-      if(t4.includes("COMERCIALIZACIÓN")) { fin.comercialPrev=num32(); fin.comercialActual=num37(); }
-      if(t5==="TOTAL GASTOS") { fin.totalGastosPrev=num32(); fin.totalGastosActual=num37(); }
-      if(t5==="RESULTADO PLAN VIABILIDAD") { fin.beneficioPrev=num32(); fin.beneficioActual=num37(); }
+      // Calendar — col32=label, col41=duration, col42=date
+      if(t32.includes("inicio de obra"))   fin.fechaInicioObra = excelDateToISO(r[42]);
+      if(t32.includes("Obtención licencia"))fin.fechaLicencia   = excelDateToISO(r[42]);
+      if(t32.includes("escritura"))         fin.fechaEntrega    = excelDateToISO(r[42]);
+      if(t32.includes("Duración de obra"))  fin.duracionObra    = n(r,41);
+      if(t32.includes("Meses ejecución")||t32.includes("Duración total")) fin.duracionMeses = n(r,37)||n(r,32);
 
-      // Analysis results (col 0=label, col 32=BP base, col 37=actual)
-      if(t0.includes("Fondos Propios aportados")) { fin.fondosPropiosPrev=num32(); fin.fondosPropios=num37(); }
-      if(t0.includes("Beneficio de la p")) { fin.beneficioPrev=num32(); fin.beneficioActual=num37(); }
-      if(t0.includes("MgV")) { fin.mgvPrev=num32(); fin.mgvActual=num37(); }
-      if(t0.includes("TIR")) { fin.tirPrev=num32(); fin.tirActual=num37(); }
-      if(t0.includes("Mom")) { fin.momPrev=num32(); fin.momActual=num37(); }
-      if(t0.includes("Beneficio / Fondos")) { fin.roePrev=num32(); fin.roeActual=num37(); }
-      if(t0.includes("REI")) { fin.reiPrev=num32(); fin.reiActual=num37(); }
-      if(t0.includes("Duración total")||t0.includes("Meses ejecución")) fin.duracionMeses=num37()||num32();
+      // P&L — col5=label, col32=BP Base, col37=BP Actual
+      if(t5==="VENTAS")                          { fin.ventasPrev=n(r,32);      fin.ventasActual=n(r,37); }
+      if(t5==="COMPRA SUELO")                    { fin.sueloPrev=n(r,32);       fin.sueloActual=n(r,37); }
+      if(t5==="SOFT COST")                       { fin.softPrev=n(r,32);        fin.softActual=n(r,37); }
+      if(t5.includes("COSTES CONSTRUCCIÓN")||t5.includes("HARD COST")) { fin.hardPrev=n(r,32); fin.hardActual=n(r,37); }
+      if(t5==="GASTOS FINANCIEROS")              { fin.financieroPrev=n(r,32);  fin.financieroActual=n(r,37); }
+      if(t5.includes("COMERCIALIZACIÓN"))        { fin.comercialPrev=n(r,32);   fin.comercialActual=n(r,37); }
+      if(t5==="GASTOS BANCARIOS Y AVALES")       { fin.avalesPrev=n(r,32);      fin.avalesActual=n(r,37); }
+      if(t5==="POSTVENTA")                       { fin.postventaPrev=n(r,32);   fin.postventaActual=n(r,37); }
+      if(t5==="TOTAL GASTOS")                    { fin.totalGastosPrev=n(r,32); fin.totalGastosActual=n(r,37); }
+      if(t5==="RESULTADO PLAN VIABILIDAD")       { fin.beneficioPrev=n(r,32);   fin.beneficioActual=n(r,37); }
+
+      // KPIs — col3=label, col32=BP Base, col37=Actual
+      if(t3.includes("Fondos Propios aportados"))   { fin.fondosPropiosPrev=n(r,32); fin.fondosPropios=n(r,37); }
+      if(t3.includes("Beneficio de la p"))           { fin.beneficioPrev=n(r,32);     fin.beneficioActual=n(r,37); }
+      if(t3.includes("Beneficio / Fondos"))          { fin.roePrev=n(r,32);           fin.roeActual=n(r,37); }
+      if(t3.includes("Margen Bruto"))                { fin.mgbPrev=n(r,32);           fin.mgbActual=n(r,37); }
+      if(t3.includes("Margen Neto"))                 { fin.mgnPrev=n(r,32);           fin.mgnActual=n(r,37); }
+      if(t3.includes("MgV"))                         { fin.mgvPrev=n(r,32);           fin.mgvActual=n(r,37); }
+      if(t3==="TIR (pretax)")                        { fin.tirPrev=n(r,32);           fin.tirActual=n(r,37); }
+      if(t3.includes("Mom"))                         { fin.momPrev=n(r,32);           fin.momActual=n(r,37); }
+      if(t3.includes("REI"))                         { fin.reiPrev=n(r,32);           fin.reiActual=n(r,37); }
+      if(t3.includes("RRP"))                         { fin.rrpPrev=n(r,32);           fin.rrpActual=n(r,37); }
     }
 
-    // ── 2. PL and KPIs sheet ──
-    // col 1=label, col 2=units, col 5=value
-    const pl = sheetRows("PL and KPIs");
-    for(let i=0;i<pl.length;i++){
-      const r=pl[i];
-      if(!r) continue;
-      const t1 = String(r[1]||"").trim();
-      const num5 = () => Number(r[5])||0;
-      const num2 = () => Number(r[2])||0;
-      if(t1==="Total GDV") fin.gdv=num5();
-      if(t1==="Total GDC") fin.gdc=num5();
-      if(t1==="Total selling costs") fin.sellingCosts=num5();
-      if(t1==="Net sales proceeds") fin.netSales=num5();
-      if(t1==="Plot adquisition") fin.plotCost=num5();
-      if(t1.includes("Hard Costs")) fin.hardCostPL=num5();
-      if(t1.includes("Soft Costs")) fin.softCostPL=num5();
-      if(t1.includes("Contingences")) fin.contingences=num5();
-      if(t1==="Total units"||t1==="Vivienda Tipo") { if(!fin.numViviendas) fin.numViviendas=num2(); }
-    }
+    // MgV from Monitoring is stored as ratio (e.g. 0.178), convert to display
+    // TIR also as ratio
+    // Beneficio/Fondos = multiple (e.g. 1.43x)
 
-    // ── 3. Lista_Precios sheet ──
-    // Row 2 = header, rows 3+ = data
-    // col 0=tipo(VIV/PA), col 1=num, col 2=status, col 3=precio origen, cols 4..N=repricings (use last non-null)
+    // ── 2. Lista_Precios sheet ──
+    // Row 0-2 = headers/info, rows 3+ = data
+    // col0=tipo(VIV/PA), col1=num_ref, col2=status, col3=precio_origen, cols4..N=repricings
     const lp = sheetRows("Lista_Precios");
     const viviendas = [];
     const estadoMap = {
@@ -178,21 +162,20 @@ const parseBP = wb => {
       "vendido":"vendida","vendida":"vendida",
       "bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta","bloqueado":"no-venta",
     };
-    // Start from row 3 (index 2 = header, 3+ = data)
-    for(let i=3;i<lp.length;i++){
+    for(let i=0;i<lp.length;i++){
       const r=lp[i];
       if(!r||r[0]==null) continue;
       const tipo = String(r[0]||"").trim().toUpperCase();
       if(tipo!=="VIV"&&tipo!=="PA") continue;
       const ref = String(r[1]||"").trim();
-      if(!ref) continue;
+      if(!ref||isNaN(Number(ref))) continue;
       const status = String(r[2]||"").trim().toLowerCase();
       const precioOrigen = Number(r[3])||0;
       if(!precioOrigen) continue;
-      // Find last non-null price (most recent repricing)
+      // Last non-null/non-zero price = most recent repricing
       let precioActual = precioOrigen;
       for(let c=4;c<r.length;c++){
-        if(r[c]!=null && Number(r[c])>0) precioActual=Number(r[c]);
+        if(r[c]!=null && Number(r[c])>10000) precioActual=Number(r[c]);
       }
       const estado = estadoMap[status]||"disponible";
       viviendas.push({
