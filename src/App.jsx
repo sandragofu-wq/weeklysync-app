@@ -403,8 +403,91 @@ export default function Overview() {
   // SheetJS loader
   useEffect(()=>{ if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);} },[]);
 
-  // Vivienda file import (existing format)
-  const handleVivFile=useCallback(e=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=ev=>{ if(!window.XLSX){alert("SheetJS cargando...");return;} try{ const wb=window.XLSX.read(ev.target.result,{type:"binary"}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true}); if(!rows.length) return; let hdrIdx=-1; for(let i=0;i<Math.min(rows.length,10);i++){const r=rows[i].map(c=>String(c||"").toLowerCase().trim());if(r.some(c=>c==="núm"||c==="num"||c==="ref"||c.includes("pvp")||c.includes("precio"))){hdrIdx=i;break;}} if(hdrIdx===-1){alert("No se encontró cabecera reconocible.");return;} const headers=rows[hdrIdx].map(c=>String(c||"").trim()); const idx={}; headers.forEach((h,i)=>{const hl=h.toLowerCase();if(hl==="núm"||hl==="num"||hl==="nº"||hl==="n"||hl==="ref"||hl==="referencia"||hl==="unidad") idx.ref=i;if((hl==="pvp"||hl==="pvp 2")&&idx.pvp===undefined) idx.pvp=i;if((hl==="precio"||hl==="precio venta")&&idx.precio===undefined) idx.precio=i;if(hl.includes("m2 útil")||hl.includes("util int")) idx.sup=i;if(hl==="dor"||hl==="dormitorios") idx.dor=i;if(hl.includes("orientac")) idx.ori=i;if(hl.includes("reserva")) idx.res=i;}); const vvs=[]; for(let i=hdrIdx+1;i<rows.length;i++){const r=rows[i]; const ref=String(idx.ref!==undefined?r[idx.ref]:"").trim(); if(!ref||isNaN(Number(ref))) continue; const priceRaw=idx.pvp!==undefined?r[idx.pvp]:(idx.precio!==undefined?r[idx.precio]:0); const precio=parsePrice(priceRaw||0); if(!precio) continue; const resVal=idx.res!==undefined?String(r[idx.res]||"").trim():""; const estado=resVal&&resVal!=="0"?"reservada":"disponible"; const dor=Number(idx.dor!==undefined?r[idx.dor]:0)||0; vvs.push({id:Date.now()+Math.random(),ref,tipologia:dor?`${dor} dorm.`:"—",planta:"—",superficie:parseFloat(String(idx.sup!==undefined?r[idx.sup]:"").replace(",","."))||0,precio,estado,notas:idx.ori!==undefined?String(r[idx.ori]||""):""}); } if(!vvs.length){alert("No se encontraron viviendas con precio.");return;} upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...vvs]})); alert(`✅ ${vvs.length} viviendas importadas`); }catch(err){alert("Error: "+err.message);} }; reader.readAsBinaryString(file); e.target.value=""; },[activeId,upd]);
+  // Vivienda file import — universal (all formats: Atabal, BLOQUE A/B, etc.)
+  const handleVivFile=useCallback(e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.XLSX){alert("SheetJS cargando, espera 2 segundos e intenta de nuevo.");return;}
+      try{
+        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const allVvs=[];
+        const multiSheet=wb.SheetNames.length>1;
+        const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
+
+        wb.SheetNames.forEach(sheetName=>{
+          const ws=wb.Sheets[sheetName];
+          if(!ws) return;
+          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+          if(!rows||rows.length<2) return;
+
+          // Find header row (first 5 rows)
+          let hdrIdx=-1;
+          for(let i=0;i<Math.min(rows.length,5);i++){
+            const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
+            if(r.some(c=>c.includes("vivend")||c==="núm"||c==="num"||c==="nº"||c==="ref"||c.includes("pvp ")||c==="pvp"||c.includes("precio venta"))){hdrIdx=i;break;}
+          }
+          if(hdrIdx===-1) return;
+
+          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+          const idx={};
+          headers.forEach((h,i)=>{
+            if((h.includes("vivend")||h==="núm"||h==="num"||h==="nº"||h==="ref"||h==="referencia"||h==="unidad")&&idx.ref===undefined) idx.ref=i;
+            if((h.includes("pvp")||h==="precio venta"||h==="precio")&&idx.pvp===undefined) idx.pvp=i;
+            if((h.includes("m² útil")||h.includes("m2 útil")||h.includes("útil")||h.includes("util int"))&&idx.sup===undefined) idx.sup=i;
+            if((h==="habitación"||h==="habitaciones"||h==="dor"||h==="dormitorios"||h==="hab")&&idx.dor===undefined) idx.dor=i;
+            if(h==="estado"&&idx.estado===undefined) idx.estado=i;
+            if(h.includes("reserva")&&idx.reserva===undefined) idx.reserva=i;
+            if(h.includes("terraza")&&idx.terraza===undefined) idx.terraza=i;
+            if((h.includes("jardín")||h.includes("jardin"))&&idx.jardin===undefined) idx.jardin=i;
+            if(h.includes("orientac")&&idx.ori===undefined) idx.ori=i;
+          });
+
+          if(idx.ref===undefined||idx.pvp===undefined) return;
+
+          for(let i=hdrIdx+1;i<rows.length;i++){
+            const r=rows[i]; if(!r) continue;
+            const ref=String(r[idx.ref]||"").trim();
+            if(!ref||ref.toLowerCase().includes("total")) continue;
+            const precio=parsePrice(r[idx.pvp]||0);
+            if(!precio||precio<1000) continue;
+
+            let estado="disponible";
+            if(idx.estado!==undefined&&r[idx.estado]!=null){
+              estado=estadoMap[String(r[idx.estado]||"").toLowerCase().trim()]||"disponible";
+            } else if(idx.reserva!==undefined&&r[idx.reserva]!=null){
+              const rv=String(r[idx.reserva]||"").trim();
+              if(rv&&rv!=="0") estado="reservada";
+            }
+
+            const sup=idx.sup!==undefined?parseFloat(String(r[idx.sup]||"").replace(",","."))||0:0;
+            const dor=idx.dor!==undefined?Number(r[idx.dor]||0)||0:0;
+            const terraza=idx.terraza!==undefined?parseFloat(String(r[idx.terraza]||"").replace(",","."))||0:0;
+            const jardin=idx.jardin!==undefined?parseFloat(String(r[idx.jardin]||"").replace(",","."))||0:0;
+            const ori=idx.ori!==undefined?String(r[idx.ori]||"").trim():"";
+            const notas=[ori?`Orient: ${ori}`:"",terraza?`Terraza: ${terraza}m²`:"",jardin?`Jardín: ${jardin}m²`:""].filter(Boolean).join(" · ");
+
+            allVvs.push({
+              id:Date.now()+Math.random(),
+              ref:multiSheet?`${sheetName}-${ref}`:ref,
+              tipologia:dor?`${dor} dorm.`:"—",
+              planta:"—",
+              superficie:sup,
+              precio,
+              estado,
+              notas,
+            });
+          }
+        });
+
+        if(!allVvs.length){alert("No se encontraron viviendas con precio.\nRevisa que el Excel tenga columnas de referencia (Vivienda/Ref/Núm) y precio (PVP/Precio venta).");return;}
+        upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...allVvs]}));
+        alert(`✅ ${allVvs.length} viviendas importadas correctamente`);
+      }catch(err){alert("Error leyendo el archivo: "+err.message);}
+    };
+    reader.readAsBinaryString(file);
+    e.target.value="";
+  },[activeId,upd]);
 
   // ── BP FILE IMPORT ──
   const handleBPFile=useCallback(e=>{ const file=e.target.files[0]; if(!file) return; setBpImporting(true); const reader=new FileReader(); reader.onload=ev=>{ if(!window.XLSX){alert("SheetJS cargando, espera 2s e intenta de nuevo.");setBpImporting(false);return;} try{ const wb=window.XLSX.read(ev.target.result,{type:"binary",cellDates:true}); const result=parseBP(wb); if(!result.ok){alert("Error parseando BP: "+result.error);setBpImporting(false);return;} setBpPreview(result.data); setModal("bpPreview"); }catch(err){alert("Error: "+err.message);} setBpImporting(false); }; reader.readAsBinaryString(file); e.target.value=""; },[]);
