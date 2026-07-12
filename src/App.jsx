@@ -639,7 +639,7 @@ export default function Overview() {
 
         if(!partidas.length){alert("No se encontraron partidas de marketing. Revisa el formato del archivo.");return;}
         upd(activeId,p=>({...p,marketing:{partidas,sheets,importado:new Date().toISOString().split("T")[0]}}));
-        alert(\`✅ \${partidas.length} partidas de marketing importadas\`);
+        alert("✅ "+partidas.length+" partidas de marketing importadas");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);
