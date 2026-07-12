@@ -91,113 +91,107 @@ const parseBP = wb => {
     };
     const nv = (r,c) => { try { const v=r&&r[c]; return (v!==null&&v!==undefined&&!isNaN(Number(v)))?Number(v):0; } catch { return 0; } };
     const tv = (r,c) => { try { return String(r&&r[c]||"").trim(); } catch { return ""; } };
-    const fin = {};
 
-    // ── Detect main sheet ──
-    // Format A (Atabal): "Monitoring" — col5=P&L label, col32=prev, col37=actual, col37=calendar label
-    // Format B (Pintor Losada): "RESUMEN" — same layout
-    // Format C (Elviria): "Resumen Consolidado" — col5=P&L label, col32=prev, col37=actual, col37=calendar label
-    const sheetPriority = ["Monitoring","RESUMEN","Resumen Consolidado","Resumen Living","Resumen Suites"];
-    const mainSheet = sheetPriority.find(s => wb.Sheets[s]) || null;
-    if(!mainSheet) { result.error="No se encontró hoja financiera reconocible (Monitoring, RESUMEN, Resumen Consolidado)"; return result; }
+    const parseSheet = (rows) => {
+      const f = {};
+      for(let i=0;i<rows.length;i++){
+        const r=rows[i]; if(!r||r.length<5) continue;
+        const t3=tv(r,3),t4=tv(r,4),t5=tv(r,5),t37=tv(r,37);
+        const t5u=t5.toUpperCase();
+        if(t4==="Parcela"||t4==="Promoci\u00f3n")          f.nombre         = tv(r,15)||f.nombre;
+        if(t4==="Localidad")                                  f.localidad      = tv(r,15)||f.localidad;
+        if(t4==="N\u00famero de Viviendas")                  f.numViviendas   = nv(r,15)||f.numViviendas;
+        if(t4==="Edificabilidad")                             f.edificabilidad = nv(r,15)||f.edificabilidad;
+        if(t37.includes("inicio de obra"))                    f.fechaInicioObra = excelDateToISO(r[47]||r[46]);
+        if(t37.includes("licencia"))                          f.fechaLicencia   = excelDateToISO(r[47]||r[46]);
+        if(t37.includes("escritura"))                         f.fechaEntrega    = excelDateToISO(r[47]||r[46]);
+        if(t37.includes("Duraci\u00f3n de obra"))            f.duracionObra    = nv(r,46);
+        if(t37.includes("Meses ejecuci\u00f3n"))             f.duracionMeses   = nv(r,46);
+        if(t5u==="VENTAS"||t5u==="A. VENTAS")                { if(!f.ventasPrev){f.ventasPrev=nv(r,32);f.ventasActual=nv(r,37);} }
+        if(t5u.includes("COMPRA"))                            { if(!f.sueloPrev){f.sueloPrev=nv(r,32);f.sueloActual=nv(r,37);} }
+        if(t5u.includes("CONTRATA")||t5u.includes("HARD"))   { if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=nv(r,37);} }
+        if(t5u.includes("HONORARIOS")||t5u==="SOFT COST")    { if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=nv(r,37);} }
+        if(t5u==="GASTOS FINANCIEROS")                        { if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=nv(r,37);} }
+        if(t5u.includes("COMERCIALIZACI"))                    { if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=nv(r,37);} }
+        if(t5u==="TOTAL GASTOS")                              { f.totalGastosPrev=nv(r,32);f.totalGastosActual=nv(r,37); }
+        if(t5u==="RESULTADO PLAN VIABILIDAD")                 { f.beneficioPrev=nv(r,32);f.beneficioActual=nv(r,37); }
+        if(t3.includes("Fondos Propios aportados"))           { f.fondosPropiosPrev=nv(r,32);f.fondosPropios=nv(r,37); }
+        if(t3.includes("Beneficio de la p"))                  { if(!f.beneficioActual||f.beneficioActual===0){f.beneficioPrev=nv(r,32);f.beneficioActual=nv(r,37);} }
+        if(t3.includes("Beneficio / Fondos"))                 { f.roePrev=nv(r,32);f.roeActual=nv(r,37); }
+        if(t3.includes("MgV"))                                { f.mgvPrev=nv(r,32);f.mgvActual=nv(r,37); }
+        if(t3==="TIR (pretax)"||t3==="TIR pretax")           { f.tirPrev=nv(r,32);f.tirActual=nv(r,37); }
+        if(t3.includes("TIR (post-tax)"))                     { f.tirPostPrev=nv(r,32);f.tirPostActual=nv(r,37); }
+        if(t3.includes("Mom (pretax)"))                       { f.momPrev=nv(r,32);f.momActual=nv(r,37); }
+        if(t3.includes("REI"))                                { f.reiPrev=nv(r,32);f.reiActual=nv(r,37); }
+        if(t3.includes("RRP"))                                { f.rrpPrev=nv(r,32);f.rrpActual=nv(r,37); }
+      }
+      return f;
+    };
 
-    const rows = sheetRows(mainSheet);
+    const sheetPriority = ["Monitoring","RESUMEN","Resumen Consolidado"];
+    const mainSheetName = sheetPriority.find(s=>wb.Sheets[s])||null;
+    if(!mainSheetName){ result.error="No se encontró hoja financiera (Monitoring, RESUMEN, Resumen Consolidado)"; return result; }
+    const fin = parseSheet(sheetRows(mainSheetName));
+    fin.mainSheet = mainSheetName;
 
-    for(let i=0;i<rows.length;i++){
-      const r=rows[i]; if(!r||r.length<5) continue;
-      const t3=tv(r,3), t4=tv(r,4), t5=tv(r,5), t37=tv(r,37);
-
-      // ── Basic project info: col4=label, col15=value ──
-      if(t4==="Parcela"||t4==="Promoción")        fin.nombre         = tv(r,15)||fin.nombre;
-      if(t4==="Localidad")                         fin.localidad      = tv(r,15)||fin.localidad;
-      if(t4==="Número de Viviendas")               fin.numViviendas   = nv(r,15)||fin.numViviendas;
-      if(t4==="Edificabilidad")                    fin.edificabilidad = nv(r,15)||fin.edificabilidad;
-
-      // ── Calendar: col37=label text, col46=months, col47=date ──
-      if(t37.includes("inicio de obra"))           fin.fechaInicioObra = excelDateToISO(r[47]||r[46]);
-      if(t37.includes("Obtención licencia")||t37.includes("licencia de obra")) fin.fechaLicencia = excelDateToISO(r[47]||r[46]);
-      if(t37.includes("escritura"))                fin.fechaEntrega    = excelDateToISO(r[47]||r[46]);
-      if(t37.includes("Duración de obra"))         fin.duracionObra    = nv(r,46);
-      if(t37.includes("Meses ejecución"))          fin.duracionMeses   = nv(r,46);
-
-      // ── P&L: col5=label, col32=BP Prev/Proy, col37=BP Actual ──
-      // Accept both exact and partial matches for different formats
-      const t5u = t5.toUpperCase();
-      if(t5u==="VENTAS"||t5u==="A. VENTAS")                                      { if(!fin.ventasPrev){ fin.ventasPrev=nv(r,32); fin.ventasActual=nv(r,37); } }
-      if(t5u.includes("COMPRA DE SUELO")||t5u.includes("COMPRA SUELO"))          { if(!fin.sueloPrev){ fin.sueloPrev=nv(r,32); fin.sueloActual=nv(r,37); } }
-      if(t5u.includes("PRESUPUESTO DE CONTRATA")||t5u.includes("CONTRATA D")||t5u.includes("HARD COST")||t5u.includes("COSTES CONSTRUCCIÓN")) { if(!fin.hardPrev){ fin.hardPrev=nv(r,32); fin.hardActual=nv(r,37); } }
-      if(t5u.includes("HONORARIOS")||t5u==="SOFT COST")                          { if(!fin.softPrev){ fin.softPrev=nv(r,32); fin.softActual=nv(r,37); } }
-      if(t5u==="GASTOS FINANCIEROS")                                              { if(!fin.financieroPrev){ fin.financieroPrev=nv(r,32); fin.financieroActual=nv(r,37); } }
-      if(t5u.includes("COMERCIALIZACIÓN"))                                        { if(!fin.comercialPrev){ fin.comercialPrev=nv(r,32); fin.comercialActual=nv(r,37); } }
-      if(t5u==="TOTAL GASTOS")                                                    { fin.totalGastosPrev=nv(r,32); fin.totalGastosActual=nv(r,37); }
-      if(t5u==="RESULTADO PLAN VIABILIDAD")                                       { fin.beneficioPrev=nv(r,32); fin.beneficioActual=nv(r,37); }
-
-      // ── KPIs: col3=label, col32=prev, col37=actual ──
-      const t3u = t3.toUpperCase();
-      if(t3.includes("Fondos Propios aportados"))  { fin.fondosPropiosPrev=nv(r,32); fin.fondosPropios=nv(r,37); }
-      if(t3.includes("Beneficio de la p"))         { if(!fin.beneficioActual||fin.beneficioActual===0){ fin.beneficioPrev=nv(r,32); fin.beneficioActual=nv(r,37); } }
-      if(t3.includes("Beneficio / Fondos"))        { fin.roePrev=nv(r,32); fin.roeActual=nv(r,37); }
-      if(t3.includes("MgV"))                       { fin.mgvPrev=nv(r,32); fin.mgvActual=nv(r,37); }
-      if(t3==="TIR (pretax)"||t3==="TIR pretax")  { fin.tirPrev=nv(r,32); fin.tirActual=nv(r,37); }
-      if(t3==="TIR pretax"||t3.startsWith("TIR (pretax)")) { fin.tirPrev=nv(r,32)||fin.tirPrev; fin.tirActual=nv(r,37)||fin.tirActual; }
-      if(t3.includes("Mom (pretax)"))              { fin.momPrev=nv(r,32); fin.momActual=nv(r,37); }
-      if(t3.includes("REI"))                       { fin.reiPrev=nv(r,32); fin.reiActual=nv(r,37); }
-      if(t3.includes("RRP"))                       { fin.rrpPrev=nv(r,32); fin.rrpActual=nv(r,37); }
+    // Sub-businesses (Elviria: Resumen Living, Resumen Suites, Resumen Wellness...)
+    const bizSheets = wb.SheetNames.filter(s=>s.startsWith("Resumen ")&&s!=="Resumen Consolidado"&&s!=="Resumen Consolidado (desc)");
+    if(bizSheets.length>0){
+      fin.negocios = bizSheets.map(sn=>{
+        const f=parseSheet(sheetRows(sn));
+        f.nombre=sn.replace("Resumen ","");
+        return f;
+      });
     }
 
-    // ── PL and KPIs sheet (Atabal format) ──
-    if(wb.Sheets["PL and KPIs"]) {
-      const plRows = sheetRows("PL and KPIs");
+    // PL and KPIs (Atabal)
+    if(wb.Sheets["PL and KPIs"]){
+      const plRows=sheetRows("PL and KPIs");
       for(let i=0;i<plRows.length;i++){
         const r=plRows[i]; if(!r) continue;
         const t1=tv(r,1);
-        if(t1==="Net Profit (pre tax)")                       fin.netProfit      = nv(r,5);
-        if(t1==="Total GDV")                                  fin.gdv            = nv(r,5);
-        if(t1==="Total GDC"||t1==="Total costs")              fin.gdc            = nv(r,5);
-        if(t1.includes("Project Level IRR"))                  fin.irr            = nv(r,4)||nv(r,3);
-        if(t1==="Project Equity multiple"||t1==="Equity multiple") fin.equityMultiple = nv(r,4)||nv(r,3);
-        if(t1==="Duration (months)")                          fin.duracionMeses  = fin.duracionMeses||nv(r,3);
-        if(t1==="Equity")                                     fin.equityAmount   = nv(r,3);
-        if(t1==="Construction Loan Draws")                    fin.prestamo       = nv(r,3);
-        if(t1==="Sales")                                      fin.dineroCO       = nv(r,3);
-        if(t1==="Total selling costs")                        fin.sellingCosts   = nv(r,5);
-        if(t1.includes("Hard Costs"))                         fin.hardCostPL     = nv(r,5);
-        if(t1.includes("Soft Costs"))                         fin.softCostPL     = nv(r,5);
-        if(t1==="Plot adquisition"&&!fin.sueloActual)         fin.sueloActual    = nv(r,5);
+        if(t1==="Net Profit (pre tax)")                  fin.netProfit    =nv(r,5);
+        if(t1==="Total GDV")                             fin.gdv          =nv(r,5);
+        if(t1==="Total GDC")                             fin.gdc          =nv(r,5);
+        if(t1.includes("Project Level IRR"))             fin.irr          =nv(r,4)||nv(r,3);
+        if(t1==="Project Equity multiple"||t1==="Equity multiple") fin.equityMultiple=nv(r,4)||nv(r,3);
+        if(t1==="Duration (months)")                     fin.duracionMeses=fin.duracionMeses||nv(r,3);
+        if(t1==="Equity")                                fin.equityAmount =nv(r,3);
+        if(t1==="Construction Loan Draws")               fin.prestamo     =nv(r,3);
+        if(t1.includes("Hard Costs"))                    fin.hardCostPL   =nv(r,5);
+        if(t1.includes("Soft Costs"))                    fin.softCostPL   =nv(r,5);
       }
-      // Fill gaps from PL sheet
-      if(!fin.ventasActual && fin.gdv)           fin.ventasActual   = fin.gdv;
-      if(!fin.totalGastosActual && fin.gdc)      fin.totalGastosActual = fin.gdc;
-      if(!fin.beneficioActual && fin.netProfit)  fin.beneficioActual = fin.netProfit;
-      if(!fin.tirActual && fin.irr)              fin.tirActual      = fin.irr;
-      if(!fin.hardActual && fin.hardCostPL)      fin.hardActual     = fin.hardCostPL;
-      if(!fin.softActual && fin.softCostPL)      fin.softActual     = fin.softCostPL;
+      if(!fin.ventasActual&&fin.gdv)          fin.ventasActual     =fin.gdv;
+      if(!fin.totalGastosActual&&fin.gdc)     fin.totalGastosActual=fin.gdc;
+      if(!fin.beneficioActual&&fin.netProfit) fin.beneficioActual  =fin.netProfit;
+      if(!fin.tirActual&&fin.irr)             fin.tirActual        =fin.irr;
+      if(!fin.hardActual&&fin.hardCostPL)     fin.hardActual       =fin.hardCostPL;
+      if(!fin.softActual&&fin.softCostPL)     fin.softActual       =fin.softCostPL;
     }
 
-    // ── Lista_Precios sheet (Atabal format) ──
-    const viviendas = [];
+    // Lista_Precios (Atabal)
+    const viviendas=[];
     if(wb.Sheets["Lista_Precios"]){
-      const lp = sheetRows("Lista_Precios");
-      const estadoMap = {"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
+      const lp=sheetRows("Lista_Precios");
+      const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
       for(let i=0;i<lp.length;i++){
         const r=lp[i]; if(!r||r[0]==null) continue;
         const tipo=String(r[0]||"").trim().toUpperCase();
         if(tipo!=="VIV"&&tipo!=="PA") continue;
         const ref=String(r[1]||"").trim();
         if(!ref||isNaN(Number(ref))) continue;
-        const precioOrigen=Number(r[3])||0;
-        if(!precioOrigen) continue;
+        const precioOrigen=Number(r[3])||0; if(!precioOrigen) continue;
         let precioActual=precioOrigen;
         for(let c=4;c<r.length;c++){if(r[c]!=null&&Number(r[c])>10000) precioActual=Number(r[c]);}
         const status=String(r[2]||"").trim().toLowerCase();
-        viviendas.push({id:Date.now()+Math.random(),ref:`${tipo}-${ref}`,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"—":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?`Origen: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen)}`:"",});
+        viviendas.push({id:Date.now()+Math.random(),ref:tipo+"-"+ref,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"--":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?"Origen: "+new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen):"",});
       }
     }
-    fin.viviendas = viviendas;
-    result.ok = true;
-    result.data = fin;
+    fin.viviendas=viviendas;
+    result.ok=true;
+    result.data=fin;
   } catch(e) {
-    result.error = e.message;
+    result.error=e.message;
   }
   return result;
 };
@@ -823,45 +817,75 @@ export default function Overview() {
                       </label>
                     </div>
 
+                    {/* Multi-negocio banner */}
+                    {d.negocios&&d.negocios.length>0&&(
+                      <div style={{background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)",borderRadius:12,padding:"14px 18px",marginBottom:16}}>
+                        <div style={{fontSize:"0.72rem",color:"#a78bfa",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>📐 Proyecto multi-negocio · {d.negocios.length} líneas de negocio</div>
+                        <div style={{display:"grid",gridTemplateColumns:`repeat(${d.negocios.length},1fr)`,gap:10}}>
+                          {d.negocios.map((neg,ni)=>(
+                            <div key={ni} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
+                              <div style={{fontWeight:700,fontSize:"0.88rem",color:"#a78bfa",marginBottom:8}}>{neg.nombre}</div>
+                              <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                                {[
+                                  {l:"Unidades",v:neg.numViviendas||"—"},
+                                  {l:"Ventas",v:fmtEurM(neg.ventasActual)},
+                                  {l:"Beneficio",v:fmtEurM(neg.beneficioActual),c:neg.beneficioActual>0?"#22d3a0":"#f05a5a"},
+                                  {l:"TIR",v:fmtPct(neg.tirActual),c:neg.tirActual>0.15?"#22d3a0":"#f5c842"},
+                                  {l:"MgV",v:fmtPct(neg.mgvActual)},
+                                  {l:"Fondos propios",v:fmtEurM(neg.fondosPropios)},
+                                  {l:"Comercialización",v:fmtEurM(neg.comercialActual)},
+                                ].map(x=>(
+                                  <div key={x.l} style={{display:"flex",justifyContent:"space-between",fontSize:"0.78rem"}}>
+                                    <span style={{color:"#6b7394"}}>{x.l}</span>
+                                    <span style={{fontWeight:600,color:x.c||"#e8eaf2"}}>{x.v}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Datos básicos */}
                     <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",marginBottom:16}}>
                       <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>📋 Datos del proyecto</div>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
                         {[
                           {l:"Nº viviendas",v:d.numViviendas||"—"},
-                          {l:"Edificabilidad",v:d.edificabilidad?`${fmtNum(d.edificabilidad)} m²`:"—"},
-                          {l:"Duración obra",v:d.duracionObra?`${d.duracionObra} meses`:"—"},
+                          {l:"Edificabilidad",v:d.edificabilidad?fmtNum(d.edificabilidad)+" m²":"—"},
+                          {l:"Duración obra",v:d.duracionObra?d.duracionObra+" meses":"—"},
                           {l:"Inicio obra",v:fmt(d.fechaInicioObra)},
                           {l:"Obtención licencia",v:fmt(d.fechaLicencia)},
                           {l:"Fecha escritura",v:fmt(d.fechaEntrega)},
                           {l:"Fondos propios",v:fmtEurM(d.fondosPropios)},
-                          {l:"Duración total",v:d.duracionMeses?`${d.duracionMeses} meses`:"—"},
+                          {l:"Duración total",v:d.duracionMeses?d.duracionMeses+" meses":"—"},
                         ].map(x=><div key={x.l}><div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div><div style={{fontWeight:600,fontSize:"0.9rem"}}>{x.v}</div></div>)}
                       </div>
                     </div>
 
                     {/* P&L Comparativo */}
                     <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",marginBottom:16}}>
-                      <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>💶 P&L — Base vs Actual (Monitoring)</div>
+                      <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>💶 P&L — Base vs Actual</div>
                       <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:0,borderRadius:8,overflow:"hidden",border:"1px solid #252a3a"}}>
                         {["Concepto","BP Base","BP Actual","Diferencia"].map(h=><div key={h} style={{fontSize:"0.65rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 12px",background:"#1c2030",borderBottom:"1px solid #252a3a"}}>{h}</div>)}
                         {[
                           {label:"Ventas (GDV)",prev:d.ventasPrev,actual:d.ventasActual,positive:true},
                           {label:"Compra suelo",prev:d.sueloPrev,actual:d.sueloActual},
-                          {label:"Soft Cost",prev:d.softPrev,actual:d.softActual},
                           {label:"Hard Cost (construcción)",prev:d.hardPrev,actual:d.hardActual},
+                          {label:"Soft Cost (honorarios)",prev:d.softPrev,actual:d.softActual},
                           {label:"Gastos financieros",prev:d.financieroPrev,actual:d.financieroActual},
-                          {label:"Comercialización",prev:d.comercialPrev,actual:d.comercialActual},
+                          {label:"Comercialización y Marketing",prev:d.comercialPrev,actual:d.comercialActual},
                           {label:"Total gastos",prev:d.totalGastosPrev,actual:d.totalGastosActual,bold:true},
                           {label:"Resultado / Beneficio",prev:d.beneficioPrev,actual:d.beneficioActual,bold:true,positive:true},
                         ].map((row,i)=>{
                           const diff=(row.actual||0)-(row.prev||0);
                           const diffColor=row.positive?(diff>=0?"#22d3a0":"#f05a5a"):(diff<=0?"#22d3a0":"#f05a5a");
                           return [
-                            <div key={`${i}a`} style={{padding:"9px 12px",borderBottom:"1px solid #252a3a",fontSize:"0.82rem",fontWeight:row.bold?700:400}}>{row.label}</div>,
-                            <div key={`${i}b`} style={{padding:"9px 12px",borderBottom:"1px solid #252a3a",fontSize:"0.82rem",color:"#6b7394"}}>{fmtEurM(row.prev)}</div>,
-                            <div key={`${i}c`} style={{padding:"9px 12px",borderBottom:"1px solid #252a3a",fontSize:"0.82rem",fontWeight:row.bold?700:400,color:row.bold?"#e8eaf2":"inherit"}}>{fmtEurM(row.actual)}</div>,
-                            <div key={`${i}d`} style={{padding:"9px 12px",borderBottom:"1px solid #252a3a",fontSize:"0.82rem",fontWeight:600,color:diff!==0?diffColor:"#6b7394"}}>{diff!==0?(diff>0?"+":"")+fmtEurM(diff):"—"}</div>,
+                            <div key={i+"a"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",fontWeight:row.bold?700:400,background:row.bold?"#1a1e2c":"transparent"}}>{row.label}</div>,
+                            <div key={i+"b"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",color:"#6b7394",background:row.bold?"#1a1e2c":"transparent"}}>{fmtEurM(row.prev)}</div>,
+                            <div key={i+"c"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",fontWeight:row.bold?700:400,background:row.bold?"#1a1e2c":"transparent"}}>{fmtEurM(row.actual)}</div>,
+                            <div key={i+"d"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",fontWeight:600,color:diff!==0?diffColor:"#6b7394",background:row.bold?"#1a1e2c":"transparent"}}>{diff!==0?(diff>0?"+":"")+fmtEurM(diff):"—"}</div>,
                           ];
                         })}
                       </div>
@@ -869,16 +893,20 @@ export default function Overview() {
 
                     {/* KPIs rentabilidad */}
                     <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",marginBottom:16}}>
-                      <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>📈 KPIs de rentabilidad</div>
+                      <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>📈 KPIs de rentabilidad — Consolidado</div>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-                        <KpiCard label="TIR (pretax)" val={fmtPct(d.tirActual||d.irr)} prev={fmtPct(d.tirPrev)} color={(d.tirActual||d.irr)>0.15?"#22d3a0":"#f5c842"}/>
-                        <KpiCard label="Margen sobre ventas" val={fmtPct(d.mgvActual)} prev={fmtPct(d.mgvPrev)} color={(d.mgvActual)>0.12?"#22d3a0":"#f5c842"}/>
-                        <KpiCard label="ROE (beneficio/FFPP)" val={d.roeActual?`${(d.roeActual*100).toFixed(1)}x`:"—"} prev={d.roePrev?`${(d.roePrev*100).toFixed(1)}x`:"—"} color="#4f8ef7"/>
-                        <KpiCard label="Equity Multiple" val={d.equityMultiple?`${d.equityMultiple.toFixed(2)}x`:"—"} color="#4f8ef7"/>
+                        <KpiCard label="TIR pretax" val={fmtPct(d.tirActual||d.irr)} prev={fmtPct(d.tirPrev)} color={(d.tirActual||d.irr)>0.15?"#22d3a0":"#f5c842"}/>
+                        <KpiCard label="TIR post-tax" val={fmtPct(d.tirPostActual)} color={(d.tirPostActual)>0.12?"#22d3a0":"#f5c842"}/>
+                        <KpiCard label="Margen sobre ventas" val={fmtPct(d.mgvActual)} prev={fmtPct(d.mgvPrev)} color={d.mgvActual>0.12?"#22d3a0":"#f5c842"}/>
+                        <KpiCard label="Mom (pretax)" val={d.momActual?d.momActual.toFixed(2)+"x":"—"} color="#4f8ef7"/>
                         <KpiCard label="Beneficio total" val={fmtEurM(d.beneficioActual||d.netProfit)} prev={fmtEurM(d.beneficioPrev)} color="#22d3a0"/>
+                        <KpiCard label="Beneficio / FFPP (ROE)" val={d.roeActual?d.roeActual.toFixed(2)+"x":"—"} color="#4f8ef7"/>
+                        <KpiCard label="REI" val={d.reiActual?fmtPct(d.reiActual):"—"} color="#f5c842"/>
+                        <KpiCard label="Fondos propios" val={fmtEurM(d.fondosPropios||d.equityAmount)} color="#f5c842"/>
                         <KpiCard label="GDV (ventas totales)" val={fmtEurM(d.ventasActual||d.gdv)} color="#e8eaf2"/>
                         <KpiCard label="Total costes" val={fmtEurM(d.totalGastosActual||d.gdc)} color="#e8eaf2"/>
-                        <KpiCard label="Fondos propios" val={fmtEurM(d.fondosPropios||d.equityAmount)} color="#f5c842"/>
+                        <KpiCard label="Hard Cost" val={fmtEurM(d.hardActual)} color="#e8eaf2"/>
+                        <KpiCard label="Comercialización" val={fmtEurM(d.comercialActual)} color="#4f8ef7"/>
                       </div>
                     </div>
 
@@ -886,7 +914,7 @@ export default function Overview() {
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                       <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 18px"}}>
                         <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>💰 Fuentes de financiación</div>
-                        {[{l:"Equity propio",v:d.fondosPropios||d.equityAmount,c:"#4f8ef7"},{l:"Préstamo promotor",v:d.prestamo,c:"#f5c842"},{l:"Dinero de compradores",v:d.dineroCO,c:"#22d3a0"}].map(x=>(
+                        {[{l:"Equity / Fondos propios",v:d.fondosPropios||d.equityAmount,c:"#4f8ef7"},{l:"Préstamo promotor",v:d.prestamo,c:"#f5c842"},{l:"Ingresos compradores",v:d.dineroCO,c:"#22d3a0"}].map(x=>(
                           <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
                             <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/><span style={{fontSize:"0.82rem"}}>{x.l}</span></div>
                             <span style={{fontSize:"0.82rem",fontWeight:600,color:x.c}}>{fmtEurM(x.v)}</span>
@@ -894,8 +922,8 @@ export default function Overview() {
                         ))}
                       </div>
                       <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 18px"}}>
-                        <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>📤 Usos (costes por categoría)</div>
-                        {[{l:"Adquisición suelo",v:d.sueloActual,c:"#f05a5a"},{l:"Hard Cost (construcción)",v:d.hardActual,c:"#f5924e"},{l:"Soft Cost",v:d.softActual,c:"#f5c842"},{l:"Comercialización",v:d.comercialActual,c:"#4f8ef7"},{l:"Gastos financieros",v:d.financieroActual,c:"#6b7394"}].map(x=>(
+                        <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>📤 Usos (costes)</div>
+                        {[{l:"Adquisición suelo",v:d.sueloActual,c:"#f05a5a"},{l:"Hard Cost (construcción)",v:d.hardActual,c:"#f5924e"},{l:"Soft Cost (honorarios)",v:d.softActual,c:"#f5c842"},{l:"Comercialización",v:d.comercialActual,c:"#4f8ef7"},{l:"Gastos financieros",v:d.financieroActual,c:"#6b7394"}].map(x=>(
                           <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
                             <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/><span style={{fontSize:"0.82rem"}}>{x.l}</span></div>
                             <span style={{fontSize:"0.82rem",fontWeight:600}}>{fmtEurM(x.v)}</span>
@@ -903,9 +931,6 @@ export default function Overview() {
                         ))}
                       </div>
                     </div>
-                  </div>;
-                })()}
-              </div>}
 
               {/* VIVIENDAS */}
               {tab==="viviendas"&&<div>
@@ -1018,26 +1043,35 @@ export default function Overview() {
                       </div>
                     </div>
 
-                    {/* KPI cards */}
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
-                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
-                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Presupuesto BP</div>
-                        <div style={{fontSize:"1.2rem",fontWeight:800,color:presupuestoBP>0?"#22d3a0":"#6b7394"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP"}</div>
-                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>Del Business Plan</div>}
+                    {/* Presupuesto BP banner */}
+                    <div style={{background:presupuestoBP>0?"rgba(34,211,160,0.07)":"rgba(79,142,247,0.07)",border:`1px solid ${presupuestoBP>0?"rgba(34,211,160,0.25)":"rgba(79,142,247,0.2)"}`,borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <div style={{fontSize:"1.5rem"}}>💶</div>
+                        <div>
+                          <div style={{fontSize:"0.7rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto destinado a Marketing (línea Comercialización BP)</div>
+                          <div style={{fontSize:"1.6rem",fontWeight:800,color:presupuestoBP>0?"#22d3a0":"#6b7394",letterSpacing:"-0.02em"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP cargado"}</div>
+                          {presupuestoBP>0&&<div style={{fontSize:"0.75rem",color:"#6b7394",marginTop:2}}>Extraído automáticamente del Business Plan · línea COMERCIALIZACIÓN Y MARKETING</div>}
+                        </div>
                       </div>
+                      {!presupuestoBP&&<div style={{fontSize:"0.78rem",color:"#4f8ef7"}}>← Importa el BP para ver el presupuesto</div>}
+                    </div>
+
+                    {/* KPI cards */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:18}}>
                       <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
                         <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Total planificado</div>
-                        <div style={{fontSize:"1.2rem",fontWeight:800,color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</div>
-                        <div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</div>
+                        <div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas importadas</div>
                       </div>
                       <div style={{background:"#141720",borderRadius:12,border:`1px solid ${restante<0?"rgba(240,90,90,0.3)":"#252a3a"}`,padding:"14px 16px"}}>
-                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante</div>
-                        <div style={{fontSize:"1.2rem",fontWeight:800,color:presupuestoBP===0?"#6b7394":restante<0?"#f05a5a":"#22d3a0"}}>{presupuestoBP>0?fmtEur(restante):"—"}</div>
-                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#f05a5a":"#6b7394",marginTop:2}}>{restante<0?"⚠ Excedido":"Disponible"}</div>}
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante disponible</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:presupuestoBP===0?"#6b7394":restante<0?"#f05a5a":"#22d3a0"}}>{presupuestoBP>0?fmtEur(restante):"—"}</div>
+                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#f05a5a":"#6b7394",marginTop:2}}>{restante<0?"⚠ Presupuesto excedido":"Sin comprometer"}</div>}
                       </div>
-                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
-                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% Consumido</div>
-                        <div style={{fontSize:"1.2rem",fontWeight:800,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#e8eaf2"}}>{presupuestoBP>0?`${pctUsado}%`:"—"}</div>
+                      <div style={{background:"#141720",borderRadius:12,border:`1px solid ${pctUsado>100?"rgba(240,90,90,0.3)":pctUsado>80?"rgba(245,200,66,0.3)":"#252a3a"}`,padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% del presupuesto usado</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{presupuestoBP>0?pctUsado+"%":"—"}</div>
+                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{fmtEur(totalPlanificado)} de {fmtEur(presupuestoBP)}</div>}
                       </div>
                     </div>
 
