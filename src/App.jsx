@@ -821,7 +821,7 @@ export default function Overview() {
                     {d.negocios&&d.negocios.length>0&&(
                       <div style={{background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)",borderRadius:12,padding:"14px 18px",marginBottom:16}}>
                         <div style={{fontSize:"0.72rem",color:"#a78bfa",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>📐 Proyecto multi-negocio · {d.negocios.length} líneas de negocio</div>
-                        <div style={{display:"grid",gridTemplateColumns:`repeat(${d.negocios.length},1fr)`,gap:10}}>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat("+d.negocios.length+",1fr)",gap:10}}>
                           {d.negocios.map((neg,ni)=>(
                             <div key={ni} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
                               <div style={{fontWeight:700,fontSize:"0.88rem",color:"#a78bfa",marginBottom:8}}>{neg.nombre}</div>
