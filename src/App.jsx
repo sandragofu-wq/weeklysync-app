@@ -468,62 +468,101 @@ export default function Overview() {
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
 
-          // Find header row (first 5 rows)
+          // ── Detect format: Senior Living Nvoga (BLOQUE/Nº APTO/TIPOLOGIA layout) ──
+          // Header at row 16, cols: 0=BLOQUE,1=Nº APTO,2=TIPOLOGIA,3=PLANTA,10=m²,11=terraza,18=PRECIO ESC.1
+          let isNvogaFormat = false;
           let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,5);i++){
+          for(let i=0;i<Math.min(rows.length,20);i++){
             const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
-            if(r.some(c=>c.includes("vivend")||c==="núm"||c==="num"||c==="nº"||c==="ref"||c.includes("pvp ")||c==="pvp"||c.includes("precio venta"))){hdrIdx=i;break;}
+            if(r.some(c=>c==="bloque")&&r.some(c=>c.includes("apto")||c.includes("nº apto"))) { isNvogaFormat=true; hdrIdx=i; break; }
+            if(r.some(c=>c.includes("vivend")||c==="núm"||c==="num"||c==="nº"||c==="ref"||c.includes("pvp ")||c==="pvp"||c.includes("precio venta")||c.includes("precio esc"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
 
-          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
-          const idx={};
-          headers.forEach((h,i)=>{
-            if((h.includes("vivend")||h==="núm"||h==="num"||h==="nº"||h==="ref"||h==="referencia"||h==="unidad")&&idx.ref===undefined) idx.ref=i;
-            if((h.includes("pvp")||h==="precio venta"||h==="precio")&&idx.pvp===undefined) idx.pvp=i;
-            if((h.includes("m² útil")||h.includes("m2 útil")||h.includes("útil")||h.includes("util int"))&&idx.sup===undefined) idx.sup=i;
-            if((h==="habitación"||h==="habitaciones"||h==="dor"||h==="dormitorios"||h==="hab")&&idx.dor===undefined) idx.dor=i;
-            if(h==="estado"&&idx.estado===undefined) idx.estado=i;
-            if(h.includes("reserva")&&idx.reserva===undefined) idx.reserva=i;
-            if(h.includes("terraza")&&idx.terraza===undefined) idx.terraza=i;
-            if((h.includes("jardín")||h.includes("jardin"))&&idx.jardin===undefined) idx.jardin=i;
-            if(h.includes("orientac")&&idx.ori===undefined) idx.ori=i;
-          });
+          if(isNvogaFormat) {
+            // Senior Living / Nvoga format
+            const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+            const iBloque=headers.findIndex(h=>h==="bloque");
+            const iApto=headers.findIndex(h=>h.includes("apto")||h==="nº apto"||h==="n° apto");
+            const iTipo=headers.findIndex(h=>h==="tipologia"||h==="tipología");
+            const iPlanta=headers.findIndex(h=>h==="planta");
+            const iSup=headers.findIndex(h=>h==="total (m2)"||h.includes("total"&&"m2")||h==="sup.útil total"||h==="sup. útil total");
+            const iTerraza=headers.findIndex(h=>h.includes("terraza"));
+            // Price: prefer PRICING ESC. 1 (col 18), fallback to first pricing col
+            const iPrecio=headers.findIndex(h=>h.includes("pricing esc. 1")||h.includes("esc. 1")||h.includes("esc.1"));
+            const iPrecio2=iPrecio===-1?headers.findIndex(h=>h.includes("pricing")):iPrecio;
+            const priceCol=iPrecio!==-1?iPrecio:(iPrecio2!==-1?iPrecio2:18);
+            const supCol=iSup!==-1?iSup:10;
+            const terrazaCol=iTerraza!==-1?iTerraza:11;
 
-          if(idx.ref===undefined||idx.pvp===undefined) return;
-
-          for(let i=hdrIdx+1;i<rows.length;i++){
-            const r=rows[i]; if(!r) continue;
-            const ref=String(r[idx.ref]||"").trim();
-            if(!ref||ref.toLowerCase().includes("total")) continue;
-            const precio=parsePrice(r[idx.pvp]||0);
-            if(!precio||precio<1000) continue;
-
-            let estado="disponible";
-            if(idx.estado!==undefined&&r[idx.estado]!=null){
-              estado=estadoMap[String(r[idx.estado]||"").toLowerCase().trim()]||"disponible";
-            } else if(idx.reserva!==undefined&&r[idx.reserva]!=null){
-              const rv=String(r[idx.reserva]||"").trim();
-              if(rv&&rv!=="0") estado="reservada";
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i]; if(!r) continue;
+              const apto=String(r[iApto!==-1?iApto:1]||"").trim();
+              if(!apto||isNaN(Number(apto))) continue;
+              const precio=Number(r[priceCol])||0;
+              if(!precio||precio<1000) continue;
+              const bloque=String(r[iBloque!==-1?iBloque:0]||"").trim();
+              const tipo=String(r[iTipo!==-1?iTipo:2]||"").trim();
+              const planta=String(r[iPlanta!==-1?iPlanta:3]||"").trim();
+              const sup=parseFloat(String(r[supCol]||"").replace(",","."))||0;
+              const terraza=parseFloat(String(r[terrazaCol]||"").replace(",","."))||0;
+              allVvs.push({
+                id:Date.now()+Math.random(),
+                ref:`B${bloque}-${apto}`,
+                tipologia:tipo||"—",
+                planta:planta?`Planta ${planta}`:"—",
+                superficie:sup,
+                precio,
+                estado:"disponible",
+                notas:terraza?`Terraza: ${terraza}m²`:"",
+              });
             }
-
-            const sup=idx.sup!==undefined?parseFloat(String(r[idx.sup]||"").replace(",","."))||0:0;
-            const dor=idx.dor!==undefined?Number(r[idx.dor]||0)||0:0;
-            const terraza=idx.terraza!==undefined?parseFloat(String(r[idx.terraza]||"").replace(",","."))||0:0;
-            const jardin=idx.jardin!==undefined?parseFloat(String(r[idx.jardin]||"").replace(",","."))||0:0;
-            const ori=idx.ori!==undefined?String(r[idx.ori]||"").trim():"";
-            const notas=[ori?`Orient: ${ori}`:"",terraza?`Terraza: ${terraza}m²`:"",jardin?`Jardín: ${jardin}m²`:""].filter(Boolean).join(" · ");
-
-            allVvs.push({
-              id:Date.now()+Math.random(),
-              ref:multiSheet?`${sheetName}-${ref}`:ref,
-              tipologia:dor?`${dor} dorm.`:"—",
-              planta:"—",
-              superficie:sup,
-              precio,
-              estado,
-              notas,
+          } else {
+            // Standard format (Atabal, Pintor Losada, etc.)
+            const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+            const idx={};
+            headers.forEach((h,i)=>{
+              if((h.includes("vivend")||h==="núm"||h==="num"||h==="nº"||h==="ref"||h==="referencia"||h==="unidad")&&idx.ref===undefined) idx.ref=i;
+              if((h.includes("pvp")||h==="precio venta"||h==="precio"||h.includes("precio esc"))&&idx.pvp===undefined) idx.pvp=i;
+              if((h.includes("m² útil")||h.includes("m2 útil")||h.includes("útil")||h.includes("util int"))&&idx.sup===undefined) idx.sup=i;
+              if((h==="habitación"||h==="habitaciones"||h==="dor"||h==="dormitorios"||h==="hab")&&idx.dor===undefined) idx.dor=i;
+              if(h==="estado"&&idx.estado===undefined) idx.estado=i;
+              if(h.includes("reserva")&&idx.reserva===undefined) idx.reserva=i;
+              if(h.includes("terraza")&&idx.terraza===undefined) idx.terraza=i;
+              if((h.includes("jardín")||h.includes("jardin"))&&idx.jardin===undefined) idx.jardin=i;
+              if(h.includes("orientac")&&idx.ori===undefined) idx.ori=i;
             });
+            if(idx.ref===undefined||idx.pvp===undefined) return;
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i]; if(!r) continue;
+              const ref=String(r[idx.ref]||"").trim();
+              if(!ref||ref.toLowerCase().includes("total")) continue;
+              const precio=parsePrice(r[idx.pvp]||0);
+              if(!precio||precio<1000) continue;
+              let estado="disponible";
+              if(idx.estado!==undefined&&r[idx.estado]!=null){
+                estado=estadoMap[String(r[idx.estado]||"").toLowerCase().trim()]||"disponible";
+              } else if(idx.reserva!==undefined&&r[idx.reserva]!=null){
+                const rv=String(r[idx.reserva]||"").trim();
+                if(rv&&rv!=="0") estado="reservada";
+              }
+              const sup=idx.sup!==undefined?parseFloat(String(r[idx.sup]||"").replace(",","."))||0:0;
+              const dor=idx.dor!==undefined?Number(r[idx.dor]||0)||0:0;
+              const terraza=idx.terraza!==undefined?parseFloat(String(r[idx.terraza]||"").replace(",","."))||0:0;
+              const jardin=idx.jardin!==undefined?parseFloat(String(r[idx.jardin]||"").replace(",","."))||0:0;
+              const ori=idx.ori!==undefined?String(r[idx.ori]||"").trim():"";
+              const notas=[ori?`Orient: ${ori}`:"",terraza?`Terraza: ${terraza}m²`:"",jardin?`Jardín: ${jardin}m²`:""].filter(Boolean).join(" · ");
+              allVvs.push({
+                id:Date.now()+Math.random(),
+                ref:multiSheet?`${sheetName}-${ref}`:ref,
+                tipologia:dor?`${dor} dorm.`:"—",
+                planta:"—",
+                superficie:sup,
+                precio,
+                estado,
+                notas,
+              });
+            }
           }
         });
 
