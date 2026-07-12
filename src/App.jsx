@@ -41,7 +41,7 @@ const DEFAULT_PROJECTS = [
     projectOwner:"Sandra", pmTecnico:"Sara (BSA)", responsableComercial:"Sandra",
     comercializadora:"", ubicacion:"Málaga", presupuesto:"€43.1M", costeActual:"€41.0M", fechaEntrega:"2029-01-09",
     hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<3?"completado":i===3?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),
-    blockers:[], tareas:[], viviendas:[], bp:null, resumenSemanal:"", ultimaActualizacion:"2025-06-02",
+    blockers:[], tareas:[], viviendas:[], bp:null, marketing:null, resumenSemanal:"", ultimaActualizacion:"2025-06-02",
   },
 ];
 
@@ -374,7 +374,7 @@ export default function Overview() {
   if(!loggedIn) return <LoginScreen onLogin={handleLogin}/>;
 
   const [projects, setProjects] = useState(() => {
-    try { const s=localStorage.getItem("ov8"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
+    try { const s=localStorage.getItem("ov8"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
   });
   const [view, setView] = useState("dashboard");
   const [activeId, setActiveId] = useState(null);
@@ -413,7 +413,7 @@ export default function Overview() {
   // Project CRUD
   const openNewP=useCallback(()=>{ projIsEdit.current=false; setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""}); setModal("proj"); },[]);
   const openEditP=useCallback(()=>{ if(!proj) return; projIsEdit.current=true; editId.current=proj.id; setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""}); setModal("proj"); },[proj]);
-  const saveP=useCallback(()=>{ if(!pF.name.trim()) return; if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");} setModal(null); },[pF,upd]);
+  const saveP=useCallback(()=>{ if(!pF.name.trim()) return; if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");} setModal(null); },[pF,upd]);
   const delP=useCallback(id=>{ if(!confirm("¿Eliminar esta promoción?")) return; save(prev=>prev.filter(p=>p.id!==id)); setView("dashboard"); setActiveId(null); },[]);
 
   // Hitos
@@ -580,6 +580,72 @@ export default function Overview() {
     e.target.value="";
   },[activeId,upd]);
 
+  // ── MARKETING FILE IMPORT ──
+  const handleMktFile=useCallback(e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.XLSX){alert("SheetJS cargando, espera 2s.");return;}
+      try{
+        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const partidas=[];
+        const sheets=[];
+
+        wb.SheetNames.forEach(sheetName=>{
+          const ws=wb.Sheets[sheetName];
+          if(!ws) return;
+          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+          if(!rows||rows.length<2) return;
+
+          // Find header row
+          let hdrIdx=-1;
+          for(let i=0;i<Math.min(rows.length,5);i++){
+            const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
+            if(r.some(c=>c.includes("proveedor")||c.includes("tipo")||c.includes("acción")||c.includes("accion")||c.includes("tipo campaña"))){hdrIdx=i;break;}
+          }
+          if(hdrIdx===-1) return;
+
+          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+          const iProveedor=headers.findIndex(h=>h.includes("proveedor"));
+          const iTipo=headers.findIndex(h=>h.includes("tipo"));
+          const iAccion=headers.findIndex(h=>h.includes("acci"));
+          const iDetalle=headers.findIndex(h=>h.includes("detall"));
+          const iInicio=headers.findIndex(h=>h.includes("inicio"));
+          const iFin=headers.findIndex(h=>h.includes("fin"));
+          const iTotal=headers.findIndex(h=>h.includes("total")||h.includes("presupuesto"));
+
+          if(iTotal===-1&&iAccion===-1) return;
+          sheets.push(sheetName);
+
+          for(let i=hdrIdx+1;i<rows.length;i++){
+            const r=rows[i]; if(!r) continue;
+            const accion=String(r[iAccion!==-1?iAccion:0]||"").trim();
+            if(!accion||accion.toLowerCase()==="total"||accion.toLowerCase()==="totales") continue;
+            const totalRaw=iTotal!==-1?r[iTotal]:null;
+            const total=Number(totalRaw)||0;
+            if(!accion&&!total) continue;
+            const categoria=String(r[iTipo!==-1?iTipo:1]||"").trim()||"Sin categoría";
+            partidas.push({
+              categoria,
+              proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),
+              accion,
+              detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),
+              inicio:r[iInicio!==-1?iInicio:4]?String(r[iInicio!==-1?iInicio:4]).substring(0,10):"",
+              fin:r[iFin!==-1?iFin:5]?String(r[iFin!==-1?iFin:5]).substring(0,10):"",
+              total,
+            });
+          }
+        });
+
+        if(!partidas.length){alert("No se encontraron partidas de marketing. Revisa el formato del archivo.");return;}
+        upd(activeId,p=>({...p,marketing:{partidas,sheets,importado:new Date().toISOString().split("T")[0]}}));
+        alert(\`✅ \${partidas.length} partidas de marketing importadas\`);
+      }catch(err){alert("Error: "+err.message);}
+    };
+    reader.readAsBinaryString(file);
+    e.target.value="";
+  },[activeId,upd]);
+
   // ── BP FILE IMPORT ──
   const handleBPFile=useCallback(e=>{ const file=e.target.files[0]; if(!file) return; setBpImporting(true); const reader=new FileReader(); reader.onload=ev=>{ if(!window.XLSX){alert("SheetJS cargando, espera 2s e intenta de nuevo.");setBpImporting(false);return;} try{ const wb=window.XLSX.read(ev.target.result,{type:"binary",cellDates:true}); const result=parseBP(wb); if(!result.ok){alert("Error parseando BP: "+result.error);setBpImporting(false);return;} setBpPreview(result.data); setModal("bpPreview"); }catch(err){alert("Error: "+err.message);} setBpImporting(false); }; reader.readAsBinaryString(file); e.target.value=""; },[]);
 
@@ -711,7 +777,7 @@ export default function Overview() {
                 ))}
               </div>
               <div style={{display:"flex",overflowX:"auto"}}>
-                {[{id:"hitos",l:"🏗 Hitos"},{id:"bp",l:`📊 Business Plan${proj.bp?" ✓":""}`},{id:"viviendas",l:`🏠 Viviendas${st.total>0?` (${st.total})`:""}`},{id:"comercial",l:"📈 Comercial"},{id:"equipo",l:"👥 Equipo"},{id:"blockers",l:`🚧 Alertas${proj.blockers.length>0?` (${proj.blockers.length})`:""}`},{id:"tareas",l:`✅ Tareas${proj.tareas.filter(t=>!t.done).length>0?` (${proj.tareas.filter(t=>!t.done).length})`:""}`},{id:"reporte",l:"📝 Reporte"}].map(t=>(
+                {[{id:"hitos",l:"🏗 Hitos"},{id:"bp",l:`📊 Business Plan${proj.bp?" ✓":""}`},{id:"viviendas",l:`🏠 Viviendas${st.total>0?` (${st.total})`:""}`},{id:"marketing",l:`📢 Marketing${proj.marketing?" ✓":""}`},{id:"comercial",l:"📈 Comercial"},{id:"equipo",l:"👥 Equipo"},{id:"blockers",l:`🚧 Alertas${proj.blockers.length>0?` (${proj.blockers.length})`:""}`},{id:"tareas",l:`✅ Tareas${proj.tareas.filter(t=>!t.done).length>0?` (${proj.tareas.filter(t=>!t.done).length})`:""}`},{id:"reporte",l:"📝 Reporte"}].map(t=>(
                   <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t.id?"#4f8ef7":"transparent"}`,color:tab===t.id?"#e8eaf2":"#6b7394",padding:"9px 14px",cursor:"pointer",fontSize:"0.79rem",fontWeight:tab===t.id?700:400,fontFamily:"inherit",whiteSpace:"nowrap"}}>{t.l}</button>
                 ))}
               </div>
@@ -906,6 +972,118 @@ export default function Overview() {
                 )}
               </div>}
 
+              {/* MARKETING */}
+              {tab==="marketing"&&<div>
+                {!proj.marketing?(
+                  <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+                    <div style={{fontSize:"2.5rem",marginBottom:10}}>📢</div>
+                    <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Sin planificación de marketing</div>
+                    <div style={{fontSize:"0.8rem",marginBottom:20}}>
+                      {proj.bp?.comercialActual
+                        ? <span>Presupuesto del BP disponible: <strong style={{color:"#22d3a0"}}>{fmtEur(proj.bp.comercialActual)}</strong></span>
+                        : "Importa primero el BP para ver el presupuesto disponible, o sube directamente tu planificación."}
+                    </div>
+                    <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
+                      📥 Importar planificación de marketing (.xlsx)
+                      <input type="file" accept=".xlsx,.xls" onChange={handleMktFile} style={{display:"none"}}/>
+                    </label>
+                  </div>
+                ):(()=>{
+                  const mkt = proj.marketing;
+                  const presupuestoBP = proj.bp?.comercialActual||0;
+                  const totalPlanificado = mkt.partidas.reduce((a,p)=>a+p.total,0);
+                  const pctUsado = presupuestoBP>0 ? Math.min(100,Math.round(totalPlanificado/presupuestoBP*100)) : 0;
+                  const restante = presupuestoBP - totalPlanificado;
+
+                  // Group by category
+                  const byCat = {};
+                  mkt.partidas.forEach(p=>{
+                    if(!byCat[p.categoria]) byCat[p.categoria]={total:0,items:[]};
+                    byCat[p.categoria].total+=p.total;
+                    byCat[p.categoria].items.push(p);
+                  });
+
+                  return <div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:"0.95rem"}}>Planificación de Marketing — {proj.name}</div>
+                        <div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {mkt.partidas.length} partidas · {mkt.sheets?.join(", ")}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
+                          🔄 Actualizar
+                          <input type="file" accept=".xlsx,.xls" onChange={handleMktFile} style={{display:"none"}}/>
+                        </label>
+                        <button onClick={()=>upd(activeId,p=>({...p,marketing:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>✕ Borrar</button>
+                      </div>
+                    </div>
+
+                    {/* KPI cards */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Presupuesto BP</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:presupuestoBP>0?"#22d3a0":"#6b7394"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP"}</div>
+                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>Del Business Plan</div>}
+                      </div>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Total planificado</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</div>
+                        <div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas</div>
+                      </div>
+                      <div style={{background:"#141720",borderRadius:12,border:`1px solid ${restante<0?"rgba(240,90,90,0.3)":"#252a3a"}`,padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:presupuestoBP===0?"#6b7394":restante<0?"#f05a5a":"#22d3a0"}}>{presupuestoBP>0?fmtEur(restante):"—"}</div>
+                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#f05a5a":"#6b7394",marginTop:2}}>{restante<0?"⚠ Excedido":"Disponible"}</div>}
+                      </div>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% Consumido</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#e8eaf2"}}>{presupuestoBP>0?`${pctUsado}%`:"—"}</div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    {presupuestoBP>0&&<div style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"14px 18px",marginBottom:16}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                        <span style={{fontSize:"0.78rem",color:"#6b7394"}}>Gasto vs presupuesto BP</span>
+                        <span style={{fontSize:"0.82rem",fontWeight:700,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{fmtEur(totalPlanificado)} / {fmtEur(presupuestoBP)}</span>
+                      </div>
+                      <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${Math.min(pctUsado,100)}%`,background:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#4f8ef7",borderRadius:5,transition:"width 0.3s"}}/>
+                      </div>
+                    </div>}
+
+                    {/* By category */}
+                    <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
+                      <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem"}}>📂 Por categoría</div>
+                      {Object.entries(byCat).map(([cat,data],ci)=>(
+                        <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #1c2030":"none"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
+                            <div style={{fontWeight:600,fontSize:"0.84rem"}}>{cat}</div>
+                            <div style={{fontSize:"0.82rem",fontWeight:700,color:"#4f8ef7"}}>{fmtEur(data.total)}</div>
+                            <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{data.items.length} partida{data.items.length!==1?"s":""}</div>
+                          </div>
+                          {data.items.map((item,ii)=>(
+                            <div key={ii} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <div>
+                                <div style={{fontSize:"0.8rem"}}>{item.accion}{item.detalle?<span style={{color:"#6b7394"}}> · {item.detalle}</span>:""}</div>
+                                {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                              </div>
+                              <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
+                              <div style={{fontSize:"0.72rem",color:"#6b7394"}}>
+                                {item.inicio&&<span>{item.inicio}</span>}
+                                {item.inicio&&item.fin&&<span> → </span>}
+                                {item.fin&&<span>{item.fin}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>;
+                })()}
+              </div>}
+
               {/* COMERCIAL */}
               {tab==="comercial"&&<div>
                 <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Métricas comerciales</div>
@@ -980,7 +1158,7 @@ export default function Overview() {
                 </div>
                 <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px"}}>
                   <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:13}}>Checklist</div>
-                  {[{label:"BP cargado",ok:!!proj.bp},{label:"Viviendas cargadas",ok:st.total>0},{label:"Hitos actualizados",ok:proj.hitos.some(h=>h.estado!=="pendiente")},{label:"Resumen guardado (mín. 20 caracteres)",ok:(proj.resumenSemanal||"").length>20},{label:"Tareas asignadas con responsable",ok:proj.tareas.length>0&&proj.tareas.every(t=>t.responsable)}].map((item,i,arr)=>(
+                  {[{label:"BP cargado",ok:!!proj.bp},{label:"Marketing planificado",ok:!!proj.marketing},{label:"Viviendas cargadas",ok:st.total>0},{label:"Hitos actualizados",ok:proj.hitos.some(h=>h.estado!=="pendiente")},{label:"Resumen guardado (mín. 20 caracteres)",ok:(proj.resumenSemanal||"").length>20},{label:"Tareas asignadas con responsable",ok:proj.tareas.length>0&&proj.tareas.every(t=>t.responsable)}].map((item,i,arr)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<arr.length-1?"1px solid #252a3a":"none"}}>
                       <div style={{width:20,height:20,borderRadius:6,background:item.ok?"rgba(34,211,160,0.12)":"rgba(240,90,90,0.08)",border:`1px solid ${item.ok?"#22d3a0":"#f05a5a"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",color:item.ok?"#22d3a0":"#f05a5a",flexShrink:0}}>{item.ok?"✓":"✕"}</div>
                       <div style={{fontSize:"0.83rem",color:item.ok?"#e8eaf2":"#6b7394"}}>{item.label}</div>
