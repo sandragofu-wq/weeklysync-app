@@ -469,23 +469,28 @@ export default function Overview() {
           if(!rows||rows.length<2) return;
 
           // ── Detect format ──
+          // Normalize: remove accents/special chars for robust matching
+          const norm = s => String(s||"").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 .]/g,"").trim();
           let isNvogaFormat = false;
           let hdrIdx=-1;
           for(let i=0;i<Math.min(rows.length,25);i++){
-            const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
-            if(r.some(c=>c==="bloque")&&r.some(c=>c.includes("apto")||c==="nº apto"||c==="n° apto")) { isNvogaFormat=true; hdrIdx=i; break; }
-            if(r.some(c=>c.includes("vivend")||c==="núm"||c==="num"||c==="nº"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc"))){hdrIdx=i;break;}
+            const r=(rows[i]||[]).map(c=>norm(c));
+            const hasBloque = r.some(c=>c==="bloque");
+            const hasApto = r.some(c=>c.includes("apto"));
+            const hasTipologia = r.some(c=>c==="tipologia");
+            if(hasBloque && (hasApto || hasTipologia)) { isNvogaFormat=true; hdrIdx=i; break; }
+            if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
 
           if(isNvogaFormat) {
-            // Senior Living / Nvoga format
-            const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+            // Senior Living / Nvoga format — use normalized headers
+            const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
             const iBloque=headers.findIndex(h=>h==="bloque");
-            const iApto=headers.findIndex(h=>h.includes("apto")||h==="nº apto"||h==="n° apto");
-            const iTipo=headers.findIndex(h=>h==="tipologia"||h==="tipología");
+            const iApto=headers.findIndex(h=>h.includes("apto"));
+            const iTipo=headers.findIndex(h=>h==="tipologia");
             const iPlanta=headers.findIndex(h=>h==="planta");
-            const iSup=headers.findIndex(h=>h==="total (m2)"||h.includes("total"&&"m2")||h==="sup.útil total"||h==="sup. útil total");
+            const iSup=headers.findIndex(h=>h.includes("total")&&h.includes("m2"));
             const iTerraza=headers.findIndex(h=>h.includes("terraza"));
             // Price: prefer PRICING ESC. 1 (col 18), fallback to first pricing col
             // Price col: find "pricing esc. 1" or first "pricing" col, fallback to col 18
