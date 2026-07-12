@@ -48,8 +48,8 @@ const DEFAULT_PROJECTS = [
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const fmt = d => { if(!d) return "—"; try { return new Date(d+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"}); } catch { return d; } };
 const fmtEur = n => { const v=Number(n); if(!v&&v!==0) return "—"; return new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v); };
-const fmtEurM = n => { const v=Number(n); if(!v) return "—"; if(Math.abs(v)>=1000000) return `€${(v/1000000).toFixed(2)}M`; if(Math.abs(v)>=1000) return `€${(v/1000).toFixed(0)}K`; return fmtEur(v); };
-const fmtPct = n => { const v=Number(n); if(!v&&v!==0) return "—"; return `${(v*100).toFixed(1)}%`; };
+const fmtEurM = n => { const v=Number(n); if(!v) return "—"; if(Math.abs(v)>=1000000) return "€"+(v/1000000).toFixed(2)+"M"; if(Math.abs(v)>=1000) return "€"+(v/1000).toFixed(0)+"K"; return fmtEur(v); };
+const fmtPct = n => { const v=Number(n); if(!v&&v!==0) return "—"; return (v*100).toFixed(1)+"%"; };
 const fmtNum = n => new Intl.NumberFormat("es-ES").format(Number(n)||0);
 const calcStats = (vv=[]) => {
   const total=vv.length, vendidas=vv.filter(v=>v.estado==="vendida").length,
@@ -291,10 +291,10 @@ const ModalVivienda = memo(function ModalVivienda({vF,onChange,onSave,onClose,is
 const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,isOver,onDragStart,onDragEnter,onDragEnd}){
   const hs=HITO_EST[h.estado]||HITO_EST.pendiente;
   return <div draggable="true" onDragStart={()=>onDragStart(idx)} onDragEnter={()=>onDragEnter(idx)} onDragOver={e=>e.preventDefault()} onDragEnd={onDragEnd}
-    style={{display:"flex",alignItems:"center",gap:12,background:isDragging?"#252a3a":"#141720",borderRadius:11,border:isOver?"2px solid #4f8ef7":`1px solid ${h.estado==="retrasado"?"rgba(240,90,90,0.4)":h.estado==="en-curso"?"rgba(79,142,247,0.25)":"#252a3a"}`,padding:"12px 15px",marginBottom:7,opacity:isDragging?0.5:1,cursor:"grab",userSelect:"none"}}>
+    style={{display:"flex",alignItems:"center",gap:12,background:isDragging?"#252a3a":"#141720",borderRadius:11,border:isOver?"2px solid #4f8ef7":(h.estado==="retrasado"?"1px solid rgba(240,90,90,0.4)":h.estado==="en-curso"?"1px solid rgba(79,142,247,0.25)":"1px solid #252a3a"),padding:"12px 15px",marginBottom:7,opacity:isDragging?0.5:1,cursor:"grab",userSelect:"none"}}>
     <div style={{color:"#444",fontSize:"1.1rem",flexShrink:0}}>⠿</div>
     <div onClick={()=>onCycle(idx)} title="Click para cambiar estado"
-      style={{width:32,height:32,borderRadius:"50%",background:hs.bg,border:`2.5px solid ${hs.color}`,display:"flex",alignItems:"center",justifyContent:"center",color:hs.color,fontWeight:800,fontSize:"0.9rem",flexShrink:0,cursor:"pointer",transition:"transform 0.12s"}}
+      style={{width:32,height:32,borderRadius:"50%",background:hs.bg,border:"2.5px solid "+hs.color,display:"flex",alignItems:"center",justifyContent:"center",color:hs.color,fontWeight:800,fontSize:"0.9rem",flexShrink:0,cursor:"pointer",transition:"transform 0.12s"}}
       onMouseEnter={e=>e.currentTarget.style.transform="scale(1.18)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
       {hs.icon}
     </div>
@@ -342,12 +342,12 @@ function LoginScreen({ onLogin }) {
         </div>
         <div style={{marginBottom:14}}>
           <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Usuario</div>
-          <input value={user} onChange={e=>{setUser(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Introduce tu usuario" autoFocus style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:`1px solid ${error?"#f05a5a":"#252a3a"}`}}/>
+          <input value={user} onChange={e=>{setUser(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Introduce tu usuario" autoFocus style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:(error?"1px solid #f05a5a":"1px solid #252a3a")}}/>
         </div>
         <div style={{marginBottom:24}}>
           <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Contraseña</div>
           <div style={{position:"relative"}}>
-            <input value={pass} onChange={e=>{setPass(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} type={showPass?"text":"password"} placeholder="Introduce tu contraseña" style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:`1px solid ${error?"#f05a5a":"#252a3a"}`,paddingRight:40}}/>
+            <input value={pass} onChange={e=>{setPass(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} type={showPass?"text":"password"} placeholder="Introduce tu contraseña" style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:(error?"1px solid #f05a5a":"1px solid #252a3a"),paddingRight:40}}/>
             <button onClick={()=>setShowPass(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#6b7394",cursor:"pointer",fontSize:"0.85rem",padding:0}}>{showPass?"🙈":"👁"}</button>
           </div>
         </div>
@@ -507,13 +507,13 @@ export default function Overview() {
               const terraza=parseFloat(String(r[terrazaCol]||"").replace(",","."))||0;
               allVvs.push({
                 id:Date.now()+Math.random(),
-                ref:`B${bloque}-${apto}`,
+                ref:"B"+bloque+"-"+apto,
                 tipologia:tipo||"—",
-                planta:planta?`Planta ${planta}`:"—",
+                planta:planta?"Planta "+planta:"—",
                 superficie:sup,
                 precio,
                 estado:"disponible",
-                notas:terraza?`Terraza: ${terraza}m²`:"",
+                notas:terraza?"Terraza: "+terraza+"m²":"",
               });
             }
           } else {
@@ -550,11 +550,11 @@ export default function Overview() {
               const terraza=idx.terraza!==undefined?parseFloat(String(r[idx.terraza]||"").replace(",","."))||0:0;
               const jardin=idx.jardin!==undefined?parseFloat(String(r[idx.jardin]||"").replace(",","."))||0:0;
               const ori=idx.ori!==undefined?String(r[idx.ori]||"").trim():"";
-              const notas=[ori?`Orient: ${ori}`:"",terraza?`Terraza: ${terraza}m²`:"",jardin?`Jardín: ${jardin}m²`:""].filter(Boolean).join(" · ");
+              const notas=[ori?"Orient: "+ori:"",terraza?"Terraza: "+terraza+"m²":"",jardin?"Jardín: "+jardin+"m²":""].filter(Boolean).join(" · ");
               allVvs.push({
                 id:Date.now()+Math.random(),
-                ref:multiSheet?`${sheetName}-${ref}`:ref,
-                tipologia:dor?`${dor} dorm.`:"—",
+                ref:multiSheet?sheetName+"-"+ref:ref,
+                tipologia:dor?dor+" dorm.":"—",
                 planta:"—",
                 superficie:sup,
                 precio,
@@ -567,7 +567,7 @@ export default function Overview() {
 
         if(!allVvs.length){alert("No se encontraron viviendas con precio.\nRevisa que el Excel tenga columnas de referencia (Vivienda/Ref/Núm) y precio (PVP/Precio venta).");return;}
         upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...allVvs]}));
-        alert(`✅ ${allVvs.length} viviendas importadas correctamente`);
+        alert("✅ "+allVvs.length+" viviendas importadas correctamente");
       }catch(err){alert("Error leyendo el archivo: "+err.message);}
     };
     reader.readAsBinaryString(file);
@@ -701,7 +701,7 @@ export default function Overview() {
               <Btn onClick={openNewP} v="primary">+ Nueva promoción</Btn>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:26}}>
-              {[{label:"Promociones",val:projects.length,color:"#4f8ef7",sub:"activas"},{label:"Unidades en cartera",val:fmtNum(totalU),color:"#e8eaf2",sub:"total registradas"},{label:"Vendidas",val:`${fmtNum(totalV)} / ${fmtNum(totalU)}`,color:"#22d3a0",sub:totalU?`${Math.round(totalV/totalU*100)}% absorción`:"—"},{label:"Alertas",val:bloq+risk,color:bloq>0?"#f05a5a":risk>0?"#f5c842":"#22d3a0",sub:`${bloq} bloqueados · ${risk} en riesgo`}].map(k=>(
+              {[{label:"Promociones",val:projects.length,color:"#4f8ef7",sub:"activas"},{label:"Unidades en cartera",val:fmtNum(totalU),color:"#e8eaf2",sub:"total registradas"},{label:"Vendidas",val:fmtNum(totalV)+" / "+fmtNum(totalU),color:"#22d3a0",sub:totalU?Math.round(totalV/totalU*100)+"% absorción":"—"},{label:"Alertas",val:bloq+risk,color:bloq>0?"#f05a5a":risk>0?"#f5c842":"#22d3a0",sub:bloq+" bloqueados · "+risk+" en riesgo"}].map(k=>(
                 <div key={k.label} style={{background:"#141720",borderRadius:14,border:"1px solid #252a3a",padding:"18px 22px"}}>
                   <div style={{fontSize:"0.65rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700,marginBottom:8}}>{k.label}</div>
                   <div style={{fontSize:"1.7rem",fontWeight:800,color:k.color,letterSpacing:"-0.03em",marginBottom:3}}>{k.val}</div>
@@ -725,7 +725,7 @@ export default function Overview() {
                   <div><div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:2}}>{p.name}</div><div style={{fontSize:"0.71rem",color:"#6b7394"}}>{p.ubicacion}</div></div>
                   <div style={{fontSize:"0.8rem",color:"#6b7394",alignSelf:"center"}}>{p.zona}</div>
                   <div style={{alignSelf:"center"}}><span style={{fontSize:"0.65rem",fontWeight:700,padding:"3px 8px",borderRadius:8,background:est.bg,color:est.color,textTransform:"uppercase"}}>{est.label}</span></div>
-                  <div style={{alignSelf:"center"}}><div style={{fontSize:"0.82rem",fontWeight:600,marginBottom:4}}>{hOk}/{p.hitos.length}</div><div style={{height:3,background:"#252a3a",borderRadius:2,width:50,overflow:"hidden"}}><div style={{height:"100%",width:`${p.hitos.length?hOk/p.hitos.length*100:0}%`,background:"#4f8ef7",borderRadius:2}}/></div></div>
+                  <div style={{alignSelf:"center"}}><div style={{fontSize:"0.82rem",fontWeight:600,marginBottom:4}}>{hOk}/{p.hitos.length}</div><div style={{height:3,background:"#252a3a",borderRadius:2,width:50,overflow:"hidden"}}><div style={{height:"100%",width:(p.hitos.length?hOk/p.hitos.length*100:0)+"%",background:"#4f8ef7",borderRadius:2}}/></div></div>
                   <div style={{alignSelf:"center"}}><div style={{fontSize:"0.82rem",fontWeight:600,color:pct2>70?"#22d3a0":pct2>40?"#f5c842":"#e8eaf2"}}>{pct2}%</div><div style={{fontSize:"0.7rem",color:"#6b7394"}}>{s.vendidas}/{s.total} uds</div></div>
                   <div style={{alignSelf:"center"}}><div style={{fontWeight:500,fontSize:"0.82rem"}}>{p.projectOwner||"—"}</div><div style={{fontSize:"0.7rem",color:"#6b7394"}}>{p.pmTecnico||"—"}</div></div>
                   <div style={{fontSize:"0.73rem",color:"#6b7394",alignSelf:"center"}}>{p.ultimaActualizacion?fmt(p.ultimaActualizacion):"—"}{p.blockers.length>0&&<div style={{color:"#f05a5a",fontSize:"0.67rem",marginTop:2}}>⚠ {p.blockers.length} alerta{p.blockers.length>1?"s":""}</div>}</div>
@@ -750,7 +750,7 @@ export default function Overview() {
                     <span style={{fontSize:"0.73rem",color:"#6b7394"}}>{proj.ubicacion} · {proj.zona}</span>
                   </div>
                   <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-                    {[`👤 ${proj.projectOwner||"—"}`,`🏗 ${proj.pmTecnico||"—"}`,`💼 ${proj.responsableComercial||"—"}`,`📅 ${fmt(proj.fechaEntrega)}`].map(m=><span key={m} style={{fontSize:"0.75rem",color:"#6b7394"}}>{m}</span>)}
+                    {["👤 "+(proj.projectOwner||"—"),"🏗 "+(proj.pmTecnico||"—"),"💼 "+(proj.responsableComercial||"—"),"📅 "+fmt(proj.fechaEntrega)].map(m=><span key={m} style={{fontSize:"0.75rem",color:"#6b7394"}}>{m}</span>)}
                   </div>
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -763,7 +763,7 @@ export default function Overview() {
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
-                {[{label:"Total uds",val:st.total||"—"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorción",val:`${pct}%`,color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"},{label:"Precio medio",val:fmtEur(st.precioMedio)}].map(k=>(
+                {[{label:"Total uds",val:st.total||"—"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorción",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"},{label:"Precio medio",val:fmtEur(st.precioMedio)}].map(k=>(
                   <div key={k.label} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px"}}>
                     <div style={{fontSize:"0.6rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.label}</div>
                     <div style={{fontSize:"1.1rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
@@ -771,8 +771,8 @@ export default function Overview() {
                 ))}
               </div>
               <div style={{display:"flex",overflowX:"auto"}}>
-                {[{id:"hitos",l:"🏗 Hitos"},{id:"bp",l:`📊 Business Plan${proj.bp?" ✓":""}`},{id:"viviendas",l:`🏠 Viviendas${st.total>0?` (${st.total})`:""}`},{id:"marketing",l:`📢 Marketing${proj.marketing?" ✓":""}`},{id:"comercial",l:"📈 Comercial"},{id:"equipo",l:"👥 Equipo"},{id:"blockers",l:`🚧 Alertas${proj.blockers.length>0?` (${proj.blockers.length})`:""}`},{id:"tareas",l:`✅ Tareas${proj.tareas.filter(t=>!t.done).length>0?` (${proj.tareas.filter(t=>!t.done).length})`:""}`},{id:"reporte",l:"📝 Reporte"}].map(t=>(
-                  <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t.id?"#4f8ef7":"transparent"}`,color:tab===t.id?"#e8eaf2":"#6b7394",padding:"9px 14px",cursor:"pointer",fontSize:"0.79rem",fontWeight:tab===t.id?700:400,fontFamily:"inherit",whiteSpace:"nowrap"}}>{t.l}</button>
+                {[{id:"hitos",l:"🏗 Hitos"},{id:"bp",l:"📊 Business Plan"+(proj.bp?" ✓":"")},{id:"viviendas",l:"🏠 Viviendas"+(st.total>0?" ("+st.total+")":"")},{id:"marketing",l:"📢 Marketing"+(proj.marketing?" ✓":"")},{id:"comercial",l:"📈 Comercial"},{id:"equipo",l:"👥 Equipo"},{id:"blockers",l:"🚧 Alertas"+(proj.blockers.length>0?" ("+proj.blockers.length+")":"")},{id:"tareas",l:"✅ Tareas"+(proj.tareas.filter(t=>!t.done).length>0?" ("+proj.tareas.filter(t=>!t.done).length+")":"")},{id:"reporte",l:"📝 Reporte"}].map(t=>(
+                  <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",borderBottom:(tab===t.id?"2px solid #4f8ef7":"2px solid transparent"),color:tab===t.id?"#e8eaf2":"#6b7394",padding:"9px 14px",cursor:"pointer",fontSize:"0.79rem",fontWeight:tab===t.id?700:400,fontFamily:"inherit",whiteSpace:"nowrap"}}>{t.l}</button>
                 ))}
               </div>
             </div>
@@ -980,9 +980,9 @@ export default function Overview() {
                           <div style={{fontWeight:600,fontSize:"0.84rem"}}>{v.ref}</div>
                           <div style={{fontSize:"0.82rem"}}>{v.tipologia||"—"}</div>
                           <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.planta||"—"}</div>
-                          <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.superficie?`${v.superficie}m²`:"—"}</div>
+                          <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.superficie?v.superficie+"m²":"—"}</div>
                           <div style={{fontSize:"0.88rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
-                          <div><span onClick={()=>cycleViv(v.id)} style={{fontSize:"0.67rem",fontWeight:700,padding:"3px 8px",borderRadius:8,background:`${vs.color}18`,color:vs.color,cursor:"pointer",border:`1px solid ${vs.color}35`,textTransform:"uppercase"}}>{vs.label}</span></div>
+                          <div><span onClick={()=>cycleViv(v.id)} style={{fontSize:"0.67rem",fontWeight:700,padding:"3px 8px",borderRadius:8,background:vs.color+"18",color:vs.color,cursor:"pointer",border:"1px solid "+vs.color+"35",textTransform:"uppercase"}}>{vs.label}</span></div>
                           <div style={{fontSize:"0.72rem",color:"#6b7394",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={v.notas}>{v.notas||"—"}</div>
                           <div style={{display:"flex",gap:4}}><Btn onClick={()=>openEditV(v)} sm>✏️</Btn><Btn onClick={()=>delV(v.id)} v="danger" sm>✕</Btn></div>
                         </div>;
@@ -1044,7 +1044,7 @@ export default function Overview() {
                     </div>
 
                     {/* Presupuesto BP banner */}
-                    <div style={{background:presupuestoBP>0?"rgba(34,211,160,0.07)":"rgba(79,142,247,0.07)",border:`1px solid ${presupuestoBP>0?"rgba(34,211,160,0.25)":"rgba(79,142,247,0.2)"}`,borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                    <div style={{background:presupuestoBP>0?"rgba(34,211,160,0.07)":"rgba(79,142,247,0.07)",border:(presupuestoBP>0?"1px solid rgba(34,211,160,0.25)":"1px solid rgba(79,142,247,0.2)"),borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
                       <div style={{display:"flex",alignItems:"center",gap:12}}>
                         <div style={{fontSize:"1.5rem"}}>💶</div>
                         <div>
@@ -1063,12 +1063,12 @@ export default function Overview() {
                         <div style={{fontSize:"1.3rem",fontWeight:800,color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</div>
                         <div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas importadas</div>
                       </div>
-                      <div style={{background:"#141720",borderRadius:12,border:`1px solid ${restante<0?"rgba(240,90,90,0.3)":"#252a3a"}`,padding:"14px 16px"}}>
+                      <div style={{background:"#141720",borderRadius:12,border:(restante<0?"1px solid rgba(240,90,90,0.3)":"1px solid #252a3a"),padding:"14px 16px"}}>
                         <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante disponible</div>
                         <div style={{fontSize:"1.3rem",fontWeight:800,color:presupuestoBP===0?"#6b7394":restante<0?"#f05a5a":"#22d3a0"}}>{presupuestoBP>0?fmtEur(restante):"—"}</div>
                         {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#f05a5a":"#6b7394",marginTop:2}}>{restante<0?"⚠ Presupuesto excedido":"Sin comprometer"}</div>}
                       </div>
-                      <div style={{background:"#141720",borderRadius:12,border:`1px solid ${pctUsado>100?"rgba(240,90,90,0.3)":pctUsado>80?"rgba(245,200,66,0.3)":"#252a3a"}`,padding:"14px 16px"}}>
+                      <div style={{background:"#141720",borderRadius:12,border:(pctUsado>100?"1px solid rgba(240,90,90,0.3)":pctUsado>80?"1px solid rgba(245,200,66,0.3)":"1px solid #252a3a"),padding:"14px 16px"}}>
                         <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% del presupuesto usado</div>
                         <div style={{fontSize:"1.3rem",fontWeight:800,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{presupuestoBP>0?pctUsado+"%":"—"}</div>
                         {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{fmtEur(totalPlanificado)} de {fmtEur(presupuestoBP)}</div>}
@@ -1082,7 +1082,7 @@ export default function Overview() {
                         <span style={{fontSize:"0.82rem",fontWeight:700,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{fmtEur(totalPlanificado)} / {fmtEur(presupuestoBP)}</span>
                       </div>
                       <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:`${Math.min(pctUsado,100)}%`,background:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#4f8ef7",borderRadius:5,transition:"width 0.3s"}}/>
+                        <div style={{height:"100%",width:Math.min(pctUsado,100)+"%",background:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#4f8ef7",borderRadius:5,transition:"width 0.3s"}}/>
                       </div>
                     </div>}
 
@@ -1122,7 +1122,7 @@ export default function Overview() {
               {tab==="comercial"&&<div>
                 <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Métricas comerciales</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:13,marginBottom:18}}>
-                  {[{label:"Total",val:st.total||0},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},{label:"Precio medio",val:fmtEur(st.precioMedio)},{label:"% Vendido",val:`${pct}%`,color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}].map(k=>(
+                  {[{label:"Total",val:st.total||0},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},{label:"Precio medio",val:fmtEur(st.precioMedio)},{label:"% Vendido",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}].map(k=>(
                     <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"15px 18px"}}>
                       <div style={{fontSize:"0.63rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>{k.label}</div>
                       <div style={{fontSize:"1.45rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
@@ -1131,7 +1131,7 @@ export default function Overview() {
                 </div>
                 <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}><span style={{fontSize:"0.78rem",color:"#6b7394",fontWeight:500}}>Absorción</span><span style={{fontSize:"0.92rem",fontWeight:800,color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}}>{pct}%</span></div>
-                  <div style={{height:8,background:"#1c2030",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a",borderRadius:4}}/></div>
+                  <div style={{height:8,background:"#1c2030",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a",borderRadius:4}}/></div>
                 </div>
               </div>}
 
@@ -1140,7 +1140,7 @@ export default function Overview() {
                 <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Estructura de equipo — {proj.name}</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
                   {[{rol:"Project Owner (Overview)",persona:proj.projectOwner,desc:"Responsable global. Coordinación transversal, decisiones clave.",color:"#4f8ef7"},{rol:"PM Técnico (BSA)",persona:proj.pmTecnico,desc:"Proyecto, obra, licencias. Exclusivamente técnico.",color:"#22d3a0"},{rol:"Responsable Comercial",persona:proj.responsableComercial,desc:"Pricing, estrategia, posicionamiento, dirección comercializadora.",color:"#f5c842"},{rol:"Comercializadora",persona:proj.comercializadora||"Sin asignar",desc:"Ejecución ventas, atención leads, reporte semanal.",color:"#f5924e"}].map(r=>(
-                    <div key={r.rol} style={{background:"#141720",borderRadius:12,border:`1px solid ${r.color}20`,padding:"17px 19px"}}>
+                    <div key={r.rol} style={{background:"#141720",borderRadius:12,border:"1px solid "+r.color+"20",padding:"17px 19px"}}>
                       <div style={{fontSize:"0.62rem",color:r.color,textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700,marginBottom:7}}>{r.rol}</div>
                       <div style={{fontWeight:700,fontSize:"0.98rem",marginBottom:7}}>{r.persona||"—"}</div>
                       <div style={{fontSize:"0.74rem",color:"#6b7394",lineHeight:1.55}}>{r.desc}</div>
@@ -1154,7 +1154,7 @@ export default function Overview() {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div style={{fontWeight:700,fontSize:"0.92rem"}}>Alertas y bloqueos</div><Btn onClick={openNewB} sm>+ Añadir</Btn></div>
                 {proj.blockers.length===0?<div style={{padding:"18px",color:"#22d3a0",fontSize:"0.86rem",background:"rgba(34,211,160,0.05)",borderRadius:12,border:"1px solid rgba(34,211,160,0.2)"}}>✅ Sin bloqueos activos</div>:proj.blockers.map((b,i)=>{
                   const bs=BLOCK_ST[b.tipo]||BLOCK_ST.info;
-                  return <div key={i} style={{display:"flex",alignItems:"flex-start",gap:13,background:bs.bg,borderRadius:12,border:`1px solid ${bs.border}`,padding:"15px 18px",marginBottom:9}}>
+                  return <div key={i} style={{display:"flex",alignItems:"flex-start",gap:13,background:bs.bg,borderRadius:12,border:"1px solid "+bs.border,padding:"15px 18px",marginBottom:9}}>
                     <div style={{fontSize:"1.15rem",flexShrink:0,marginTop:2}}>{bs.icon}</div>
                     <div style={{flex:1}}><div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:4}}>{b.titulo}</div><div style={{fontSize:"0.77rem",color:"#6b7394",marginBottom:5}}>{b.desc}</div><div style={{fontSize:"0.71rem",color:"#6b7394"}}>Responsable: <span style={{color:"#e8eaf2"}}>{b.responsable}</span></div></div>
                     <div style={{display:"flex",gap:5}}><Btn onClick={()=>openEditB(b,i)} sm>✏️</Btn><Btn onClick={()=>delB(i)} v="danger" sm>✕</Btn></div>
@@ -1169,7 +1169,7 @@ export default function Overview() {
                 {proj.tareas.map(t=>(
                   <div key={t.id} style={{display:"flex",alignItems:"center",gap:11,background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"11px 15px",marginBottom:7}}>
                     <div style={{width:5,height:5,borderRadius:"50%",background:PRIO_CLR[t.prioridad]||"#f5c842",flexShrink:0}}/>
-                    <div onClick={()=>togT(t.id)} style={{width:17,height:17,borderRadius:5,border:`2px solid ${t.done?"#22d3a0":"#252a3a"}`,background:t.done?"#22d3a0":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",color:"#0d0f14",fontWeight:900,flexShrink:0}}>{t.done?"✓":""}</div>
+                    <div onClick={()=>togT(t.id)} style={{width:17,height:17,borderRadius:5,border:(t.done?"2px solid #22d3a0":"2px solid #252a3a"),background:t.done?"#22d3a0":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",color:"#0d0f14",fontWeight:900,flexShrink:0}}>{t.done?"✓":""}</div>
                     <div style={{flex:1,fontSize:"0.83rem",textDecoration:t.done?"line-through":"none",color:t.done?"#6b7394":"#e8eaf2"}}>{t.texto}</div>
                     <div style={{fontSize:"0.71rem",padding:"2px 7px",borderRadius:8,background:"#1c2030",border:"1px solid #252a3a",color:"#6b7394",whiteSpace:"nowrap"}}>{t.responsable}</div>
                     <div style={{fontSize:"0.71rem",color:"#6b7394",whiteSpace:"nowrap"}}>{fmt(t.vencimiento)}</div>
@@ -1194,7 +1194,7 @@ export default function Overview() {
                   <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:13}}>Checklist</div>
                   {[{label:"BP cargado",ok:!!proj.bp},{label:"Marketing planificado",ok:!!proj.marketing},{label:"Viviendas cargadas",ok:st.total>0},{label:"Hitos actualizados",ok:proj.hitos.some(h=>h.estado!=="pendiente")},{label:"Resumen guardado (mín. 20 caracteres)",ok:(proj.resumenSemanal||"").length>20},{label:"Tareas asignadas con responsable",ok:proj.tareas.length>0&&proj.tareas.every(t=>t.responsable)}].map((item,i,arr)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<arr.length-1?"1px solid #252a3a":"none"}}>
-                      <div style={{width:20,height:20,borderRadius:6,background:item.ok?"rgba(34,211,160,0.12)":"rgba(240,90,90,0.08)",border:`1px solid ${item.ok?"#22d3a0":"#f05a5a"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",color:item.ok?"#22d3a0":"#f05a5a",flexShrink:0}}>{item.ok?"✓":"✕"}</div>
+                      <div style={{width:20,height:20,borderRadius:6,background:item.ok?"rgba(34,211,160,0.12)":"rgba(240,90,90,0.08)",border:(item.ok?"1px solid #22d3a0":"1px solid #f05a5a"),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",color:item.ok?"#22d3a0":"#f05a5a",flexShrink:0}}>{item.ok?"✓":"✕"}</div>
                       <div style={{fontSize:"0.83rem",color:item.ok?"#e8eaf2":"#6b7394"}}>{item.label}</div>
                     </div>
                   ))}
@@ -1226,7 +1226,7 @@ export default function Overview() {
               {l:"TIR (pretax)",v:fmtPct(bpPreview.tirActual)},
               {l:"Margen s/ventas",v:fmtPct(bpPreview.mgvActual)},
               {l:"Fecha escritura",v:fmt(bpPreview.fechaEntrega)},
-              {l:"Viviendas en Lista Precios",v:`${bpPreview.viviendas?.length||0} unidades`},
+              {l:"Viviendas en Lista Precios",v:(bpPreview.viviendas?.length||0)+" unidades"},
               {l:"Fondos propios",v:fmtEurM(bpPreview.fondosPropios)},
             ].map(x=>(
               <div key={x.l} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
