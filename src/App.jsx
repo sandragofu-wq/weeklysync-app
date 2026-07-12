@@ -184,7 +184,7 @@ const parseBP = wb => {
         let precioActual=precioOrigen;
         for(let c=4;c<r.length;c++){if(r[c]!=null&&Number(r[c])>10000) precioActual=Number(r[c]);}
         const status=String(r[2]||"").trim().toLowerCase();
-        viviendas.push({id:Date.now()+Math.random(),ref:tipo+"-"+ref,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"--":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?"Origen: "+new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen):"",});
+        viviendas.push({id:Date.now()+Math.random(),ref:tipo+"-"+ref,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"—":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?"Origen: "+new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen):"",});
       }
     }
     fin.viviendas=viviendas;
