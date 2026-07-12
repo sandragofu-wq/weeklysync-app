@@ -468,14 +468,13 @@ export default function Overview() {
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
 
-          // ── Detect format: Senior Living Nvoga (BLOQUE/Nº APTO/TIPOLOGIA layout) ──
-          // Header at row 16, cols: 0=BLOQUE,1=Nº APTO,2=TIPOLOGIA,3=PLANTA,10=m²,11=terraza,18=PRECIO ESC.1
+          // ── Detect format ──
           let isNvogaFormat = false;
           let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,20);i++){
+          for(let i=0;i<Math.min(rows.length,25);i++){
             const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
-            if(r.some(c=>c==="bloque")&&r.some(c=>c.includes("apto")||c.includes("nº apto"))) { isNvogaFormat=true; hdrIdx=i; break; }
-            if(r.some(c=>c.includes("vivend")||c==="núm"||c==="num"||c==="nº"||c==="ref"||c.includes("pvp ")||c==="pvp"||c.includes("precio venta")||c.includes("precio esc"))){hdrIdx=i;break;}
+            if(r.some(c=>c==="bloque")&&r.some(c=>c.includes("apto")||c==="nº apto"||c==="n° apto")) { isNvogaFormat=true; hdrIdx=i; break; }
+            if(r.some(c=>c.includes("vivend")||c==="núm"||c==="num"||c==="nº"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
 
@@ -489,9 +488,10 @@ export default function Overview() {
             const iSup=headers.findIndex(h=>h==="total (m2)"||h.includes("total"&&"m2")||h==="sup.útil total"||h==="sup. útil total");
             const iTerraza=headers.findIndex(h=>h.includes("terraza"));
             // Price: prefer PRICING ESC. 1 (col 18), fallback to first pricing col
-            const iPrecio=headers.findIndex(h=>h.includes("pricing esc. 1")||h.includes("esc. 1")||h.includes("esc.1"));
-            const iPrecio2=iPrecio===-1?headers.findIndex(h=>h.includes("pricing")):iPrecio;
-            const priceCol=iPrecio!==-1?iPrecio:(iPrecio2!==-1?iPrecio2:18);
+            // Price col: find "pricing esc. 1" or first "pricing" col, fallback to col 18
+            const iPrecio=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
+            const iPrecioFallback=iPrecio===-1?headers.findIndex(h=>h.includes("pricing")):iPrecio;
+            const priceCol=iPrecio!==-1?iPrecio:(iPrecioFallback!==-1?iPrecioFallback:18);
             const supCol=iSup!==-1?iSup:10;
             const terrazaCol=iTerraza!==-1?iTerraza:11;
 
