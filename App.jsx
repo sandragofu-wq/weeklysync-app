@@ -41,7 +41,7 @@ const DEFAULT_PROJECTS = [
     projectOwner:"Sandra", pmTecnico:"Sara (BSA)", responsableComercial:"Sandra",
     comercializadora:"", ubicacion:"Málaga", presupuesto:"€43.1M", costeActual:"€41.0M", fechaEntrega:"2029-01-09",
     hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<3?"completado":i===3?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),
-    blockers:[], tareas:[], viviendas:[], bp:null, resumenSemanal:"", ultimaActualizacion:"2025-06-02",
+    blockers:[], tareas:[], viviendas:[], bp:null, marketing:null, resumenSemanal:"", ultimaActualizacion:"2025-06-02",
   },
 ];
 
@@ -89,123 +89,109 @@ const parseBP = wb => {
       if(!ws) return [];
       return X.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
     };
-
-    // ── 1. MONITORING sheet ──
-    // Confirmed column layout from file inspection:
-    // col 4 = label A (VENTAS, COMPRA SUELO etc)
-    // col 5 = label B (TOTAL GASTOS, RESULTADO etc)
-    // col 32 = BP Base value
-    // col 37 = BP Actual (Monitoring) value
-    // col 42 = Diferencia
-    // Datos básicos: col 4=label, col 15=value | col 32=calendar label, col 41=date, col 42=date
-    const mon = sheetRows("Monitoring");
+    const nv = (r,c) => { try { const v=r&&r[c]; return (v!==null&&v!==undefined&&!isNaN(Number(v)))?Number(v):0; } catch { return 0; } };
+    const tv = (r,c) => { try { return String(r&&r[c]||"").trim(); } catch { return ""; } };
     const fin = {};
-    for(let i=0;i<mon.length;i++){
-      const r=mon[i];
-      if(!r) continue;
-      const t0 = String(r[0]||"").trim();
-      const t4 = String(r[4]||"").trim();
-      const t5 = String(r[5]||"").trim();
-      const t32 = String(r[32]||"").trim();
-      const num32 = () => Number(r[32])||0;
-      const num37 = () => Number(r[37])||0;
-      const num15 = () => Number(r[15])||0;
-      const num41 = () => Number(r[41])||0;
-      const num42 = () => Number(r[42])||0;
 
-      // Basic project info (col 4=label, col 15=value)
-      if(t4==="Parcela") fin.nombre = String(r[15]||"").trim();
-      if(t4==="Localidad") fin.localidad = String(r[15]||"").trim();
-      if(t4==="Número de Viviendas") fin.numViviendas = num15();
-      if(t4==="Edificabilidad") fin.edificabilidad = num15();
+    // ── Detect main sheet ──
+    // Format A (Atabal): "Monitoring" — col5=P&L label, col32=prev, col37=actual, col37=calendar label
+    // Format B (Pintor Losada): "RESUMEN" — same layout
+    // Format C (Elviria): "Resumen Consolidado" — col5=P&L label, col32=prev, col37=actual, col37=calendar label
+    const sheetPriority = ["Monitoring","RESUMEN","Resumen Consolidado","Resumen Living","Resumen Suites"];
+    const mainSheet = sheetPriority.find(s => wb.Sheets[s]) || null;
+    if(!mainSheet) { result.error="No se encontró hoja financiera reconocible (Monitoring, RESUMEN, Resumen Consolidado)"; return result; }
 
-      // Calendar (col 32=label, col 41=meses offset, col 42=date)
-      if(t32.includes("inicio del proyecto")) fin.fechaInicio = excelDateToISO(r[41]);
-      if(t32.includes("Obtención licencia")) fin.fechaLicencia = excelDateToISO(r[42]);
-      if(t32.includes("inicio de obra")) fin.fechaInicioObra = excelDateToISO(r[42]);
-      if(t32.includes("escritura")) fin.fechaEntrega = excelDateToISO(r[42]);
-      if(t32.includes("Duración de obra")) fin.duracionObra = num41();
+    const rows = sheetRows(mainSheet);
 
-      // P&L — col 32 = BP Base, col 37 = BP Actual
-      if(t4==="VENTAS") { fin.ventasPrev=num32(); fin.ventasActual=num37(); }
-      if(t4==="COMPRA SUELO") { fin.sueloPrev=num32(); fin.sueloActual=num37(); }
-      if(t4==="SOFT COST") { fin.softPrev=num32(); fin.softActual=num37(); }
-      if(t4.includes("COSTES CONSTRUCCIÓN")||t4.includes("HARD COST")) { fin.hardPrev=num32(); fin.hardActual=num37(); }
-      if(t4==="GASTOS FINANCIEROS") { fin.financieroPrev=num32(); fin.financieroActual=num37(); }
-      if(t4.includes("COMERCIALIZACIÓN")) { fin.comercialPrev=num32(); fin.comercialActual=num37(); }
-      if(t5==="TOTAL GASTOS") { fin.totalGastosPrev=num32(); fin.totalGastosActual=num37(); }
-      if(t5==="RESULTADO PLAN VIABILIDAD") { fin.beneficioPrev=num32(); fin.beneficioActual=num37(); }
+    for(let i=0;i<rows.length;i++){
+      const r=rows[i]; if(!r||r.length<5) continue;
+      const t3=tv(r,3), t4=tv(r,4), t5=tv(r,5), t37=tv(r,37);
 
-      // Analysis results (col 0=label, col 32=BP base, col 37=actual)
-      if(t0.includes("Fondos Propios aportados")) { fin.fondosPropiosPrev=num32(); fin.fondosPropios=num37(); }
-      if(t0.includes("Beneficio de la p")) { fin.beneficioPrev=num32(); fin.beneficioActual=num37(); }
-      if(t0.includes("MgV")) { fin.mgvPrev=num32(); fin.mgvActual=num37(); }
-      if(t0.includes("TIR")) { fin.tirPrev=num32(); fin.tirActual=num37(); }
-      if(t0.includes("Mom")) { fin.momPrev=num32(); fin.momActual=num37(); }
-      if(t0.includes("Beneficio / Fondos")) { fin.roePrev=num32(); fin.roeActual=num37(); }
-      if(t0.includes("REI")) { fin.reiPrev=num32(); fin.reiActual=num37(); }
-      if(t0.includes("Duración total")||t0.includes("Meses ejecución")) fin.duracionMeses=num37()||num32();
+      // ── Basic project info: col4=label, col15=value ──
+      if(t4==="Parcela"||t4==="Promoción")        fin.nombre         = tv(r,15)||fin.nombre;
+      if(t4==="Localidad")                         fin.localidad      = tv(r,15)||fin.localidad;
+      if(t4==="Número de Viviendas")               fin.numViviendas   = nv(r,15)||fin.numViviendas;
+      if(t4==="Edificabilidad")                    fin.edificabilidad = nv(r,15)||fin.edificabilidad;
+
+      // ── Calendar: col37=label text, col46=months, col47=date ──
+      if(t37.includes("inicio de obra"))           fin.fechaInicioObra = excelDateToISO(r[47]||r[46]);
+      if(t37.includes("Obtención licencia")||t37.includes("licencia de obra")) fin.fechaLicencia = excelDateToISO(r[47]||r[46]);
+      if(t37.includes("escritura"))                fin.fechaEntrega    = excelDateToISO(r[47]||r[46]);
+      if(t37.includes("Duración de obra"))         fin.duracionObra    = nv(r,46);
+      if(t37.includes("Meses ejecución"))          fin.duracionMeses   = nv(r,46);
+
+      // ── P&L: col5=label, col32=BP Prev/Proy, col37=BP Actual ──
+      // Accept both exact and partial matches for different formats
+      const t5u = t5.toUpperCase();
+      if(t5u==="VENTAS"||t5u==="A. VENTAS")                                      { if(!fin.ventasPrev){ fin.ventasPrev=nv(r,32); fin.ventasActual=nv(r,37); } }
+      if(t5u.includes("COMPRA DE SUELO")||t5u.includes("COMPRA SUELO"))          { if(!fin.sueloPrev){ fin.sueloPrev=nv(r,32); fin.sueloActual=nv(r,37); } }
+      if(t5u.includes("PRESUPUESTO DE CONTRATA")||t5u.includes("CONTRATA D")||t5u.includes("HARD COST")||t5u.includes("COSTES CONSTRUCCIÓN")) { if(!fin.hardPrev){ fin.hardPrev=nv(r,32); fin.hardActual=nv(r,37); } }
+      if(t5u.includes("HONORARIOS")||t5u==="SOFT COST")                          { if(!fin.softPrev){ fin.softPrev=nv(r,32); fin.softActual=nv(r,37); } }
+      if(t5u==="GASTOS FINANCIEROS")                                              { if(!fin.financieroPrev){ fin.financieroPrev=nv(r,32); fin.financieroActual=nv(r,37); } }
+      if(t5u.includes("COMERCIALIZACIÓN"))                                        { if(!fin.comercialPrev){ fin.comercialPrev=nv(r,32); fin.comercialActual=nv(r,37); } }
+      if(t5u==="TOTAL GASTOS")                                                    { fin.totalGastosPrev=nv(r,32); fin.totalGastosActual=nv(r,37); }
+      if(t5u==="RESULTADO PLAN VIABILIDAD")                                       { fin.beneficioPrev=nv(r,32); fin.beneficioActual=nv(r,37); }
+
+      // ── KPIs: col3=label, col32=prev, col37=actual ──
+      const t3u = t3.toUpperCase();
+      if(t3.includes("Fondos Propios aportados"))  { fin.fondosPropiosPrev=nv(r,32); fin.fondosPropios=nv(r,37); }
+      if(t3.includes("Beneficio de la p"))         { if(!fin.beneficioActual||fin.beneficioActual===0){ fin.beneficioPrev=nv(r,32); fin.beneficioActual=nv(r,37); } }
+      if(t3.includes("Beneficio / Fondos"))        { fin.roePrev=nv(r,32); fin.roeActual=nv(r,37); }
+      if(t3.includes("MgV"))                       { fin.mgvPrev=nv(r,32); fin.mgvActual=nv(r,37); }
+      if(t3==="TIR (pretax)"||t3==="TIR pretax")  { fin.tirPrev=nv(r,32); fin.tirActual=nv(r,37); }
+      if(t3==="TIR pretax"||t3.startsWith("TIR (pretax)")) { fin.tirPrev=nv(r,32)||fin.tirPrev; fin.tirActual=nv(r,37)||fin.tirActual; }
+      if(t3.includes("Mom (pretax)"))              { fin.momPrev=nv(r,32); fin.momActual=nv(r,37); }
+      if(t3.includes("REI"))                       { fin.reiPrev=nv(r,32); fin.reiActual=nv(r,37); }
+      if(t3.includes("RRP"))                       { fin.rrpPrev=nv(r,32); fin.rrpActual=nv(r,37); }
     }
 
-    // ── 2. PL and KPIs sheet ──
-    // col 1=label, col 2=units, col 5=value
-    const pl = sheetRows("PL and KPIs");
-    for(let i=0;i<pl.length;i++){
-      const r=pl[i];
-      if(!r) continue;
-      const t1 = String(r[1]||"").trim();
-      const num5 = () => Number(r[5])||0;
-      const num2 = () => Number(r[2])||0;
-      if(t1==="Total GDV") fin.gdv=num5();
-      if(t1==="Total GDC") fin.gdc=num5();
-      if(t1==="Total selling costs") fin.sellingCosts=num5();
-      if(t1==="Net sales proceeds") fin.netSales=num5();
-      if(t1==="Plot adquisition") fin.plotCost=num5();
-      if(t1.includes("Hard Costs")) fin.hardCostPL=num5();
-      if(t1.includes("Soft Costs")) fin.softCostPL=num5();
-      if(t1.includes("Contingences")) fin.contingences=num5();
-      if(t1==="Total units"||t1==="Vivienda Tipo") { if(!fin.numViviendas) fin.numViviendas=num2(); }
-    }
-
-    // ── 3. Lista_Precios sheet ──
-    // Row 2 = header, rows 3+ = data
-    // col 0=tipo(VIV/PA), col 1=num, col 2=status, col 3=precio origen, cols 4..N=repricings (use last non-null)
-    const lp = sheetRows("Lista_Precios");
-    const viviendas = [];
-    const estadoMap = {
-      "reservado":"reservada","reservada":"reservada",
-      "libre":"disponible","disponible":"disponible",
-      "vendido":"vendida","vendida":"vendida",
-      "bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta","bloqueado":"no-venta",
-    };
-    // Start from row 3 (index 2 = header, 3+ = data)
-    for(let i=3;i<lp.length;i++){
-      const r=lp[i];
-      if(!r||r[0]==null) continue;
-      const tipo = String(r[0]||"").trim().toUpperCase();
-      if(tipo!=="VIV"&&tipo!=="PA") continue;
-      const ref = String(r[1]||"").trim();
-      if(!ref) continue;
-      const status = String(r[2]||"").trim().toLowerCase();
-      const precioOrigen = Number(r[3])||0;
-      if(!precioOrigen) continue;
-      // Find last non-null price (most recent repricing)
-      let precioActual = precioOrigen;
-      for(let c=4;c<r.length;c++){
-        if(r[c]!=null && Number(r[c])>0) precioActual=Number(r[c]);
+    // ── PL and KPIs sheet (Atabal format) ──
+    if(wb.Sheets["PL and KPIs"]) {
+      const plRows = sheetRows("PL and KPIs");
+      for(let i=0;i<plRows.length;i++){
+        const r=plRows[i]; if(!r) continue;
+        const t1=tv(r,1);
+        if(t1==="Net Profit (pre tax)")                       fin.netProfit      = nv(r,5);
+        if(t1==="Total GDV")                                  fin.gdv            = nv(r,5);
+        if(t1==="Total GDC"||t1==="Total costs")              fin.gdc            = nv(r,5);
+        if(t1.includes("Project Level IRR"))                  fin.irr            = nv(r,4)||nv(r,3);
+        if(t1==="Project Equity multiple"||t1==="Equity multiple") fin.equityMultiple = nv(r,4)||nv(r,3);
+        if(t1==="Duration (months)")                          fin.duracionMeses  = fin.duracionMeses||nv(r,3);
+        if(t1==="Equity")                                     fin.equityAmount   = nv(r,3);
+        if(t1==="Construction Loan Draws")                    fin.prestamo       = nv(r,3);
+        if(t1==="Sales")                                      fin.dineroCO       = nv(r,3);
+        if(t1==="Total selling costs")                        fin.sellingCosts   = nv(r,5);
+        if(t1.includes("Hard Costs"))                         fin.hardCostPL     = nv(r,5);
+        if(t1.includes("Soft Costs"))                         fin.softCostPL     = nv(r,5);
+        if(t1==="Plot adquisition"&&!fin.sueloActual)         fin.sueloActual    = nv(r,5);
       }
-      const estado = estadoMap[status]||"disponible";
-      viviendas.push({
-        id: Date.now()+Math.random(),
-        ref: `${tipo}-${ref}`,
-        tipologia: tipo==="VIV" ? "Vivienda" : "Parcela",
-        planta: tipo==="VIV" ? "—" : "Parcela",
-        superficie: 0,
-        precio: precioActual,
-        precioOrigen,
-        estado,
-        notas: precioActual!==precioOrigen ? `Origen: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen)}` : "",
-      });
+      // Fill gaps from PL sheet
+      if(!fin.ventasActual && fin.gdv)           fin.ventasActual   = fin.gdv;
+      if(!fin.totalGastosActual && fin.gdc)      fin.totalGastosActual = fin.gdc;
+      if(!fin.beneficioActual && fin.netProfit)  fin.beneficioActual = fin.netProfit;
+      if(!fin.tirActual && fin.irr)              fin.tirActual      = fin.irr;
+      if(!fin.hardActual && fin.hardCostPL)      fin.hardActual     = fin.hardCostPL;
+      if(!fin.softActual && fin.softCostPL)      fin.softActual     = fin.softCostPL;
+    }
+
+    // ── Lista_Precios sheet (Atabal format) ──
+    const viviendas = [];
+    if(wb.Sheets["Lista_Precios"]){
+      const lp = sheetRows("Lista_Precios");
+      const estadoMap = {"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
+      for(let i=0;i<lp.length;i++){
+        const r=lp[i]; if(!r||r[0]==null) continue;
+        const tipo=String(r[0]||"").trim().toUpperCase();
+        if(tipo!=="VIV"&&tipo!=="PA") continue;
+        const ref=String(r[1]||"").trim();
+        if(!ref||isNaN(Number(ref))) continue;
+        const precioOrigen=Number(r[3])||0;
+        if(!precioOrigen) continue;
+        let precioActual=precioOrigen;
+        for(let c=4;c<r.length;c++){if(r[c]!=null&&Number(r[c])>10000) precioActual=Number(r[c]);}
+        const status=String(r[2]||"").trim().toLowerCase();
+        viviendas.push({id:Date.now()+Math.random(),ref:`${tipo}-${ref}`,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"—":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?`Origen: ${new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen)}`:"",});
+      }
     }
     fin.viviendas = viviendas;
     result.ok = true;
@@ -342,9 +328,53 @@ const KpiCard = ({label,val,sub,color,prev,trend}) => (
 );
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+const CREDENTIALS = { user: "overviewre", pass: "ige84610e" };
+
+function LoginScreen({ onLogin }) {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const handleLogin = () => {
+    if(user.trim()===CREDENTIALS.user && pass===CREDENTIALS.pass) { onLogin(); }
+    else { setError(true); setTimeout(()=>setError(false),2500); }
+  };
+  return (
+    <div style={{height:"100vh",background:"#0d0f14",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{width:380,padding:"40px 36px",background:"#141720",borderRadius:20,border:"1px solid #252a3a",boxShadow:"0 24px 60px rgba(0,0,0,0.5)"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontWeight:800,fontSize:"1.6rem",letterSpacing:"-0.03em",marginBottom:6}}><span style={{color:"#4f8ef7"}}>Overview</span></div>
+          <div style={{fontSize:"0.78rem",color:"#6b7394"}}>Gestión de promociones inmobiliarias</div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Usuario</div>
+          <input value={user} onChange={e=>{setUser(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Introduce tu usuario" autoFocus style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:`1px solid ${error?"#f05a5a":"#252a3a"}`}}/>
+        </div>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Contraseña</div>
+          <div style={{position:"relative"}}>
+            <input value={pass} onChange={e=>{setPass(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} type={showPass?"text":"password"} placeholder="Introduce tu contraseña" style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:`1px solid ${error?"#f05a5a":"#252a3a"}`,paddingRight:40}}/>
+            <button onClick={()=>setShowPass(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#6b7394",cursor:"pointer",fontSize:"0.85rem",padding:0}}>{showPass?"🙈":"👁"}</button>
+          </div>
+        </div>
+        {error&&<div style={{background:"rgba(240,90,90,0.1)",border:"1px solid rgba(240,90,90,0.3)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.82rem",color:"#f05a5a",textAlign:"center"}}>Usuario o contraseña incorrectos</div>}
+        <button onClick={handleLogin} style={{width:"100%",background:"#4f8ef7",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:"0.95rem",cursor:"pointer",fontFamily:"inherit"}}
+          onMouseEnter={e=>e.currentTarget.style.filter="brightness(1.1)"} onMouseLeave={e=>e.currentTarget.style.filter="brightness(1)"}>
+          Entrar
+        </button>
+        <div style={{textAlign:"center",marginTop:20,fontSize:"0.72rem",color:"#3a4060"}}>Overview Real Estate © {new Date().getFullYear()}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Overview() {
+  const [loggedIn, setLoggedIn] = useState(()=>sessionStorage.getItem("ov_auth")==="1");
+  const handleLogin = () => { sessionStorage.setItem("ov_auth","1"); setLoggedIn(true); };
+  if(!loggedIn) return <LoginScreen onLogin={handleLogin}/>;
+
   const [projects, setProjects] = useState(() => {
-    try { const s=localStorage.getItem("ov8"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
+    try { const s=localStorage.getItem("ov9"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
   });
   const [view, setView] = useState("dashboard");
   const [activeId, setActiveId] = useState(null);
@@ -368,7 +398,7 @@ export default function Overview() {
 
   const proj=projects.find(p=>p.id===activeId);
 
-  useEffect(()=>{ try{localStorage.setItem("ov8",JSON.stringify(projects));}catch{} },[projects]);
+  useEffect(()=>{ try{localStorage.setItem("ov9",JSON.stringify(projects));}catch{} },[projects]);
   useEffect(()=>{ if(proj) setResumenLocal(proj.resumenSemanal||""); },[activeId]);
 
   const save=fn=>setProjects(prev=>fn(prev));
@@ -383,7 +413,7 @@ export default function Overview() {
   // Project CRUD
   const openNewP=useCallback(()=>{ projIsEdit.current=false; setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""}); setModal("proj"); },[]);
   const openEditP=useCallback(()=>{ if(!proj) return; projIsEdit.current=true; editId.current=proj.id; setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""}); setModal("proj"); },[proj]);
-  const saveP=useCallback(()=>{ if(!pF.name.trim()) return; if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");} setModal(null); },[pF,upd]);
+  const saveP=useCallback(()=>{ if(!pF.name.trim()) return; if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");} setModal(null); },[pF,upd]);
   const delP=useCallback(id=>{ if(!confirm("¿Eliminar esta promoción?")) return; save(prev=>prev.filter(p=>p.id!==id)); setView("dashboard"); setActiveId(null); },[]);
 
   // Hitos
@@ -420,8 +450,201 @@ export default function Overview() {
   // SheetJS loader
   useEffect(()=>{ if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);} },[]);
 
-  // Vivienda file import (existing format)
-  const handleVivFile=useCallback(e=>{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=ev=>{ if(!window.XLSX){alert("SheetJS cargando...");return;} try{ const wb=window.XLSX.read(ev.target.result,{type:"binary"}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:true}); if(!rows.length) return; let hdrIdx=-1; for(let i=0;i<Math.min(rows.length,10);i++){const r=rows[i].map(c=>String(c||"").toLowerCase().trim());if(r.some(c=>c==="núm"||c==="num"||c==="ref"||c.includes("pvp")||c.includes("precio"))){hdrIdx=i;break;}} if(hdrIdx===-1){alert("No se encontró cabecera reconocible.");return;} const headers=rows[hdrIdx].map(c=>String(c||"").trim()); const idx={}; headers.forEach((h,i)=>{const hl=h.toLowerCase();if(hl==="núm"||hl==="num"||hl==="nº"||hl==="n"||hl==="ref"||hl==="referencia"||hl==="unidad") idx.ref=i;if((hl==="pvp"||hl==="pvp 2")&&idx.pvp===undefined) idx.pvp=i;if((hl==="precio"||hl==="precio venta")&&idx.precio===undefined) idx.precio=i;if(hl.includes("m2 útil")||hl.includes("util int")) idx.sup=i;if(hl==="dor"||hl==="dormitorios") idx.dor=i;if(hl.includes("orientac")) idx.ori=i;if(hl.includes("reserva")) idx.res=i;}); const vvs=[]; for(let i=hdrIdx+1;i<rows.length;i++){const r=rows[i]; const ref=String(idx.ref!==undefined?r[idx.ref]:"").trim(); if(!ref||isNaN(Number(ref))) continue; const priceRaw=idx.pvp!==undefined?r[idx.pvp]:(idx.precio!==undefined?r[idx.precio]:0); const precio=parsePrice(priceRaw||0); if(!precio) continue; const resVal=idx.res!==undefined?String(r[idx.res]||"").trim():""; const estado=resVal&&resVal!=="0"?"reservada":"disponible"; const dor=Number(idx.dor!==undefined?r[idx.dor]:0)||0; vvs.push({id:Date.now()+Math.random(),ref,tipologia:dor?`${dor} dorm.`:"—",planta:"—",superficie:parseFloat(String(idx.sup!==undefined?r[idx.sup]:"").replace(",","."))||0,precio,estado,notas:idx.ori!==undefined?String(r[idx.ori]||""):""}); } if(!vvs.length){alert("No se encontraron viviendas con precio.");return;} upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...vvs]})); alert(`✅ ${vvs.length} viviendas importadas`); }catch(err){alert("Error: "+err.message);} }; reader.readAsBinaryString(file); e.target.value=""; },[activeId,upd]);
+  // Vivienda file import — universal (all formats: Atabal, BLOQUE A/B, etc.)
+  const handleVivFile=useCallback(e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.XLSX){alert("SheetJS cargando, espera 2 segundos e intenta de nuevo.");return;}
+      try{
+        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const allVvs=[];
+        const multiSheet=wb.SheetNames.length>1;
+        const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
+
+        wb.SheetNames.forEach(sheetName=>{
+          const ws=wb.Sheets[sheetName];
+          if(!ws) return;
+          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+          if(!rows||rows.length<2) return;
+
+          // ── Detect format ──
+          // Normalize: remove accents/special chars for robust matching
+          const norm = s => String(s||"").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 .]/g,"").trim();
+          let isNvogaFormat = false;
+          let hdrIdx=-1;
+          for(let i=0;i<Math.min(rows.length,25);i++){
+            const r=(rows[i]||[]).map(c=>norm(c));
+            const hasBloque = r.some(c=>c==="bloque");
+            const hasApto = r.some(c=>c.includes("apto"));
+            const hasTipologia = r.some(c=>c==="tipologia");
+            if(hasBloque && (hasApto || hasTipologia)) { isNvogaFormat=true; hdrIdx=i; break; }
+            if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
+          }
+          if(hdrIdx===-1) return;
+
+          if(isNvogaFormat) {
+            // Senior Living / Nvoga format — use normalized headers
+            const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
+            const iBloque=headers.findIndex(h=>h==="bloque");
+            const iApto=headers.findIndex(h=>h.includes("apto"));
+            const iTipo=headers.findIndex(h=>h==="tipologia");
+            const iPlanta=headers.findIndex(h=>h==="planta");
+            const iSup=headers.findIndex(h=>h.includes("total")&&h.includes("m2"));
+            const iTerraza=headers.findIndex(h=>h.includes("terraza"));
+            // Price: prefer PRICING ESC. 1 (col 18), fallback to first pricing col
+            // Price col: find "pricing esc. 1" or first "pricing" col, fallback to col 18
+            const iPrecio=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
+            const iPrecioFallback=iPrecio===-1?headers.findIndex(h=>h.includes("pricing")):iPrecio;
+            const priceCol=iPrecio!==-1?iPrecio:(iPrecioFallback!==-1?iPrecioFallback:18);
+            const supCol=iSup!==-1?iSup:10;
+            const terrazaCol=iTerraza!==-1?iTerraza:11;
+
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i]; if(!r) continue;
+              const apto=String(r[iApto!==-1?iApto:1]||"").trim();
+              if(!apto||isNaN(Number(apto))) continue;
+              const precio=Number(r[priceCol])||0;
+              if(!precio||precio<1000) continue;
+              const bloque=String(r[iBloque!==-1?iBloque:0]||"").trim();
+              const tipo=String(r[iTipo!==-1?iTipo:2]||"").trim();
+              const planta=String(r[iPlanta!==-1?iPlanta:3]||"").trim();
+              const sup=parseFloat(String(r[supCol]||"").replace(",","."))||0;
+              const terraza=parseFloat(String(r[terrazaCol]||"").replace(",","."))||0;
+              allVvs.push({
+                id:Date.now()+Math.random(),
+                ref:`B${bloque}-${apto}`,
+                tipologia:tipo||"—",
+                planta:planta?`Planta ${planta}`:"—",
+                superficie:sup,
+                precio,
+                estado:"disponible",
+                notas:terraza?`Terraza: ${terraza}m²`:"",
+              });
+            }
+          } else {
+            // Standard format (Atabal, Pintor Losada, etc.)
+            const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+            const idx={};
+            headers.forEach((h,i)=>{
+              if((h.includes("vivend")||h==="núm"||h==="num"||h==="nº"||h==="ref"||h==="referencia"||h==="unidad")&&idx.ref===undefined) idx.ref=i;
+              if((h.includes("pvp")||h==="precio venta"||h==="precio"||h.includes("precio esc"))&&idx.pvp===undefined) idx.pvp=i;
+              if((h.includes("m² útil")||h.includes("m2 útil")||h.includes("útil")||h.includes("util int"))&&idx.sup===undefined) idx.sup=i;
+              if((h==="habitación"||h==="habitaciones"||h==="dor"||h==="dormitorios"||h==="hab")&&idx.dor===undefined) idx.dor=i;
+              if(h==="estado"&&idx.estado===undefined) idx.estado=i;
+              if(h.includes("reserva")&&idx.reserva===undefined) idx.reserva=i;
+              if(h.includes("terraza")&&idx.terraza===undefined) idx.terraza=i;
+              if((h.includes("jardín")||h.includes("jardin"))&&idx.jardin===undefined) idx.jardin=i;
+              if(h.includes("orientac")&&idx.ori===undefined) idx.ori=i;
+            });
+            if(idx.ref===undefined||idx.pvp===undefined) return;
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i]; if(!r) continue;
+              const ref=String(r[idx.ref]||"").trim();
+              if(!ref||ref.toLowerCase().includes("total")) continue;
+              const precio=parsePrice(r[idx.pvp]||0);
+              if(!precio||precio<1000) continue;
+              let estado="disponible";
+              if(idx.estado!==undefined&&r[idx.estado]!=null){
+                estado=estadoMap[String(r[idx.estado]||"").toLowerCase().trim()]||"disponible";
+              } else if(idx.reserva!==undefined&&r[idx.reserva]!=null){
+                const rv=String(r[idx.reserva]||"").trim();
+                if(rv&&rv!=="0") estado="reservada";
+              }
+              const sup=idx.sup!==undefined?parseFloat(String(r[idx.sup]||"").replace(",","."))||0:0;
+              const dor=idx.dor!==undefined?Number(r[idx.dor]||0)||0:0;
+              const terraza=idx.terraza!==undefined?parseFloat(String(r[idx.terraza]||"").replace(",","."))||0:0;
+              const jardin=idx.jardin!==undefined?parseFloat(String(r[idx.jardin]||"").replace(",","."))||0:0;
+              const ori=idx.ori!==undefined?String(r[idx.ori]||"").trim():"";
+              const notas=[ori?`Orient: ${ori}`:"",terraza?`Terraza: ${terraza}m²`:"",jardin?`Jardín: ${jardin}m²`:""].filter(Boolean).join(" · ");
+              allVvs.push({
+                id:Date.now()+Math.random(),
+                ref:multiSheet?`${sheetName}-${ref}`:ref,
+                tipologia:dor?`${dor} dorm.`:"—",
+                planta:"—",
+                superficie:sup,
+                precio,
+                estado,
+                notas,
+              });
+            }
+          }
+        });
+
+        if(!allVvs.length){alert("No se encontraron viviendas con precio.\nRevisa que el Excel tenga columnas de referencia (Vivienda/Ref/Núm) y precio (PVP/Precio venta).");return;}
+        upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...allVvs]}));
+        alert(`✅ ${allVvs.length} viviendas importadas correctamente`);
+      }catch(err){alert("Error leyendo el archivo: "+err.message);}
+    };
+    reader.readAsBinaryString(file);
+    e.target.value="";
+  },[activeId,upd]);
+
+  // ── MARKETING FILE IMPORT ──
+  const handleMktFile=useCallback(e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.XLSX){alert("SheetJS cargando, espera 2s.");return;}
+      try{
+        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const partidas=[];
+        const sheets=[];
+
+        wb.SheetNames.forEach(sheetName=>{
+          const ws=wb.Sheets[sheetName];
+          if(!ws) return;
+          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+          if(!rows||rows.length<2) return;
+
+          // Find header row
+          let hdrIdx=-1;
+          for(let i=0;i<Math.min(rows.length,5);i++){
+            const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
+            if(r.some(c=>c.includes("proveedor")||c.includes("tipo")||c.includes("acción")||c.includes("accion")||c.includes("tipo campaña"))){hdrIdx=i;break;}
+          }
+          if(hdrIdx===-1) return;
+
+          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
+          const iProveedor=headers.findIndex(h=>h.includes("proveedor"));
+          const iTipo=headers.findIndex(h=>h.includes("tipo"));
+          const iAccion=headers.findIndex(h=>h.includes("acci"));
+          const iDetalle=headers.findIndex(h=>h.includes("detall"));
+          const iInicio=headers.findIndex(h=>h.includes("inicio"));
+          const iFin=headers.findIndex(h=>h.includes("fin"));
+          const iTotal=headers.findIndex(h=>h.includes("total")||h.includes("presupuesto"));
+
+          if(iTotal===-1&&iAccion===-1) return;
+          sheets.push(sheetName);
+
+          for(let i=hdrIdx+1;i<rows.length;i++){
+            const r=rows[i]; if(!r) continue;
+            const accion=String(r[iAccion!==-1?iAccion:0]||"").trim();
+            if(!accion||accion.toLowerCase()==="total"||accion.toLowerCase()==="totales") continue;
+            const totalRaw=iTotal!==-1?r[iTotal]:null;
+            const total=Number(totalRaw)||0;
+            if(!accion&&!total) continue;
+            const categoria=String(r[iTipo!==-1?iTipo:1]||"").trim()||"Sin categoría";
+            partidas.push({
+              categoria,
+              proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),
+              accion,
+              detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),
+              inicio:r[iInicio!==-1?iInicio:4]?String(r[iInicio!==-1?iInicio:4]).substring(0,10):"",
+              fin:r[iFin!==-1?iFin:5]?String(r[iFin!==-1?iFin:5]).substring(0,10):"",
+              total,
+            });
+          }
+        });
+
+        if(!partidas.length){alert("No se encontraron partidas de marketing. Revisa el formato del archivo.");return;}
+        upd(activeId,p=>({...p,marketing:{partidas,sheets,importado:new Date().toISOString().split("T")[0]}}));
+        alert("✅ "+partidas.length+" partidas de marketing importadas");
+      }catch(err){alert("Error: "+err.message);}
+    };
+    reader.readAsBinaryString(file);
+    e.target.value="";
+  },[activeId,upd]);
 
   // ── BP FILE IMPORT ──
   const handleBPFile=useCallback(e=>{ const file=e.target.files[0]; if(!file) return; setBpImporting(true); const reader=new FileReader(); reader.onload=ev=>{ if(!window.XLSX){alert("SheetJS cargando, espera 2s e intenta de nuevo.");setBpImporting(false);return;} try{ const wb=window.XLSX.read(ev.target.result,{type:"binary",cellDates:true}); const result=parseBP(wb); if(!result.ok){alert("Error parseando BP: "+result.error);setBpImporting(false);return;} setBpPreview(result.data); setModal("bpPreview"); }catch(err){alert("Error: "+err.message);} setBpImporting(false); }; reader.readAsBinaryString(file); e.target.value=""; },[]);
@@ -554,7 +777,7 @@ export default function Overview() {
                 ))}
               </div>
               <div style={{display:"flex",overflowX:"auto"}}>
-                {[{id:"hitos",l:"🏗 Hitos"},{id:"bp",l:`📊 Business Plan${proj.bp?" ✓":""}`},{id:"viviendas",l:`🏠 Viviendas${st.total>0?` (${st.total})`:""}`},{id:"comercial",l:"📈 Comercial"},{id:"equipo",l:"👥 Equipo"},{id:"blockers",l:`🚧 Alertas${proj.blockers.length>0?` (${proj.blockers.length})`:""}`},{id:"tareas",l:`✅ Tareas${proj.tareas.filter(t=>!t.done).length>0?` (${proj.tareas.filter(t=>!t.done).length})`:""}`},{id:"reporte",l:"📝 Reporte"}].map(t=>(
+                {[{id:"hitos",l:"🏗 Hitos"},{id:"bp",l:`📊 Business Plan${proj.bp?" ✓":""}`},{id:"viviendas",l:`🏠 Viviendas${st.total>0?` (${st.total})`:""}`},{id:"marketing",l:`📢 Marketing${proj.marketing?" ✓":""}`},{id:"comercial",l:"📈 Comercial"},{id:"equipo",l:"👥 Equipo"},{id:"blockers",l:`🚧 Alertas${proj.blockers.length>0?` (${proj.blockers.length})`:""}`},{id:"tareas",l:`✅ Tareas${proj.tareas.filter(t=>!t.done).length>0?` (${proj.tareas.filter(t=>!t.done).length})`:""}`},{id:"reporte",l:"📝 Reporte"}].map(t=>(
                   <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",borderBottom:`2px solid ${tab===t.id?"#4f8ef7":"transparent"}`,color:tab===t.id?"#e8eaf2":"#6b7394",padding:"9px 14px",cursor:"pointer",fontSize:"0.79rem",fontWeight:tab===t.id?700:400,fontFamily:"inherit",whiteSpace:"nowrap"}}>{t.l}</button>
                 ))}
               </div>
@@ -749,6 +972,118 @@ export default function Overview() {
                 )}
               </div>}
 
+              {/* MARKETING */}
+              {tab==="marketing"&&<div>
+                {!proj.marketing?(
+                  <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+                    <div style={{fontSize:"2.5rem",marginBottom:10}}>📢</div>
+                    <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Sin planificación de marketing</div>
+                    <div style={{fontSize:"0.8rem",marginBottom:20}}>
+                      {proj.bp?.comercialActual
+                        ? <span>Presupuesto del BP disponible: <strong style={{color:"#22d3a0"}}>{fmtEur(proj.bp.comercialActual)}</strong></span>
+                        : "Importa primero el BP para ver el presupuesto disponible, o sube directamente tu planificación."}
+                    </div>
+                    <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
+                      📥 Importar planificación de marketing (.xlsx)
+                      <input type="file" accept=".xlsx,.xls" onChange={handleMktFile} style={{display:"none"}}/>
+                    </label>
+                  </div>
+                ):(()=>{
+                  const mkt = proj.marketing;
+                  const presupuestoBP = proj.bp?.comercialActual||0;
+                  const totalPlanificado = mkt.partidas.reduce((a,p)=>a+p.total,0);
+                  const pctUsado = presupuestoBP>0 ? Math.min(100,Math.round(totalPlanificado/presupuestoBP*100)) : 0;
+                  const restante = presupuestoBP - totalPlanificado;
+
+                  // Group by category
+                  const byCat = {};
+                  mkt.partidas.forEach(p=>{
+                    if(!byCat[p.categoria]) byCat[p.categoria]={total:0,items:[]};
+                    byCat[p.categoria].total+=p.total;
+                    byCat[p.categoria].items.push(p);
+                  });
+
+                  return <div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:"0.95rem"}}>Planificación de Marketing — {proj.name}</div>
+                        <div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {mkt.partidas.length} partidas · {mkt.sheets?.join(", ")}</div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
+                          🔄 Actualizar
+                          <input type="file" accept=".xlsx,.xls" onChange={handleMktFile} style={{display:"none"}}/>
+                        </label>
+                        <button onClick={()=>upd(activeId,p=>({...p,marketing:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>✕ Borrar</button>
+                      </div>
+                    </div>
+
+                    {/* KPI cards */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:18}}>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Presupuesto BP</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:presupuestoBP>0?"#22d3a0":"#6b7394"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP"}</div>
+                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>Del Business Plan</div>}
+                      </div>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Total planificado</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</div>
+                        <div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas</div>
+                      </div>
+                      <div style={{background:"#141720",borderRadius:12,border:`1px solid ${restante<0?"rgba(240,90,90,0.3)":"#252a3a"}`,padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:presupuestoBP===0?"#6b7394":restante<0?"#f05a5a":"#22d3a0"}}>{presupuestoBP>0?fmtEur(restante):"—"}</div>
+                        {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#f05a5a":"#6b7394",marginTop:2}}>{restante<0?"⚠ Excedido":"Disponible"}</div>}
+                      </div>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% Consumido</div>
+                        <div style={{fontSize:"1.2rem",fontWeight:800,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#e8eaf2"}}>{presupuestoBP>0?`${pctUsado}%`:"—"}</div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    {presupuestoBP>0&&<div style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"14px 18px",marginBottom:16}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                        <span style={{fontSize:"0.78rem",color:"#6b7394"}}>Gasto vs presupuesto BP</span>
+                        <span style={{fontSize:"0.82rem",fontWeight:700,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{fmtEur(totalPlanificado)} / {fmtEur(presupuestoBP)}</span>
+                      </div>
+                      <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${Math.min(pctUsado,100)}%`,background:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#4f8ef7",borderRadius:5,transition:"width 0.3s"}}/>
+                      </div>
+                    </div>}
+
+                    {/* By category */}
+                    <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
+                      <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem"}}>📂 Por categoría</div>
+                      {Object.entries(byCat).map(([cat,data],ci)=>(
+                        <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #1c2030":"none"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
+                            <div style={{fontWeight:600,fontSize:"0.84rem"}}>{cat}</div>
+                            <div style={{fontSize:"0.82rem",fontWeight:700,color:"#4f8ef7"}}>{fmtEur(data.total)}</div>
+                            <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{data.items.length} partida{data.items.length!==1?"s":""}</div>
+                          </div>
+                          {data.items.map((item,ii)=>(
+                            <div key={ii} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <div>
+                                <div style={{fontSize:"0.8rem"}}>{item.accion}{item.detalle?<span style={{color:"#6b7394"}}> · {item.detalle}</span>:""}</div>
+                                {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                              </div>
+                              <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
+                              <div style={{fontSize:"0.72rem",color:"#6b7394"}}>
+                                {item.inicio&&<span>{item.inicio}</span>}
+                                {item.inicio&&item.fin&&<span> → </span>}
+                                {item.fin&&<span>{item.fin}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>;
+                })()}
+              </div>}
+
               {/* COMERCIAL */}
               {tab==="comercial"&&<div>
                 <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Métricas comerciales</div>
@@ -823,7 +1158,7 @@ export default function Overview() {
                 </div>
                 <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px"}}>
                   <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:13}}>Checklist</div>
-                  {[{label:"BP cargado",ok:!!proj.bp},{label:"Viviendas cargadas",ok:st.total>0},{label:"Hitos actualizados",ok:proj.hitos.some(h=>h.estado!=="pendiente")},{label:"Resumen guardado (mín. 20 caracteres)",ok:(proj.resumenSemanal||"").length>20},{label:"Tareas asignadas con responsable",ok:proj.tareas.length>0&&proj.tareas.every(t=>t.responsable)}].map((item,i,arr)=>(
+                  {[{label:"BP cargado",ok:!!proj.bp},{label:"Marketing planificado",ok:!!proj.marketing},{label:"Viviendas cargadas",ok:st.total>0},{label:"Hitos actualizados",ok:proj.hitos.some(h=>h.estado!=="pendiente")},{label:"Resumen guardado (mín. 20 caracteres)",ok:(proj.resumenSemanal||"").length>20},{label:"Tareas asignadas con responsable",ok:proj.tareas.length>0&&proj.tareas.every(t=>t.responsable)}].map((item,i,arr)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<arr.length-1?"1px solid #252a3a":"none"}}>
                       <div style={{width:20,height:20,borderRadius:6,background:item.ok?"rgba(34,211,160,0.12)":"rgba(240,90,90,0.08)",border:`1px solid ${item.ok?"#22d3a0":"#f05a5a"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",color:item.ok?"#22d3a0":"#f05a5a",flexShrink:0}}>{item.ok?"✓":"✕"}</div>
                       <div style={{fontSize:"0.83rem",color:item.ok?"#e8eaf2":"#6b7394"}}>{item.label}</div>
