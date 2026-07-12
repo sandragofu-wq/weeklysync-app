@@ -350,7 +350,51 @@ const KpiCard = ({label,val,sub,color,prev,trend}) => (
 );
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+const CREDENTIALS = { user: "overviewre", pass: "ige84610e" };
+
+function LoginScreen({ onLogin }) {
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [error, setError] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const handleLogin = () => {
+    if(user.trim()===CREDENTIALS.user && pass===CREDENTIALS.pass) { onLogin(); }
+    else { setError(true); setTimeout(()=>setError(false),2500); }
+  };
+  return (
+    <div style={{height:"100vh",background:"#0d0f14",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{width:380,padding:"40px 36px",background:"#141720",borderRadius:20,border:"1px solid #252a3a",boxShadow:"0 24px 60px rgba(0,0,0,0.5)"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontWeight:800,fontSize:"1.6rem",letterSpacing:"-0.03em",marginBottom:6}}><span style={{color:"#4f8ef7"}}>Overview</span></div>
+          <div style={{fontSize:"0.78rem",color:"#6b7394"}}>Gestión de promociones inmobiliarias</div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Usuario</div>
+          <input value={user} onChange={e=>{setUser(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="Introduce tu usuario" autoFocus style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:`1px solid ${error?"#f05a5a":"#252a3a"}`}}/>
+        </div>
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Contraseña</div>
+          <div style={{position:"relative"}}>
+            <input value={pass} onChange={e=>{setPass(e.target.value);setError(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} type={showPass?"text":"password"} placeholder="Introduce tu contraseña" style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:`1px solid ${error?"#f05a5a":"#252a3a"}`,paddingRight:40}}/>
+            <button onClick={()=>setShowPass(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#6b7394",cursor:"pointer",fontSize:"0.85rem",padding:0}}>{showPass?"🙈":"👁"}</button>
+          </div>
+        </div>
+        {error&&<div style={{background:"rgba(240,90,90,0.1)",border:"1px solid rgba(240,90,90,0.3)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.82rem",color:"#f05a5a",textAlign:"center"}}>Usuario o contraseña incorrectos</div>}
+        <button onClick={handleLogin} style={{width:"100%",background:"#4f8ef7",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:"0.95rem",cursor:"pointer",fontFamily:"inherit"}}
+          onMouseEnter={e=>e.currentTarget.style.filter="brightness(1.1)"} onMouseLeave={e=>e.currentTarget.style.filter="brightness(1)"}>
+          Entrar
+        </button>
+        <div style={{textAlign:"center",marginTop:20,fontSize:"0.72rem",color:"#3a4060"}}>Overview Real Estate © {new Date().getFullYear()}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Overview() {
+  const [loggedIn, setLoggedIn] = useState(()=>sessionStorage.getItem("ov_auth")==="1");
+  const handleLogin = () => { sessionStorage.setItem("ov_auth","1"); setLoggedIn(true); };
+  if(!loggedIn) return <LoginScreen onLogin={handleLogin}/>;
+
   const [projects, setProjects] = useState(() => {
     try { const s=localStorage.getItem("ov8"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
   });
