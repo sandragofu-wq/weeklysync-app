@@ -374,7 +374,7 @@ export default function Overview() {
   if(!loggedIn) return <LoginScreen onLogin={handleLogin}/>;
 
   const [projects, setProjects] = useState(() => {
-    try { const s=localStorage.getItem("ov8"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
+    try { const s=localStorage.getItem("ov9"); if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));} return DEFAULT_PROJECTS; } catch { return DEFAULT_PROJECTS; }
   });
   const [view, setView] = useState("dashboard");
   const [activeId, setActiveId] = useState(null);
@@ -398,7 +398,7 @@ export default function Overview() {
 
   const proj=projects.find(p=>p.id===activeId);
 
-  useEffect(()=>{ try{localStorage.setItem("ov8",JSON.stringify(projects));}catch{} },[projects]);
+  useEffect(()=>{ try{localStorage.setItem("ov9",JSON.stringify(projects));}catch{} },[projects]);
   useEffect(()=>{ if(proj) setResumenLocal(proj.resumenSemanal||""); },[activeId]);
 
   const save=fn=>setProjects(prev=>fn(prev));
