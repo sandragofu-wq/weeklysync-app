@@ -1109,35 +1109,35 @@ export default function Overview(){
                 <div>
                   {!proj.master?(
                     <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
-                      <div style={{fontSize:"2.5rem",marginBottom:10}}>MC</div>
+                      <div style={{fontSize:"2rem",marginBottom:10}}>MC</div>
                       <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Master Comercial no cargado</div>
-                      <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa el master comercial para ver ventas, repricings, rescisiones y datos de compradores</div>
+                      <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa el master comercial para ver ventas, repricings y rescisiones</div>
                       <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
                         Importar Master Comercial (.xlsx)
                         <input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
                       </label>
                     </div>
                   ):(()=>{
-                    try {
                     const m=proj.master||{};
-                    const ventas=(m.ventas||[]).filter(v=>v&&v.ref);
-                    const rescisiones=m.rescisiones||[];
+                    const ventas=Array.isArray(m.ventas)?m.ventas.filter(Boolean):[];
+                    const rescisiones=Array.isArray(m.rescisiones)?m.rescisiones.filter(Boolean):[];
                     const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
                     const libres=ventas.filter(v=>v.status==="disponible");
-                    const rescindidas=ventas.filter(v=>v.status==="rescindida");
-                    const totalVentas=vendidas.reduce((a,v)=>a+(v.precio||0),0);
-                    const comisionTotal=vendidas.reduce((a,v)=>a+(v.comision||0),0);
-                    // Split viviendas vs parcelas for price averages
-                    const vivsVendidas=vendidas.filter(v=>v&&(v.tipo==="VIVIENDA"||(v.ref||'').toUpperCase().includes("-V")));
-                    const parcVendidas=vendidas.filter(v=>v&&(v.tipo!=="VIVIENDA"&&!(v.ref||'').toUpperCase().includes("-V")));
-                    const precioMedioVenta=vivsVendidas.length?Math.round(vivsVendidas.reduce((a,v)=>a+v.precio,0)/vivsVendidas.length):0;
-                    const precioMedioParc=parcVendidas.length?Math.round(parcVendidas.reduce((a,v)=>a+v.precio,0)/parcVendidas.length):0;
-                    const conRepricing=ventas.filter(v=>v.incremento>0);
-                    const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
+                    const totalVentas=vendidas.reduce((a,v)=>a+(Number(v.precio)||0),0);
+                    const comisionTotal=vendidas.reduce((a,v)=>a+(Number(v.comision)||0),0);
+                    const conRepricing=ventas.filter(v=>(Number(v.incremento)||0)>0);
+                    const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+(Number(v.incremento)||0),0)/conRepricing.length):0;
+                    const vivsV=vendidas.filter(v=>(v.tipo||"")==="VIVIENDA"||(v.ref||"").includes("-V"));
+                    const parcV=vendidas.filter(v=>(v.tipo||"")!=="VIVIENDA"&&!(v.ref||"").includes("-V"));
+                    const precioMedioViv=vivsV.length?Math.round(vivsV.reduce((a,v)=>a+(Number(v.precio)||0),0)/vivsV.length):0;
+                    const precioMedioParc=parcV.length?Math.round(parcV.reduce((a,v)=>a+(Number(v.precio)||0),0)/parcV.length):0;
                     return (
                       <div>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                          <div><div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado)} - {ventas.length} unidades</div></div>
+                          <div>
+                            <div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div>
+                            <div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado||"")} - {ventas.length} unidades</div>
+                          </div>
                           <div style={{display:"flex",gap:8}}>
                             <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
                               Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
@@ -1145,39 +1145,48 @@ export default function Overview(){
                             <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
                           </div>
                         </div>
-
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
-                          {[{l:"Total unidades",v:m.ventas.length,c:"#e8eaf2"},{l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},{l:"Disponibles",v:libres.length,c:"#4f8ef7"},{l:"Rescisiones",v:rescisiones.length,c:"#f05a5a"},{l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},{l:"Precio medio VIV",v:fmtEur(precioMedioVenta)},{l:"Precio medio PARC",v:fmtEur(precioMedioParc)},{l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},{l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"}].map(k=>(
+                          {[
+                            {l:"Total unidades",v:ventas.length,c:"#e8eaf2"},
+                            {l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},
+                            {l:"Disponibles",v:libres.length,c:"#4f8ef7"},
+                            {l:"Rescisiones",v:rescisiones.length,c:"#f05a5a"},
+                            {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},
+                            {l:"Precio medio VIV",v:fmtEur(precioMedioViv)},
+                            {l:"Precio medio PARC",v:fmtEur(precioMedioParc)},
+                            {l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},
+                            {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
+                          ].map(k=>(
                             <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
                               <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
                               <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
                             </div>
                           ))}
                         </div>
-
                         <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
-                          <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                            <span>Tabla de ventas y repricings</span>
-                            <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{vendidas.length} unidades vendidas/reservadas</span>
+                          <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
+                            <span>Tabla de ventas</span>
+                            <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{vendidas.length} comprometidas</span>
                           </div>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
-                            {["Ref","Tipo","Status","Precio origen","Precio actual","Incremento","m2 util","Fecha reserva"].map(h=>(
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
+                            {["Ref","Tipo","Status","Precio origen","Precio actual","Incremento","m2","F. Reserva"].map(h=>(
                               <div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>
                             ))}
                           </div>
                           <div style={{maxHeight:400,overflowY:"auto"}}>
-                            {ventas.filter(v=>v&&v.ref).map((v,i)=>{
-                              const statusKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");const vs=VIV_ESTADOS[statusKey]||VIV_ESTADOS.disponible;
-                              const hasInc=(v.incremento||0)>0;
+                            {ventas.map((v,i)=>{
+                              const sKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");
+                              const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
+                              const inc=Number(v.incremento)||0;
                               return (
-                                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
+                                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
                                   onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                  <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref}</div>
+                                  <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref||"-"}</div>
                                   <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
                                   <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
                                   <div style={{fontSize:"0.82rem",color:"#6b7394"}}>{fmtEur(v.precioOrigen)}</div>
                                   <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
-                                  <div style={{fontSize:"0.82rem",color:hasInc?"#22d3a0":"#6b7394",fontWeight:hasInc?600:400}}>{hasInc?"+"+fmtEur(v.incremento):"-"}</div>
+                                  <div style={{fontSize:"0.82rem",color:inc>0?"#22d3a0":"#6b7394",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
                                   <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.m2?v.m2+" m2":"-"}</div>
                                   <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{v.fReserva?fmt(v.fReserva):"-"}</div>
                                 </div>
@@ -1185,16 +1194,15 @@ export default function Overview(){
                             })}
                           </div>
                         </div>
-
                         {rescisiones.length>0&&(
-                          <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+                          <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden"}}>
                             <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({rescisiones.length})</div>
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(240,90,90,0.1)"}}>
-                              {["Ref","Fecha rescision","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
+                              {["Ref","Fecha","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
                             </div>
                             {rescisiones.map((r,i)=>(
                               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
-                                <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref}</div>
+                                <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref||"-"}</div>
                                 <div style={{fontSize:"0.78rem",color:"#f05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
                                 <div style={{fontSize:"0.82rem"}}>{fmtEur(r.precio)}</div>
                                 <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{r.nombre||"-"}</div>
@@ -1204,14 +1212,6 @@ export default function Overview(){
                         )}
                       </div>
                     );
-                    } catch(err) {
-                      return <div style={{padding:20,color:"#f05a5a",background:"#141720",borderRadius:12,border:"1px solid rgba(240,90,90,0.3)"}}>
-                        <div style={{fontWeight:700,marginBottom:8}}>Error en Master Comercial</div>
-                        <div style={{fontSize:"0.82rem",fontFamily:"monospace"}}>{err.message}</div>
-                        <div style={{fontSize:"0.75rem",color:"#6b7394",marginTop:8}}>Borrar y reimportar el master puede solucionar el problema.</div>
-                        <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{marginTop:12,background:"#f05a5a",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontFamily:"inherit"}}>Borrar master</button>
-                      </div>;
-                    }
                   })()}
                 </div>
               )}
