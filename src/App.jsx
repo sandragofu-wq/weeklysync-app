@@ -401,6 +401,115 @@ function LoginScreen({onLogin}){
   );
 }
 
+
+const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTADOS}) => {
+  if(!proj.master) return (
+    <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+      <div style={{fontSize:"2rem",marginBottom:10}}>MC</div>
+      <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Master Comercial no cargado</div>
+      <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa el master comercial para ver ventas, repricings y rescisiones</div>
+      <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
+        Importar Master Comercial (.xlsx)
+        <input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
+      </label>
+    </div>
+  );
+  const m=proj.master||{};
+  const ventas=Array.isArray(m.ventas)?m.ventas.filter(Boolean):[];
+  const rescisiones=Array.isArray(m.rescisiones)?m.rescisiones.filter(Boolean):[];
+  const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
+  const libres=ventas.filter(v=>v.status==="disponible");
+  const totalVentas=vendidas.reduce((a,v)=>a+(Number(v.precio)||0),0);
+  const comisionTotal=vendidas.reduce((a,v)=>a+(Number(v.comision)||0),0);
+  const conRepricing=ventas.filter(v=>(Number(v.incremento)||0)>0);
+  const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+(Number(v.incremento)||0),0)/conRepricing.length):0;
+  const vivsV=vendidas.filter(v=>(v.tipo||"")==="VIVIENDA"||(v.ref||"").includes("-V"));
+  const parcV=vendidas.filter(v=>(v.tipo||"")!=="VIVIENDA"&&!(v.ref||"").includes("-V"));
+  const precioMedioViv=vivsV.length?Math.round(vivsV.reduce((a,v)=>a+(Number(v.precio)||0),0)/vivsV.length):0;
+  const precioMedioParc=parcV.length?Math.round(parcV.reduce((a,v)=>a+(Number(v.precio)||0),0)/parcV.length):0;
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div>
+          <div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div>
+          <div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado||"")} - {ventas.length} unidades</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
+            Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
+          </label>
+          <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
+        {[
+          {l:"Total unidades",v:ventas.length,c:"#e8eaf2"},
+          {l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},
+          {l:"Disponibles",v:libres.length,c:"#4f8ef7"},
+          {l:"Rescisiones",v:rescisiones.length,c:"#f05a5a"},
+          {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},
+          {l:"Precio medio VIV",v:fmtEur(precioMedioViv)},
+          {l:"Precio medio PARC",v:fmtEur(precioMedioParc)},
+          {l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},
+          {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
+        ].map(k=>(
+          <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
+            <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
+            <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
+        <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
+          <span>Tabla de ventas</span>
+          <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{vendidas.length} comprometidas</span>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
+          {["Ref","Tipo","Status","Precio origen","Precio actual","Incremento","m2","F. Reserva"].map(h=>(
+            <div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>
+          ))}
+        </div>
+        <div style={{maxHeight:400,overflowY:"auto"}}>
+          {ventas.map((v,i)=>{
+            const sKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");
+            const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
+            const inc=Number(v.incremento)||0;
+            return (
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref||"-"}</div>
+                <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
+                <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
+                <div style={{fontSize:"0.82rem",color:"#6b7394"}}>{fmtEur(v.precioOrigen)}</div>
+                <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
+                <div style={{fontSize:"0.82rem",color:inc>0?"#22d3a0":"#6b7394",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
+                <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.m2?v.m2+" m2":"-"}</div>
+                <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{v.fReserva?fmt(v.fReserva):"-"}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {rescisiones.length>0&&(
+        <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden"}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({rescisiones.length})</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(240,90,90,0.1)"}}>
+            {["Ref","Fecha","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
+          </div>
+          {rescisiones.map((r,i)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
+              <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref||"-"}</div>
+              <div style={{fontSize:"0.78rem",color:"#f05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
+              <div style={{fontSize:"0.82rem"}}>{fmtEur(r.precio)}</div>
+              <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{r.nombre||"-"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 class ErrorBoundary extends React.Component {
   constructor(props){super(props);this.state={hasError:false,error:null};}
   static getDerivedStateFromError(error){return {hasError:true,error};}
@@ -621,7 +730,98 @@ export default function Overview(){
     e.target.value="";
   },[activeId,upd]);
 
-  const handleBPFile=useCallback(e=>{
+  const handleMasterFile=useCallback(e=>{
+    const file=e.target.files[0];if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.XLSX){alert("SheetJS cargando.");return;}
+      try{
+        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const result={ventas:[],rescisiones:[]};
+        const toISO=v=>{if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");}if(s.length>=10&&s.includes("-")) return s.substring(0,10);return "";};
+        const toN=v=>{const n=Number(v);return isNaN(n)?0:n;};
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        if(ws){
+          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+          let hdrIdx=-1;
+          for(let i=0;i<Math.min(rows.length,8);i++){
+            const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().trim());
+            if(r.some(c=>c==="VVDA"||c==="VIVIENDA")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO"))){hdrIdx=i;break;}
+          }
+          if(hdrIdx>=0){
+            const hdr=(rows[hdrIdx]||[]).map(c=>String(c||"").toUpperCase().trim());
+            const iRef=hdr.findIndex(h=>h==="VVDA"||h==="VIVIENDA"||h==="REF");
+            const iTipo=hdr.findIndex(h=>h==="TIPOLOGIA");
+            const iStatus=hdr.findIndex(h=>h.includes("STATUS COMERCIAL"));
+            const iPrecio=hdr.findIndex(h=>h==="PRECIO DE VENTA");
+            const iPrecioOrigen=hdr.findIndex(h=>h.includes("PRECIO ORIGEN"));
+            const iM2=hdr.findIndex(h=>h==="M2 UTIL INT"||h==="M2 UTIL");
+            const iNombre=hdr.findIndex(h=>h==="NOMBRE 1"||h==="NOMBRE");
+            const iAgencia=hdr.findIndex(h=>h==="AGENCIA");
+            const iFReserva=hdr.findIndex(h=>h==="F. RESERVA");
+            const iFCpcv=hdr.findIndex(h=>h==="F. CPCV");
+            const iComision=hdr.findIndex(h=>h.includes("TOTAL COMISION"));
+            const iPctCom=hdr.findIndex(h=>h.includes("% COMISION"));
+            const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")) rpCols.push(i);});
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const ref=String(r[iRef>=0?iRef:2]||"").trim();
+              if(!ref||ref.toUpperCase().includes("TOTAL")) continue;
+              const precio=toN(r[iPrecio>=0?iPrecio:6]);
+              if(!precio) continue;
+              const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
+              const statusMap={"RESERVA":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida"};
+              const status=statusMap[statusRaw]||"disponible";
+              const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
+              result.ventas.push({
+                ref,tipo:String(r[iTipo>=0?iTipo:1]||"").trim(),status,precio,
+                precioOrigen:toN(r[iPrecioOrigen>=0?iPrecioOrigen:17]),
+                m2:toN(r[iM2>=0?iM2:8]),
+                nombre:String(r[iNombre>=0?iNombre:35]||"").trim(),
+                agencia:String(r[iAgencia>=0?iAgencia:55]||"").trim(),
+                fReserva:toISO(r[iFReserva>=0?iFReserva:64]),
+                fCpcv:toISO(r[iFCpcv>=0?iFCpcv:65]),
+                comision:toN(r[iComision>=0?iComision:59]),
+                pctComision:toN(r[iPctCom>=0?iPctCom:58]),
+                repricings:rps,
+                incremento:precio-(toN(r[iPrecioOrigen>=0?iPrecioOrigen:17])||precio),
+              });
+            }
+          }
+        }
+        const wsR=wb.Sheets["Rescisiones"];
+        if(wsR){
+          const rowsR=window.XLSX.utils.sheet_to_json(wsR,{header:1,defval:null,raw:true});
+          const hdrR=(rowsR[0]||[]).map(c=>String(c||"").toUpperCase().trim());
+          const iRef=hdrR.findIndex(h=>h==="VVDA");
+          const iFecha=hdrR.findIndex(h=>h==="FECHA RESCISION");
+          const iPrecio=hdrR.findIndex(h=>h==="PRECIO DE VENTA");
+          const iNombre=hdrR.findIndex(h=>h==="NOMBRE 1");
+          for(let i=1;i<rowsR.length;i++){
+            const r=rowsR[i];if(!r) continue;
+            const ref=String(r[iRef>=0?iRef:2]||"").trim();
+            if(!ref) continue;
+            result.rescisiones.push({ref,fecha:toISO(r[iFecha>=0?iFecha:15]),precio:toN(r[iPrecio>=0?iPrecio:6]),nombre:String(r[iNombre>=0?iNombre:32]||"").trim()});
+          }
+        }
+        if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
+        // Sync with viviendas
+        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+        const viviendasFromMaster=result.ventas.map(v=>({
+          id:Date.now()+Math.random(),ref:v.ref,
+          tipologia:v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V")?"Vivienda":"Parcela",
+          planta:"-",superficie:v.m2||0,precio:v.precio||0,
+          estado:estadoMap2[v.status]||"disponible",
+          notas:[v.nombre,v.agencia,v.fCpcv?"CPCV: "+v.fCpcv:""].filter(Boolean).join(" - "),
+        }));
+        upd(activeId,p=>({...p,master:{...result,importado:new Date().toISOString().split("T")[0]},viviendas:viviendasFromMaster}));
+        alert("OK: "+result.ventas.length+" unidades cargadas");
+      }catch(err){alert("Error: "+err.message);}
+    };
+    reader.readAsBinaryString(file);e.target.value="";
+  },[activeId,upd]);
+
+    const handleBPFile=useCallback(e=>{
     const file=e.target.files[0];if(!file) return;setBpImporting(true);
     const reader=new FileReader();
     reader.onload=ev=>{
@@ -1107,112 +1307,15 @@ export default function Overview(){
 
               {tab==="master"&&(
                 <div>
-                  {!proj.master?(
-                    <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
-                      <div style={{fontSize:"2rem",marginBottom:10}}>MC</div>
-                      <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Master Comercial no cargado</div>
-                      <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa el master comercial para ver ventas, repricings y rescisiones</div>
-                      <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
-                        Importar Master Comercial (.xlsx)
-                        <input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
-                      </label>
-                    </div>
-                  ):(()=>{
-                    const m=proj.master||{};
-                    const ventas=Array.isArray(m.ventas)?m.ventas.filter(Boolean):[];
-                    const rescisiones=Array.isArray(m.rescisiones)?m.rescisiones.filter(Boolean):[];
-                    const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
-                    const libres=ventas.filter(v=>v.status==="disponible");
-                    const totalVentas=vendidas.reduce((a,v)=>a+(Number(v.precio)||0),0);
-                    const comisionTotal=vendidas.reduce((a,v)=>a+(Number(v.comision)||0),0);
-                    const conRepricing=ventas.filter(v=>(Number(v.incremento)||0)>0);
-                    const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+(Number(v.incremento)||0),0)/conRepricing.length):0;
-                    const vivsV=vendidas.filter(v=>(v.tipo||"")==="VIVIENDA"||(v.ref||"").includes("-V"));
-                    const parcV=vendidas.filter(v=>(v.tipo||"")!=="VIVIENDA"&&!(v.ref||"").includes("-V"));
-                    const precioMedioViv=vivsV.length?Math.round(vivsV.reduce((a,v)=>a+(Number(v.precio)||0),0)/vivsV.length):0;
-                    const precioMedioParc=parcV.length?Math.round(parcV.reduce((a,v)=>a+(Number(v.precio)||0),0)/parcV.length):0;
-                    return (
-                      <div>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                          <div>
-                            <div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div>
-                            <div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado||"")} - {ventas.length} unidades</div>
-                          </div>
-                          <div style={{display:"flex",gap:8}}>
-                            <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
-                              Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
-                            </label>
-                            <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
-                          </div>
-                        </div>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
-                          {[
-                            {l:"Total unidades",v:ventas.length,c:"#e8eaf2"},
-                            {l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},
-                            {l:"Disponibles",v:libres.length,c:"#4f8ef7"},
-                            {l:"Rescisiones",v:rescisiones.length,c:"#f05a5a"},
-                            {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},
-                            {l:"Precio medio VIV",v:fmtEur(precioMedioViv)},
-                            {l:"Precio medio PARC",v:fmtEur(precioMedioParc)},
-                            {l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},
-                            {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
-                          ].map(k=>(
-                            <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
-                              <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
-                              <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
-                            </div>
-                          ))}
-                        </div>
-                        <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
-                          <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
-                            <span>Tabla de ventas</span>
-                            <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{vendidas.length} comprometidas</span>
-                          </div>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
-                            {["Ref","Tipo","Status","Precio origen","Precio actual","Incremento","m2","F. Reserva"].map(h=>(
-                              <div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>
-                            ))}
-                          </div>
-                          <div style={{maxHeight:400,overflowY:"auto"}}>
-                            {ventas.map((v,i)=>{
-                              const sKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");
-                              const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
-                              const inc=Number(v.incremento)||0;
-                              return (
-                                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
-                                  onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                  <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref||"-"}</div>
-                                  <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
-                                  <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
-                                  <div style={{fontSize:"0.82rem",color:"#6b7394"}}>{fmtEur(v.precioOrigen)}</div>
-                                  <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
-                                  <div style={{fontSize:"0.82rem",color:inc>0?"#22d3a0":"#6b7394",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
-                                  <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.m2?v.m2+" m2":"-"}</div>
-                                  <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{v.fReserva?fmt(v.fReserva):"-"}</div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        {rescisiones.length>0&&(
-                          <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden"}}>
-                            <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({rescisiones.length})</div>
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(240,90,90,0.1)"}}>
-                              {["Ref","Fecha","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
-                            </div>
-                            {rescisiones.map((r,i)=>(
-                              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
-                                <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref||"-"}</div>
-                                <div style={{fontSize:"0.78rem",color:"#f05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
-                                <div style={{fontSize:"0.82rem"}}>{fmtEur(r.precio)}</div>
-                                <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{r.nombre||"-"}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  <MasterTab
+                    proj={proj}
+                    activeId={activeId}
+                    upd={upd}
+                    handleMasterFile={handleMasterFile}
+                    fmt={fmt}
+                    fmtEur={fmtEur}
+                    VIV_ESTADOS={VIV_ESTADOS}
+                  />
                 </div>
               )}
 
