@@ -137,6 +137,26 @@ const parseBP = wb => {
         viviendas.push({id:Date.now()+Math.random(),ref:tipo+"-"+ref,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"-":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?"Origen: "+new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen):""});
       }
     }
+    // Extract Marketing and Sales Mgmt from Cash Flow consolidado (separate from total comercializacion)
+    const cfSheets=["Cash Flow consolidado","Cash Flow Living","Cash Flow Suites","Cash Flow Wellness"];
+    for(const cfName of cfSheets){
+      if(!wb.Sheets[cfName]) continue;
+      const cfRows=sheetRows(cfName);
+      for(let i=0;i<cfRows.length;i++){
+        const r=cfRows[i];if(!r) continue;
+        const t1=tv(r,1);
+        if(t1.includes("Marketing and Sales Mgmt")||t1.includes("Marketing and Sales Coord")){
+          fin.mktSalesMgmt=Math.abs(nv(r,4))||Math.abs(nv(r,32))||0;
+        }
+        if(t1.includes("Master Broker")){fin.masterBroker=Math.abs(nv(r,4))||0;}
+        if(t1.includes("Structuring fee")){fin.structuringFee=Math.abs(nv(r,4))||0;}
+      }
+      if(fin.mktSalesMgmt) break;
+    }
+    // comercialActual for marketing budget = Marketing and Sales Mgmt only (not Master Broker or Structuring)
+    if(fin.mktSalesMgmt) fin.mktBudget=fin.mktSalesMgmt;
+    else fin.mktBudget=fin.comercialActual||0;
+
     fin.viviendas=viviendas;
     result.ok=true;result.data=fin;
   } catch(e){result.error=e.message;}
@@ -307,7 +327,7 @@ export default function Overview(){
   const doLogin=()=>{sessionStorage.setItem("ov_auth","1");setLoggedIn(true);};
   if(!loggedIn) return <LoginScreen onLogin={doLogin}/>;
 
-  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov9");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
+  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov10");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
   const [view,setView]=useState("dashboard");
   const [activeId,setActiveId]=useState(null);
   const [tab,setTab]=useState("hitos");
@@ -326,7 +346,7 @@ export default function Overview(){
   const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false);
 
   const proj=projects.find(p=>p.id===activeId);
-  useEffect(()=>{try{localStorage.setItem("ov9",JSON.stringify(projects));}catch{}},[projects]);
+  useEffect(()=>{try{localStorage.setItem("ov10",JSON.stringify(projects));}catch{}},[projects]);
   useEffect(()=>{if(proj) setResumenLocal(proj.resumenSemanal||"");},[activeId]);
   const save=fn=>setProjects(prev=>fn(prev));
   const upd=useCallback((id,fn)=>setProjects(prev=>prev.map(p=>p.id!==id?p:fn(p))),[]);
@@ -502,7 +522,7 @@ export default function Overview(){
             const total=Number(iTotal!==-1?r[iTotal]:null)||0;
             if(!accion&&!total) continue;
             const categoria=String(r[iTipo!==-1?iTipo:1]||"").trim()||"Sin categoria";
-            partidas.push({categoria,proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),accion,detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),inicio:r[iInicio!==-1?iInicio:4]?String(r[iInicio!==-1?iInicio:4]).substring(0,10):"",fin:r[iFin!==-1?iFin:5]?String(r[iFin!==-1?iFin:5]).substring(0,10):"",total});
+            partidas.push({categoria,proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),accion,detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),inicio:(()=>{const v=r[iInicio!==-1?iInicio:4];if(!v) return "";const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");return p[2]+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} return s.substring(0,10);})(),fin:(()=>{const v=r[iFin!==-1?iFin:5];if(!v) return "";const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");return p[2]+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} return s.substring(0,10);})(),total});
           }
         });
         if(!partidas.length){alert("No se encontraron partidas de marketing.");return;}
@@ -866,7 +886,7 @@ export default function Overview(){
                     </div>
                   ):(()=>{
                     const mkt=proj.marketing;
-                    const presupuestoBP=(proj.bp&&proj.bp.comercialActual)||0;
+                    const presupuestoBP=(proj.bp&&(proj.bp.mktBudget||proj.bp.comercialActual))||0;
                     const totalPlanificado=mkt.partidas.reduce((a,p)=>a+p.total,0);
                     const pctUsado=presupuestoBP>0?Math.min(100,Math.round(totalPlanificado/presupuestoBP*100)):0;
                     const restante=presupuestoBP-totalPlanificado;
@@ -934,7 +954,7 @@ export default function Overview(){
                                     {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
                                   </div>
                                   <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
-                                  <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio}{item.inicio&&item.fin?" > ":""}{item.fin}</div>
+                                  <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio?fmt(item.inicio):""}{item.inicio&&item.fin?" > ":""}{item.fin?fmt(item.fin):""}</div>
                                 </div>
                               ))}
                             </div>
