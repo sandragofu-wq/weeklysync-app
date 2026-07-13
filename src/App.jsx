@@ -394,7 +394,24 @@ export default function Overview(){
   const [loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("ov_auth")==="1");
   const doLogin=()=>{sessionStorage.setItem("ov_auth","1");setLoggedIn(true);};
 
-  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov11");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
+  const [projects,setProjects]=useState(()=>{
+    // Try all storage keys newest to oldest to find saved data
+    const keys=["ov11","ov10","ov9","ov8","ov7"];
+    for(const key of keys){
+      try{
+        const s=localStorage.getItem(key);
+        if(s){
+          const p=JSON.parse(s);
+          if(Array.isArray(p)&&p.length>0){
+            // Migrate to ov11 if found in older key
+            if(key!=="ov11"){try{localStorage.setItem("ov11",s);}catch{}}
+            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+          }
+        }
+      }catch{}
+    }
+    return DEFAULT_PROJECTS;
+  });
   const [view,setView]=useState("dashboard");
   const [activeId,setActiveId]=useState(null);
   const [tab,setTab]=useState("hitos");
