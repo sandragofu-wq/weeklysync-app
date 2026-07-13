@@ -375,7 +375,6 @@ function LoginScreen({onLogin}){
 export default function Overview(){
   const [loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("ov_auth")==="1");
   const doLogin=()=>{sessionStorage.setItem("ov_auth","1");setLoggedIn(true);};
-  if(!loggedIn) return <LoginScreen onLogin={doLogin}/>;
 
   const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov10");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
   const [view,setView]=useState("dashboard");
@@ -585,7 +584,7 @@ export default function Overview(){
 
         wb2.SheetNames.forEach(sheetName=>{
           const ws2=wb2.Sheets[sheetName];if(!ws2) return;
-          const rows=window.XLSX.utils.sheet_to_json(ws2,{header:1,defval:null,raw:false,cellDates:true});
+          const rows=window.XLSX.utils.sheet_to_json(ws2,{header:1,defval:null,raw:true,cellDates:true});
           if(!rows||rows.length<3) return;
 
           // Detect PPTO monthly format: find header row with month cols
@@ -622,25 +621,24 @@ export default function Overview(){
               return {...mc,iso:y+"-"+m+"-01"};
             });
 
+            const toNum=v=>{if(!v&&v!==0) return 0;if(typeof v==="number") return v;const s=String(v).replace(/^'+/,"").replace(/[^0-9.-]/g,"");return parseFloat(s)||0;};
+            const cleanStr=v=>String(v||"").replace(/^'+/,"").trim();
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              const tipo=String(r[iTipo]||"").trim();
-              const accion=String(r[iAccion]||"").trim();
+              const tipo=cleanStr(r[iTipo]);
+              const accion=cleanStr(r[iAccion]);
               if(!tipo&&!accion) continue;
               if(["total","totales","subtotal"].includes(accion.toLowerCase())) continue;
-              // Total: prefer dedicated total col, else sum month cols
-              let total=Number(r[iTotalCol])||0;
-              if(!total) total=mColsWithISO.reduce((a,mc)=>a+(Number(r[mc.col])||0),0);
-              // Monthly breakdown - ALL months (even 0 to preserve structure)
-              const monthly=mColsWithISO.map(mc=>({label:mc.label,iso:mc.iso,amount:Number(r[mc.col])||0}));
+              let total=toNum(r[iTotalCol]);
+              if(!total) total=mColsWithISO.reduce((a,mc)=>a+toNum(r[mc.col]),0);
+              const monthly=mColsWithISO.map(mc=>({label:mc.label,iso:mc.iso,amount:toNum(r[mc.col])}));
               const activeMeses=monthly.filter(m=>m.amount>0);
               const inicio=activeMeses.length>0?activeMeses[0].iso:"";
               const fin=activeMeses.length>0?activeMeses[activeMeses.length-1].iso:"";
               partidas.push({
                 categoria:tipo||"Sin categoria",
-                proveedor:String(r[iProv]||"").trim(),
-                accion,
-                detalle:String(r[iPagador]||"").trim(),
+                proveedor:cleanStr(r[iProv]),
+                accion,detalle:cleanStr(r[iPagador]),
                 inicio,fin,total,monthly,
               });
             }
@@ -725,6 +723,8 @@ export default function Overview(){
     {id:"tareas",l:"Tareas"+(proj&&proj.tareas.filter(t=>!t.done).length>0?" ("+proj.tareas.filter(t=>!t.done).length+")":"")},
     {id:"reporte",l:"Reporte"},
   ];
+
+  if(!loggedIn) return <LoginScreen onLogin={doLogin}/>;
 
   return (
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:"#0d0f14",color:"#e8eaf2",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
