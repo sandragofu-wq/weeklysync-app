@@ -21,13 +21,32 @@ const fmtEurM = n => { const v=Number(n); if(!v) return "-"; if(Math.abs(v)>=100
 const fmtPct = n => { const v=Number(n); if(!v&&v!==0) return "-"; return (v*100).toFixed(1)+"%"; };
 const fmtNum = n => new Intl.NumberFormat("es-ES").format(Number(n)||0);
 
+const isViv = v => {
+  const r=String(v.ref||"").toUpperCase();
+  const t=String(v.tipologia||"").toUpperCase();
+  return t.includes("VIVIENDA")||r.includes("-V")||(t==="VIV")||(!t.includes("PARCELA")&&!r.match(/-P\d/));
+};
 const calcStats = (vv=[]) => {
   const total=vv.length,vendidas=vv.filter(v=>v.estado==="vendida").length,reservadas=vv.filter(v=>v.estado==="reservada").length,disponibles=vv.filter(v=>v.estado==="disponible").length;
-  const cp=vv.filter(v=>Number(v.precio)>0);
-  const precioMedio=cp.length?Math.round(cp.reduce((a,v)=>a+Number(v.precio),0)/cp.length):0;
+  const vivsOnly=vv.filter(v=>isViv(v)&&Number(v.precio)>0);
+  const parcOnly=vv.filter(v=>!isViv(v)&&Number(v.precio)>0);
+  const precioMedio=vivsOnly.length?Math.round(vivsOnly.reduce((a,v)=>a+Number(v.precio),0)/vivsOnly.length):0;
+  const precioMedioParc=parcOnly.length?Math.round(parcOnly.reduce((a,v)=>a+Number(v.precio),0)/parcOnly.length):0;
   const ingresosTotal=vv.reduce((a,v)=>a+Number(v.precio||0),0);
   const ingresosVR=vv.filter(v=>v.estado==="vendida"||v.estado==="reservada").reduce((a,v)=>a+Number(v.precio||0),0);
-  return {total,vendidas,reservadas,disponibles,precioMedio,ingresosTotal,ingresosVR};
+  const totalViv=vv.filter(v=>isViv(v)).length;
+  const totalParc=vv.filter(v=>!isViv(v)).length;
+  return {total,vendidas,reservadas,disponibles,precioMedio,precioMedioParc,ingresosTotal,ingresosVR,totalViv,totalParc};
+};
+  const viviendas=vv.filter(isVivienda);
+  const parcelas=vv.filter(v=>!isVivienda(v));
+  const cpV=viviendas.filter(v=>Number(v.precio)>0);
+  const cpP=parcelas.filter(v=>Number(v.precio)>0);
+  const precioMedio=cpV.length?Math.round(cpV.reduce((a,v)=>a+Number(v.precio),0)/cpV.length):0;
+  const precioMedioParcela=cpP.length?Math.round(cpP.reduce((a,v)=>a+Number(v.precio),0)/cpP.length):0;
+  const ingresosTotal=vv.reduce((a,v)=>a+Number(v.precio||0),0);
+  const ingresosVR=vv.filter(v=>v.estado==="vendida"||v.estado==="reservada").reduce((a,v)=>a+Number(v.precio||0),0);
+  return {total,vendidas,reservadas,disponibles,precioMedio,precioMedioParcela,ingresosTotal,ingresosVR,numViviendas:viviendas.length,numParcelas:parcelas.length};
 };
 
 const parsePrice = raw => {
@@ -578,8 +597,8 @@ export default function Overview(){
               if(!precio) continue;
               const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
               const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
-              const statusMap={"RESERVA":"reservada","LIBRE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","BAJA":"rescindida","RESCISION":"rescindida"};
-              const status=statusMap[statusRaw]||statusRaw.toLowerCase()||"disponible";
+              const statusMap={"RESERVA":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida"};
+              const status=statusMap[statusRaw]||"disponible";
               result.ventas.push({
                 ref,
                 tipo:String(r[iTipo>=0?iTipo:1]||"").trim(),
@@ -619,7 +638,7 @@ export default function Overview(){
 
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
         // Build viviendas array from master data to sync with Viviendas tab and header KPIs
-        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta","no-venta":"no-venta"};
         const viviendasFromMaster=result.ventas.map(v=>({
           id:Date.now()+Math.random(),
           ref:v.ref,
@@ -770,10 +789,11 @@ export default function Overview(){
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
-                {[{label:"Total uds",val:st.total||"-"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorcion",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"},{label:"Precio medio",val:fmtEur(st.precioMedio)}].map(k=>(
+                {[{label:"Total uds",val:st.total?st.numViviendas+"V / "+st.numParcelas+"P":"-"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#22d3a0":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#f5c842":"#f05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
                   <div key={k.label} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px"}}>
                     <div style={{fontSize:"0.6rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.label}</div>
                     <div style={{fontSize:"1.1rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
+                    {k.sub&&<div style={{fontSize:"0.65rem",color:"#6b7394",marginTop:2}}>{k.sub}</div>}
                   </div>
                 ))}
               </div>
@@ -967,7 +987,7 @@ export default function Overview(){
                         })}
                       </div>
                       <div style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"14px 18px",display:"flex",gap:28,flexWrap:"wrap"}}>
-                        {[{l:"Precio medio",v:fmtEur(st.precioMedio)},{l:"Ingresos potenciales",v:fmtEur(st.ingresosTotal)},{l:"Ingresos asegurados",v:fmtEur(st.ingresosVR),c:"#22d3a0"}].map(x=>(
+                        {[{l:"Precio medio viviendas",v:fmtEur(st.precioMedio)},{l:"Precio medio parcelas",v:fmtEur(st.precioMedioParcela)},{l:"Ingresos potenciales",v:fmtEur(st.ingresosTotal)},{l:"Ingresos asegurados",v:fmtEur(st.ingresosVR),c:"#22d3a0"}].map(x=>(
                           <div key={x.l}><div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div><div style={{fontWeight:700,color:x.c||"#e8eaf2"}}>{x.v}</div></div>
                         ))}
                       </div>
@@ -995,7 +1015,11 @@ export default function Overview(){
                     const rescindidas=m.ventas.filter(v=>v.status==="rescindida");
                     const totalVentas=vendidas.reduce((a,v)=>a+v.precio,0);
                     const comisionTotal=vendidas.reduce((a,v)=>a+v.comision,0);
-                    const precioMedioVenta=vendidas.length?Math.round(totalVentas/vendidas.length):0;
+                    // Split viviendas vs parcelas for price averages
+                    const vivsVendidas=vendidas.filter(v=>v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V"));
+                    const parcVendidas=vendidas.filter(v=>v.tipo!=="VIVIENDA"&&!v.ref.toUpperCase().includes("-V"));
+                    const precioMedioVenta=vivsVendidas.length?Math.round(vivsVendidas.reduce((a,v)=>a+v.precio,0)/vivsVendidas.length):0;
+                    const precioMedioParc=parcVendidas.length?Math.round(parcVendidas.reduce((a,v)=>a+v.precio,0)/parcVendidas.length):0;
                     const conRepricing=m.ventas.filter(v=>v.incremento>0);
                     const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
                     return (
@@ -1010,8 +1034,8 @@ export default function Overview(){
                           </div>
                         </div>
 
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
-                          {[{l:"Total unidades",v:m.ventas.length,c:"#e8eaf2"},{l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},{l:"Disponibles",v:libres.length,c:"#4f8ef7"},{l:"Rescisiones",v:m.rescisiones.length,c:"#f05a5a"},{l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},{l:"Precio medio venta",v:fmtEur(precioMedioVenta)},{l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},{l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"}].map(k=>(
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
+                          {[{l:"Total unidades",v:m.ventas.length,c:"#e8eaf2"},{l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},{l:"Disponibles",v:libres.length,c:"#4f8ef7"},{l:"Rescisiones",v:m.rescisiones.length,c:"#f05a5a"},{l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},{l:"Precio medio VIV",v:fmtEur(precioMedioVenta)},{l:"Precio medio PARC",v:fmtEur(precioMedioParc)},{l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},{l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"}].map(k=>(
                             <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
                               <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
                               <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
@@ -1174,7 +1198,7 @@ export default function Overview(){
                 <div>
                   <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:13,marginBottom:18}}>
-                    {[{label:"Total",val:st.total||0},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},{label:"Precio medio",val:fmtEur(st.precioMedio)},{label:"% Vendido",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}].map(k=>(
+                    {[{label:"Total",val:st.total||0},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio),sub:st.precioMedioParc?("Parc: "+fmtEur(st.precioMedioParc)):""},{label:"% Vendido",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}].map(k=>(
                       <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"15px 18px"}}>
                         <div style={{fontSize:"0.63rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>{k.label}</div>
                         <div style={{fontSize:"1.45rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
