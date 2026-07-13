@@ -39,6 +39,24 @@ const calcStats = (vv=[]) => {
   return {total,vendidas,reservadas,disponibles,precioMedio,precioMedioParc,ingresosTotal,ingresosVR,totalViv,totalParc};
 };
 
+// Returns active viviendas - master.ventas if master loaded, else proj.viviendas
+// Also converts master.ventas format to viviendas format on the fly
+const masterToVivs = (master) => {
+  if(!master||!master.ventas) return null;
+  const estadoMap={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+  return master.ventas.map(v=>({
+    id:v.ref,
+    ref:v.ref,
+    tipologia:v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V")?"Vivienda":"Parcela",
+    planta:"-",
+    superficie:v.m2||0,
+    precio:v.precio||0,
+    estado:estadoMap[v.status]||"disponible",
+    notas:[v.nombre?v.nombre:"",v.agencia?v.agencia:"",v.fCpcv?"CPCV: "+v.fCpcv:""].filter(Boolean).join(" - "),
+    _fromMaster:true,
+  }));
+};
+
 const parsePrice = raw => {
   if(!raw&&raw!==0) return 0;
   if(typeof raw==="number") return Math.round(raw);
@@ -394,7 +412,23 @@ export default function Overview(){
   const openEditV=useCallback(v=>{editId.current=v.id;setVF({ref:v.ref,tipologia:v.tipologia,planta:v.planta||"",superficie:String(v.superficie||""),precio:String(v.precio||""),estado:v.estado,notas:v.notas||""});setModal("vivienda");},[]);
   const saveV=useCallback(()=>{if(!vF.ref.trim()) return;const clean={...vF,precio:parsePrice(vF.precio),superficie:parseFloat(String(vF.superficie).replace(",","."))||0};if(editId.current) upd(activeId,p=>({...p,viviendas:p.viviendas.map(v=>v.id!==editId.current?v:{...v,...clean})}));else upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),{id:Date.now(),...clean}]}));setModal(null);},[activeId,vF,upd]);
   const delV=useCallback(vid=>upd(activeId,p=>({...p,viviendas:p.viviendas.filter(v=>v.id!==vid)})),[activeId,upd]);
-  const cycleViv=useCallback(vid=>{const cyc=["disponible","reservada","vendida","no-venta"];upd(activeId,p=>({...p,viviendas:p.viviendas.map(v=>v.id!==vid?v:{...v,estado:cyc[(cyc.indexOf(v.estado)+1)%cyc.length]})}));},[activeId,upd]);
+  const cycleViv=useCallback(vid=>{
+    const cyc=["disponible","reservada","vendida","no-venta"];
+    const estadoToStatus={"disponible":"disponible","reservada":"reservada","vendida":"vendida","no-venta":"rescindida"};
+    upd(activeId,p=>{
+      if(p.master){
+        // Update master.ventas
+        const newVentas=p.master.ventas.map(v=>{
+          if(v.ref!==vid) return v;
+          const curEstado={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"}[v.status]||"disponible";
+          const nextEstado=cyc[(cyc.indexOf(curEstado)+1)%cyc.length];
+          return {...v,status:estadoToStatus[nextEstado]||nextEstado};
+        });
+        return {...p,master:{...p.master,ventas:newVentas}};
+      }
+      return {...p,viviendas:p.viviendas.map(v=>v.id!==vid?v:{...v,estado:cyc[(cyc.indexOf(v.estado)+1)%cyc.length]})};
+    });
+  },[activeId,upd]);
   const clearViv=useCallback(()=>{if(!confirm("Eliminar todas las viviendas?")) return;upd(activeId,p=>({...p,viviendas:[]}));},[activeId,upd]);
 
   useEffect(()=>{if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);}},[]);
@@ -627,23 +661,8 @@ export default function Overview(){
         }
 
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
-        // Build viviendas array from master data to sync with Viviendas tab and header KPIs
-        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta","no-venta":"no-venta"};
-        const viviendasFromMaster=result.ventas.map(v=>({
-          id:Date.now()+Math.random(),
-          ref:v.ref,
-          tipologia:v.tipo==="VIVIENDA"?"Vivienda":"Parcela",
-          planta:"-",
-          superficie:v.m2||0,
-          precio:v.precio||0,
-          estado:estadoMap2[v.status]||"disponible",
-          notas:[v.nombre?v.nombre:"",v.agencia?v.agencia:"",v.fCpcv?"CPCV: "+v.fCpcv:""].filter(Boolean).join(" - "),
-        }));
-        upd(activeId,p=>({...p,
-          master:{...result,importado:new Date().toISOString().split("T")[0]},
-          viviendas:viviendasFromMaster,
-        }));
-        alert("OK: "+result.ventas.length+" unidades cargadas y sincronizadas con Viviendas");
+        upd(activeId,p=>({...p,master:{...result,importado:new Date().toISOString().split("T")[0]}}));
+        alert("OK: "+result.ventas.length+" unidades cargadas - sincronizado con Viviendas automaticamente");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);e.target.value="";
@@ -672,7 +691,9 @@ export default function Overview(){
   const allStats=projects.map(p=>calcStats(p.viviendas||[]));
   const totalU=allStats.reduce((a,s)=>a+s.total,0),totalV=allStats.reduce((a,s)=>a+s.vendidas,0);
   const bloq=projects.filter(p=>p.estado==="bloqueado").length,risk=projects.filter(p=>p.estado==="en-riesgo").length;
-  const st=proj?calcStats(proj.viviendas||[]):{total:0,vendidas:0,reservadas:0,disponibles:0,precioMedio:0,ingresosTotal:0,ingresosVR:0};
+  // Master es fuente de verdad cuando existe; si no, usa viviendas standalone
+  const activeVivs=proj?(proj.master?masterToVivs(proj.master):(proj.viviendas||[])):[];
+  const st=proj?calcStats(activeVivs):{total:0,vendidas:0,reservadas:0,disponibles:0,precioMedio:0,precioMedioParc:0,ingresosTotal:0,ingresosVR:0,totalViv:0,totalParc:0};
   const pct=st.total?Math.round(st.vendidas/st.total*100):0;
   const projEst=proj?(ESTADOS[proj.estado]||ESTADOS.planificacion):null;
 
@@ -929,7 +950,7 @@ export default function Overview(){
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                     <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Tabla de viviendas</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Click en estado para cambiarlo</div></div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                      {proj.viviendas.length>0&&<Btn onClick={clearViv} v="danger" sm>Limpiar</Btn>}
+                      {activeVivs.length>0&&!proj.master&&<Btn onClick={clearViv} v="danger" sm>Limpiar</Btn>}
                       <label style={{background:"transparent",border:"1px solid rgba(167,139,250,0.4)",color:"#a78bfa",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
                         Desde BP<input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleBPFile} style={{display:"none"}}/>
                       </label>
@@ -947,7 +968,7 @@ export default function Overview(){
                       </div>
                     ))}
                   </div>
-                  {proj.viviendas.length===0?(
+                  {activeVivs.length===0?(
                     <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
                       <div style={{fontSize:"2.5rem",marginBottom:10}}>[]</div>
                       <div style={{fontWeight:600,marginBottom:4,color:"#e8eaf2"}}>No hay viviendas cargadas</div>
@@ -959,10 +980,10 @@ export default function Overview(){
                         <div style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
                           {["Ref","Tipologia","Tipo","m2","Precio PVP","Estado","Notas",""].map(h=><div key={h} style={{fontSize:"0.62rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
                         </div>
-                        {proj.viviendas.map((v,i)=>{
+                        {activeVivs.map((v,i)=>{
                           const vs=VIV_ESTADOS[v.estado]||VIV_ESTADOS.disponible;
                           return (
-                            <div key={v.id} style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"10px 16px",borderBottom:i<proj.viviendas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
+                            <div key={v.id} style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"10px 16px",borderBottom:i<activeVivs.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
                               onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                               <div style={{fontWeight:600,fontSize:"0.84rem"}}>{v.ref}</div>
                               <div style={{fontSize:"0.82rem"}}>{v.tipologia||"-"}</div>
@@ -1184,23 +1205,99 @@ export default function Overview(){
                 </div>
               )}
 
-              {tab==="comercial"&&(
-                <div>
-                  <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:13,marginBottom:18}}>
-                    {[{label:"Total",val:st.total||0},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio),sub:st.precioMedioParc?("Parc: "+fmtEur(st.precioMedioParc)):""},{label:"% Vendido",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}].map(k=>(
-                      <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"15px 18px"}}>
-                        <div style={{fontSize:"0.63rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>{k.label}</div>
-                        <div style={{fontSize:"1.45rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
+              {tab==="comercial"&&(()=>{
+                const m=proj.master;
+                const absorcionPct=st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0;
+                const absorcionColor=absorcionPct>60?"#22d3a0":absorcionPct>30?"#f5c842":"#f05a5a";
+                // Master-derived metrics
+                const ingresosCom=m?m.ventas.filter(v=>v.status==="reservada"||v.status==="vendida").reduce((a,v)=>a+v.precio,0):st.ingresosVR;
+                const comisionTotal=m?m.ventas.reduce((a,v)=>a+(v.comision||0),0):0;
+                const rescisiones=m?m.rescisiones.length:0;
+                const conRepricing=m?m.ventas.filter(v=>v.incremento>0):[];
+                const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
+                // Agencias breakdown
+                const agencias={};
+                if(m) m.ventas.filter(v=>v.agencia&&(v.status==="reservada"||v.status==="vendida")).forEach(v=>{agencias[v.agencia]=(agencias[v.agencia]||0)+1;});
+                const agList=Object.entries(agencias).sort((a,b)=>b[1]-a[1]);
+                return (
+                  <div>
+                    <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales{m?" - datos del Master Comercial":""}</div>
+
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+                      {[
+                        {label:"Total unidades",val:st.total||0},
+                        {label:"Reservadas",val:st.reservadas,color:"#f5c842"},
+                        {label:"Escrituradas/Vendidas",val:st.vendidas,color:"#22d3a0"},
+                        {label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},
+                        {label:"Precio medio VIV",val:fmtEur(st.precioMedio),sub:st.precioMedioParc?"Parcelas: "+fmtEur(st.precioMedioParc):""},
+                        {label:"Ingresos comprometidos",val:fmtEur(ingresosCom),color:"#22d3a0"},
+                        {label:"Rescisiones",val:rescisiones,color:rescisiones>0?"#f05a5a":"#6b7394"},
+                        {label:"Incremento medio repricing",val:incrementoMedio>0?fmtEur(incrementoMedio):"-",color:"#f5c842"},
+                      ].map(k=>(
+                        <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                          <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{k.label}</div>
+                          <div style={{fontSize:"1.25rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
+                          {k.sub&&<div style={{fontSize:"0.68rem",color:"#6b7394",marginTop:3}}>{k.sub}</div>}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}>
+                          <span style={{fontSize:"0.78rem",color:"#6b7394",fontWeight:500}}>Absorcion (reservadas + vendidas)</span>
+                          <span style={{fontSize:"0.92rem",fontWeight:800,color:absorcionColor}}>{absorcionPct}%</span>
+                        </div>
+                        <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden",marginBottom:10}}>
+                          <div style={{height:"100%",width:absorcionPct+"%",background:absorcionColor,borderRadius:5}}/>
+                        </div>
+                        <div style={{display:"flex",gap:16,fontSize:"0.75rem",color:"#6b7394"}}>
+                          <span style={{color:"#f5c842"}}>{st.reservadas} reservadas</span>
+                          <span style={{color:"#22d3a0"}}>{st.vendidas} escrituradas</span>
+                          <span style={{color:"#4f8ef7"}}>{st.disponibles} disponibles</span>
+                        </div>
                       </div>
-                    ))}
+
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                        <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Financiero</div>
+                        {[
+                          {l:"Ingresos potenciales totales",v:fmtEur(st.ingresosTotal)},
+                          {l:"Ingresos comprometidos",v:fmtEur(ingresosCom),c:"#22d3a0"},
+                          {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
+                          {l:"Presupuesto proyecto",v:proj.presupuesto||"-"},
+                          {l:"Comercializadora",v:proj.comercializadora||"-"},
+                          {l:"Entrega prevista",v:fmt(proj.fechaEntrega)},
+                        ].map(f=>(
+                          <div key={f.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1c2030",fontSize:"0.8rem"}}>
+                            <span style={{color:"#6b7394"}}>{f.l}</span>
+                            <span style={{fontWeight:600,color:f.c||"#e8eaf2"}}>{f.v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {agList.length>0&&(
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                        <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Ventas por agencia</div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                          {agList.map(([ag,n])=>{
+                            const pctAg=st.reservadas+st.vendidas>0?Math.round(n/(st.reservadas+st.vendidas)*100):0;
+                            return (
+                              <div key={ag} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
+                                <div style={{fontSize:"0.78rem",fontWeight:600,marginBottom:4}}>{ag||"Directa"}</div>
+                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                                  <span style={{fontSize:"1rem",fontWeight:800,color:"#4f8ef7"}}>{n}</span>
+                                  <span style={{fontSize:"0.72rem",color:"#6b7394"}}>{pctAg}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}><span style={{fontSize:"0.78rem",color:"#6b7394",fontWeight:500}}>Absorcion</span><span style={{fontSize:"0.92rem",fontWeight:800,color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}}>{pct}%</span></div>
-                    <div style={{height:8,background:"#1c2030",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a",borderRadius:4}}/></div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {tab==="equipo"&&(
                 <div>
