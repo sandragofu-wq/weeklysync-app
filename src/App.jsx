@@ -618,8 +618,23 @@ export default function Overview(){
         }
 
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
-        upd(activeId,p=>({...p,master:{...result,importado:new Date().toISOString().split("T")[0]}}));
-        alert("OK: "+result.ventas.length+" unidades cargadas, "+result.rescisiones.length+" rescisiones");
+        // Build viviendas array from master data to sync with Viviendas tab and header KPIs
+        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+        const viviendasFromMaster=result.ventas.map(v=>({
+          id:Date.now()+Math.random(),
+          ref:v.ref,
+          tipologia:v.tipo==="VIVIENDA"?"Vivienda":"Parcela",
+          planta:"-",
+          superficie:v.m2||0,
+          precio:v.precio||0,
+          estado:estadoMap2[v.status]||"disponible",
+          notas:[v.nombre?v.nombre:"",v.agencia?v.agencia:"",v.fCpcv?"CPCV: "+v.fCpcv:""].filter(Boolean).join(" - "),
+        }));
+        upd(activeId,p=>({...p,
+          master:{...result,importado:new Date().toISOString().split("T")[0]},
+          viviendas:viviendasFromMaster,
+        }));
+        alert("OK: "+result.ventas.length+" unidades cargadas y sincronizadas con Viviendas");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);e.target.value="";
