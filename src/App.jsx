@@ -1065,8 +1065,8 @@ export default function Overview(){
                     const totalVentas=vendidas.reduce((a,v)=>a+(v.precio||0),0);
                     const comisionTotal=vendidas.reduce((a,v)=>a+(v.comision||0),0);
                     // Split viviendas vs parcelas for price averages
-                    const vivsVendidas=vendidas.filter(v=>v&&(v.tipo==="VIVIENDA"||(v.ref||'').toUpperCase().includes("-V"));
-                    const parcVendidas=vendidas.filter(v=>v&&(v.tipo!=="VIVIENDA"&&!(v.ref||'').toUpperCase().includes("-V"));
+                    const vivsVendidas=vendidas.filter(v=>v&&(v.tipo==="VIVIENDA"||(v.ref||'').toUpperCase().includes("-V")));
+                    const parcVendidas=vendidas.filter(v=>v&&(v.tipo!=="VIVIENDA"&&!(v.ref||'').toUpperCase().includes("-V")));
                     const precioMedioVenta=vivsVendidas.length?Math.round(vivsVendidas.reduce((a,v)=>a+v.precio,0)/vivsVendidas.length):0;
                     const precioMedioParc=parcVendidas.length?Math.round(parcVendidas.reduce((a,v)=>a+v.precio,0)/parcVendidas.length):0;
                     const conRepricing=ventas.filter(v=>v.incremento>0);
