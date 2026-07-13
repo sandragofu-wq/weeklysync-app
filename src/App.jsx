@@ -77,7 +77,8 @@ const excelDateToISO = n => {
 const nv = (r,c) => { try { const v=r&&r[c]; return (v!==null&&v!==undefined&&!isNaN(Number(v)))?Number(v):0; } catch { return 0; } };
 const tv = (r,c) => { try { return String(r&&r[c]||"").trim(); } catch { return ""; } };
 
-const parseSheetFin = (rows) => {
+const parseSheetFin = (rows, sheetName) => {
+  const estatico=sheetName==="Estático"||sheetName==="Estatico";
   const f={};
   for(let i=0;i<rows.length;i++){
     const r=rows[i]; if(!r||r.length<5) continue;
@@ -91,21 +92,21 @@ const parseSheetFin = (rows) => {
     if(t37.includes("escritura")) f.fechaEntrega=excelDateToISO(r[47]||r[46]);
     if(t37.includes("Duracion de obra")) f.duracionObra=nv(r,46);
     if(t37.includes("Meses ejecucion")) f.duracionMeses=nv(r,46);
-    if(t5u==="VENTAS"||t5u==="A. VENTAS"){if(!f.ventasPrev){f.ventasPrev=nv(r,32);f.ventasActual=nv(r,37);}}
-    if(t5u.includes("COMPRA")){if(!f.sueloPrev){f.sueloPrev=nv(r,32);f.sueloActual=nv(r,37);}}
-    if(t5u.includes("CONTRATA")||t5u.includes("HARD")){if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=nv(r,37);}}
-    if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=nv(r,37);}}
-    if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=nv(r,37);}}
-    if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=nv(r,37);}}
-    if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=nv(r,37);}
-    if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=nv(r,37);}
-    if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=nv(r,37);}
-    if(t3.includes("Beneficio de la p")){if(!f.beneficioActual||f.beneficioActual===0){f.beneficioPrev=nv(r,32);f.beneficioActual=nv(r,37);}}
-    if(t3.includes("Beneficio / Fondos")){f.roePrev=nv(r,32);f.roeActual=nv(r,37);}
-    if(t3.includes("MgV")){f.mgvPrev=nv(r,32);f.mgvActual=nv(r,37);}
-    if(t3==="TIR (pretax)"||t3==="TIR pretax"){f.tirPrev=nv(r,32);f.tirActual=nv(r,37);}
+    if(t5u==="VENTAS"||t5u==="A. VENTAS"){if(!f.ventasPrev){f.ventasPrev=nv(r,32);f.ventasActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("COMPRA")){if(!f.sueloPrev){f.sueloPrev=nv(r,32);f.sueloActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("CONTRATA")||t5u.includes("HARD")){if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=estatico?nv(r,32):nv(r,37);}
+    if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}
+    if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=estatico?nv(r,32):nv(r,37);}
+    if(t3.includes("Beneficio de la p")){if(!f.beneficioActual||f.beneficioActual===0){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}}
+    if(t3.includes("Beneficio / Fondos")){f.roePrev=nv(r,32);f.roeActual=estatico?nv(r,32):nv(r,37);}
+    if(t3.includes("MgV")){f.mgvPrev=nv(r,32);f.mgvActual=estatico?nv(r,32):nv(r,37);}
+    if(t3==="TIR (pretax)"||t3==="TIR pretax"){f.tirPrev=nv(r,32);f.tirActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("TIR (post-tax)")){f.tirPostPrev=nv(r,32);f.tirPostActual=nv(r,37);}
-    if(t3.includes("Mom (pretax)")){f.momPrev=nv(r,32);f.momActual=nv(r,37);}
+    if(t3.includes("Mom (pretax)")){f.momPrev=nv(r,32);f.momActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("REI")){f.reiPrev=nv(r,32);f.reiActual=nv(r,37);}
     if(t3.includes("RRP")){f.rrpPrev=nv(r,32);f.rrpActual=nv(r,37);}
   }
@@ -117,13 +118,13 @@ const parseBP = wb => {
   try {
     const X=window.XLSX;
     const sheetRows=name=>{ const ws=wb.Sheets[name]; if(!ws) return []; return X.utils.sheet_to_json(ws,{header:1,defval:null,raw:true}); };
-    const sheetPriority=["Monitoring","RESUMEN","Resumen Consolidado"];
+    const sheetPriority=["Monitoring","RESUMEN","Resumen Consolidado","Estático","Estatico"];
     const mainSheetName=sheetPriority.find(s=>wb.Sheets[s])||null;
     if(!mainSheetName){result.error="No se encontro hoja financiera";return result;}
-    const fin=parseSheetFin(sheetRows(mainSheetName));
+    const fin=parseSheetFin(sheetRows(mainSheetName),mainSheetName);
     fin.mainSheet=mainSheetName;
     const bizSheets=wb.SheetNames.filter(s=>s.startsWith("Resumen ")&&s!=="Resumen Consolidado"&&s!=="Resumen Consolidado (desc)");
-    if(bizSheets.length>0){fin.negocios=bizSheets.map(sn=>{const f=parseSheetFin(sheetRows(sn));f.nombre=sn.replace("Resumen ","");return f;});}
+    if(bizSheets.length>0){fin.negocios=bizSheets.map(sn=>{const f=parseSheetFin(sheetRows(sn),sn);f.nombre=sn.replace("Resumen ","");return f;});}
     if(wb.Sheets["PL and KPIs"]){
       const plRows=sheetRows("PL and KPIs");
       for(let i=0;i<plRows.length;i++){
