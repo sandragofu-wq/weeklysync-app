@@ -11,8 +11,8 @@ const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","D
 const CSS = {inp:{width:"100%",background:"#1c2030",border:"1px solid #252a3a",borderRadius:8,padding:"8px 11px",color:"#e8eaf2",fontFamily:"inherit",fontSize:"0.84rem",outline:"none",boxSizing:"border-box"}};
 
 const DEFAULT_PROJECTS = [
-  {id:1,name:"ATABAL",zona:"Sur",estado:"en-marcha",projectOwner:"Sandra",pmTecnico:"Sara (BSA)",responsableComercial:"Sandra",comercializadora:"",ubicacion:"Malaga",presupuesto:"EUR8.2M",costeActual:"EUR7.9M",fechaEntrega:"2026-06-01",hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<3?"completado":i===3?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,resumenSemanal:"",ultimaActualizacion:"2025-06-02"},
-  {id:2,name:"MEDHILLS",zona:"Sur",estado:"en-riesgo",projectOwner:"Sandra",pmTecnico:"Inma (BSA)",responsableComercial:"Sandra",comercializadora:"Engel & Volkers",ubicacion:"Fuengirola",presupuesto:"EUR5.1M",costeActual:"EUR4.8M",fechaEntrega:"2027-03-01",hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<2?"completado":i===2?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,resumenSemanal:"",ultimaActualizacion:"2025-06-01"},
+  {id:1,name:"ATABAL",zona:"Sur",estado:"en-marcha",projectOwner:"Sandra",pmTecnico:"Sara (BSA)",responsableComercial:"Sandra",comercializadora:"",ubicacion:"Malaga",presupuesto:"EUR8.2M",costeActual:"EUR7.9M",fechaEntrega:"2026-06-01",hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<3?"completado":i===3?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2025-06-02"},
+  {id:2,name:"MEDHILLS",zona:"Sur",estado:"en-riesgo",projectOwner:"Sandra",pmTecnico:"Inma (BSA)",responsableComercial:"Sandra",comercializadora:"Engel & Volkers",ubicacion:"Fuengirola",presupuesto:"EUR5.1M",costeActual:"EUR4.8M",fechaEntrega:"2027-03-01",hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<2?"completado":i===2?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2025-06-01"},
 ];
 
 const fmt = d => { if(!d) return "-"; try { return new Date(d+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"}); } catch { return d; } };
@@ -327,7 +327,7 @@ export default function Overview(){
   const doLogin=()=>{sessionStorage.setItem("ov_auth","1");setLoggedIn(true);};
   if(!loggedIn) return <LoginScreen onLogin={doLogin}/>;
 
-  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov10");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
+  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov10");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
   const [view,setView]=useState("dashboard");
   const [activeId,setActiveId]=useState(null);
   const [tab,setTab]=useState("hitos");
@@ -358,7 +358,7 @@ export default function Overview(){
 
   const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
   const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
-  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
+  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
   const delP=useCallback(id=>{if(!confirm("Eliminar esta promocion?")) return;save(prev=>prev.filter(p=>p.id!==id));setView("dashboard");setActiveId(null);},[]);
 
   const cycleHito=useCallback(idx=>{upd(activeId,p=>{const h=[...p.hitos];const cur=h[idx].estado;const next=HITO_CYCLE[(HITO_CYCLE.indexOf(cur)+1)%HITO_CYCLE.length];h[idx]={...h[idx],estado:next,fechaReal:next==="completado"?new Date().toISOString().split("T")[0]:h[idx].fechaReal};return {...p,hitos:h};});},[activeId,upd]);
@@ -533,6 +533,98 @@ export default function Overview(){
     reader.readAsBinaryString(file);e.target.value="";
   },[activeId,upd]);
 
+  const handleMasterFile=useCallback(e=>{
+    const file=e.target.files[0];if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.XLSX){alert("SheetJS cargando.");return;}
+      try{
+        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const result={ventas:[],rescisiones:[],repricings:[]};
+        const toISO=v=>{if(!v) return "";const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");return p[2]+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");}if(s.includes("-")&&s.length>=10) return s.substring(0,10);if(typeof v==="number"&&v>40000){const d=new Date(Math.round((v-25569)*86400*1000));return d.toISOString().substring(0,10);}return "";};
+        const toN=v=>{const n=Number(v);return isNaN(n)?0:n;};
+
+        // Main sheet - find header row (has VVDA + STATUS COMERCIAL)
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        if(ws){
+          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
+          let hdrIdx=-1;
+          for(let i=0;i<Math.min(rows.length,8);i++){
+            const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().trim());
+            if(r.some(c=>c==="VVDA"||c==="VIVIENDA")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO"))) {hdrIdx=i;break;}
+          }
+          if(hdrIdx>=0){
+            const hdr=(rows[hdrIdx]||[]).map(c=>String(c||"").toUpperCase().trim());
+            const iRef=hdr.findIndex(h=>h==="VVDA"||h==="VIVIENDA"||h==="REF");
+            const iTipo=hdr.findIndex(h=>h==="TIPOLOGIA");
+            const iStatus=hdr.findIndex(h=>h.includes("STATUS COMERCIAL"));
+            const iPrecio=hdr.findIndex(h=>h==="PRECIO DE VENTA");
+            const iPrecioOrigen=hdr.findIndex(h=>h.includes("PRECIO ORIGEN"));
+            const iM2=hdr.findIndex(h=>h==="M2 UTIL INT"||h==="M2 UTIL");
+            const iNombre=hdr.findIndex(h=>h==="NOMBRE 1"||h==="NOMBRE");
+            const iAgencia=hdr.findIndex(h=>h==="AGENCIA");
+            const iFReserva=hdr.findIndex(h=>h==="F. RESERVA");
+            const iFCpcv=hdr.findIndex(h=>h==="F. CPCV");
+            const iComision=hdr.findIndex(h=>h.includes("TOTAL COMISION"));
+            const iPctCom=hdr.findIndex(h=>h.includes("% COMISION"));
+            // Find repricing cols (REPRICING 1..N)
+            const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")) rpCols.push(i);});
+
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const ref=String(r[iRef>=0?iRef:2]||"").trim();
+              if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase().includes("RESUMEN")) continue;
+              const precio=toN(r[iPrecio>=0?iPrecio:6]);
+              if(!precio) continue;
+              const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
+              const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
+              const statusMap={"RESERVA":"reservada","LIBRE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","BAJA":"rescindida","RESCISION":"rescindida"};
+              const status=statusMap[statusRaw]||statusRaw.toLowerCase()||"disponible";
+              result.ventas.push({
+                ref,
+                tipo:String(r[iTipo>=0?iTipo:1]||"").trim(),
+                status,
+                precio,
+                precioOrigen:toN(r[iPrecioOrigen>=0?iPrecioOrigen:17]),
+                m2:toN(r[iM2>=0?iM2:8]),
+                nombre:String(r[iNombre>=0?iNombre:35]||"").trim(),
+                agencia:String(r[iAgencia>=0?iAgencia:55]||"").trim(),
+                fReserva:toISO(r[iFReserva>=0?iFReserva:64]),
+                fCpcv:toISO(r[iFCpcv>=0?iFCpcv:65]),
+                comision:toN(r[iComision>=0?iComision:59]),
+                pctComision:toN(r[iPctCom>=0?iPctCom:58]),
+                repricings:rps,
+                incremento:precio-(toN(r[iPrecioOrigen>=0?iPrecioOrigen:17])||precio),
+              });
+            }
+          }
+        }
+
+        // Rescisiones sheet
+        const wsR=wb.Sheets["Rescisiones"];
+        if(wsR){
+          const rowsR=window.XLSX.utils.sheet_to_json(wsR,{header:1,defval:null,raw:true});
+          const hdrR=(rowsR[0]||[]).map(c=>String(c||"").toUpperCase().trim());
+          const iRef=hdrR.findIndex(h=>h==="VVDA");
+          const iFecha=hdrR.findIndex(h=>h==="FECHA RESCISION");
+          const iPrecio=hdrR.findIndex(h=>h==="PRECIO DE VENTA");
+          const iNombre=hdrR.findIndex(h=>h==="NOMBRE 1");
+          for(let i=1;i<rowsR.length;i++){
+            const r=rowsR[i];if(!r) continue;
+            const ref=String(r[iRef>=0?iRef:2]||"").trim();
+            if(!ref) continue;
+            result.rescisiones.push({ref,fecha:toISO(r[iFecha>=0?iFecha:15]),precio:toN(r[iPrecio>=0?iPrecio:6]),nombre:String(r[iNombre>=0?iNombre:32]||"").trim()});
+          }
+        }
+
+        if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
+        upd(activeId,p=>({...p,master:{...result,importado:new Date().toISOString().split("T")[0]}}));
+        alert("OK: "+result.ventas.length+" unidades cargadas, "+result.rescisiones.length+" rescisiones");
+      }catch(err){alert("Error: "+err.message);}
+    };
+    reader.readAsBinaryString(file);e.target.value="";
+  },[activeId,upd]);
+
   const confirmBP=useCallback(()=>{
     if(!bpPreview) return;
     const d=bpPreview;
@@ -564,6 +656,7 @@ export default function Overview(){
     {id:"hitos",l:"Hitos"},
     {id:"bp",l:"Business Plan"+(proj&&proj.bp?" OK":"")},
     {id:"viviendas",l:"Viviendas"+(st.total>0?" ("+st.total+")":"")},
+    {id:"master",l:"Master Comercial"+(proj&&proj.master?" OK":"")},
     {id:"marketing",l:"Marketing"+(proj&&proj.marketing?" OK":"")},
     {id:"comercial",l:"Comercial"},
     {id:"equipo",l:"Equipo"},
@@ -865,6 +958,102 @@ export default function Overview(){
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {tab==="master"&&(
+                <div>
+                  {!proj.master?(
+                    <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+                      <div style={{fontSize:"2.5rem",marginBottom:10}}>MC</div>
+                      <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Master Comercial no cargado</div>
+                      <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa el master comercial para ver ventas, repricings, rescisiones y datos de compradores</div>
+                      <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
+                        Importar Master Comercial (.xlsx)
+                        <input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
+                      </label>
+                    </div>
+                  ):(()=>{
+                    const m=proj.master;
+                    const vendidas=m.ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
+                    const libres=m.ventas.filter(v=>v.status==="disponible");
+                    const rescindidas=m.ventas.filter(v=>v.status==="rescindida");
+                    const totalVentas=vendidas.reduce((a,v)=>a+v.precio,0);
+                    const comisionTotal=vendidas.reduce((a,v)=>a+v.comision,0);
+                    const precioMedioVenta=vendidas.length?Math.round(totalVentas/vendidas.length):0;
+                    const conRepricing=m.ventas.filter(v=>v.incremento>0);
+                    const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
+                    return (
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                          <div><div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado)} - {m.ventas.length} unidades</div></div>
+                          <div style={{display:"flex",gap:8}}>
+                            <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
+                              Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
+                            </label>
+                            <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
+                          </div>
+                        </div>
+
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+                          {[{l:"Total unidades",v:m.ventas.length,c:"#e8eaf2"},{l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},{l:"Disponibles",v:libres.length,c:"#4f8ef7"},{l:"Rescisiones",v:m.rescisiones.length,c:"#f05a5a"},{l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},{l:"Precio medio venta",v:fmtEur(precioMedioVenta)},{l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},{l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"}].map(k=>(
+                            <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
+                              <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
+                              <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
+                          <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <span>Tabla de ventas y repricings</span>
+                            <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{vendidas.length} unidades vendidas/reservadas</span>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
+                            {["Ref","Tipo","Status","Precio origen","Precio actual","Incremento","m2 util","Fecha reserva"].map(h=>(
+                              <div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>
+                            ))}
+                          </div>
+                          <div style={{maxHeight:400,overflowY:"auto"}}>
+                            {m.ventas.map((v,i)=>{
+                              const vs=VIV_ESTADOS[v.status]||VIV_ESTADOS.disponible;
+                              const hasInc=v.incremento>0;
+                              return (
+                                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"9px 16px",borderBottom:i<m.ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
+                                  onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                  <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref}</div>
+                                  <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.tipo==="VIVIENDA"?"VIV":"PA"}</div>
+                                  <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
+                                  <div style={{fontSize:"0.82rem",color:"#6b7394"}}>{fmtEur(v.precioOrigen)}</div>
+                                  <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
+                                  <div style={{fontSize:"0.82rem",color:hasInc?"#22d3a0":"#6b7394",fontWeight:hasInc?600:400}}>{hasInc?"+"+fmtEur(v.incremento):"-"}</div>
+                                  <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.m2?v.m2+" m2":"-"}</div>
+                                  <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{v.fReserva?fmt(v.fReserva):"-"}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {m.rescisiones.length>0&&(
+                          <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
+                            <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({m.rescisiones.length})</div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(240,90,90,0.1)"}}>
+                              {["Ref","Fecha rescision","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
+                            </div>
+                            {m.rescisiones.map((r,i)=>(
+                              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<m.rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
+                                <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref}</div>
+                                <div style={{fontSize:"0.78rem",color:"#f05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
+                                <div style={{fontSize:"0.82rem"}}>{fmtEur(r.precio)}</div>
+                                <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{r.nombre||"-"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
