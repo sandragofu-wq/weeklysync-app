@@ -1037,22 +1037,22 @@ export default function Overview(){
                     </div>
                   ):(()=>{
                     const m=proj.master;
-                    const vendidas=m.ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
-                    const libres=m.ventas.filter(v=>v.status==="disponible");
-                    const rescindidas=m.ventas.filter(v=>v.status==="rescindida");
-                    const totalVentas=vendidas.reduce((a,v)=>a+v.precio,0);
-                    const comisionTotal=vendidas.reduce((a,v)=>a+v.comision,0);
+                    const ventas=m.ventas||[];const rescisiones=m.rescisiones||[];const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
+                    const libres=ventas.filter(v=>v.status==="disponible");
+                    const rescindidas=ventas.filter(v=>v.status==="rescindida");
+                    const totalVentas=vendidas.reduce((a,v)=>a+(v.precio||0),0);
+                    const comisionTotal=vendidas.reduce((a,v)=>a+(v.comision||0),0);
                     // Split viviendas vs parcelas for price averages
-                    const vivsVendidas=vendidas.filter(v=>v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V"));
-                    const parcVendidas=vendidas.filter(v=>v.tipo!=="VIVIENDA"&&!v.ref.toUpperCase().includes("-V"));
+                    const vivsVendidas=vendidas.filter(v=>v.tipo==="VIVIENDA"||(v.ref||'').toUpperCase().includes("-V"));
+                    const parcVendidas=vendidas.filter(v=>v.tipo!=="VIVIENDA"&&!(v.ref||'').toUpperCase().includes("-V"));
                     const precioMedioVenta=vivsVendidas.length?Math.round(vivsVendidas.reduce((a,v)=>a+v.precio,0)/vivsVendidas.length):0;
                     const precioMedioParc=parcVendidas.length?Math.round(parcVendidas.reduce((a,v)=>a+v.precio,0)/parcVendidas.length):0;
-                    const conRepricing=m.ventas.filter(v=>v.incremento>0);
+                    const conRepricing=ventas.filter(v=>v.incremento>0);
                     const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
                     return (
                       <div>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                          <div><div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado)} - {m.ventas.length} unidades</div></div>
+                          <div><div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado)} - {ventas.length} unidades</div></div>
                           <div style={{display:"flex",gap:8}}>
                             <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
                               Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
@@ -1062,7 +1062,7 @@ export default function Overview(){
                         </div>
 
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
-                          {[{l:"Total unidades",v:m.ventas.length,c:"#e8eaf2"},{l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},{l:"Disponibles",v:libres.length,c:"#4f8ef7"},{l:"Rescisiones",v:m.rescisiones.length,c:"#f05a5a"},{l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},{l:"Precio medio VIV",v:fmtEur(precioMedioVenta)},{l:"Precio medio PARC",v:fmtEur(precioMedioParc)},{l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},{l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"}].map(k=>(
+                          {[{l:"Total unidades",v:m.ventas.length,c:"#e8eaf2"},{l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},{l:"Disponibles",v:libres.length,c:"#4f8ef7"},{l:"Rescisiones",v:rescisiones.length,c:"#f05a5a"},{l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},{l:"Precio medio VIV",v:fmtEur(precioMedioVenta)},{l:"Precio medio PARC",v:fmtEur(precioMedioParc)},{l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},{l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"}].map(k=>(
                             <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
                               <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
                               <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
@@ -1081,11 +1081,11 @@ export default function Overview(){
                             ))}
                           </div>
                           <div style={{maxHeight:400,overflowY:"auto"}}>
-                            {m.ventas.map((v,i)=>{
-                              const vs=VIV_ESTADOS[v.status]||VIV_ESTADOS.disponible;
+                            {ventas.map((v,i)=>{
+                              const statusKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");const vs=VIV_ESTADOS[statusKey]||VIV_ESTADOS.disponible;
                               const hasInc=v.incremento>0;
                               return (
-                                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"9px 16px",borderBottom:i<m.ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
+                                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
                                   onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                   <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref}</div>
                                   <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.tipo==="VIVIENDA"?"VIV":"PA"}</div>
@@ -1101,14 +1101,14 @@ export default function Overview(){
                           </div>
                         </div>
 
-                        {m.rescisiones.length>0&&(
+                        {rescisiones.length>0&&(
                           <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden",marginBottom:14}}>
-                            <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({m.rescisiones.length})</div>
+                            <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({rescisiones.length})</div>
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(240,90,90,0.1)"}}>
                               {["Ref","Fecha rescision","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
                             </div>
-                            {m.rescisiones.map((r,i)=>(
-                              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<m.rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
+                            {rescisiones.map((r,i)=>(
+                              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
                                 <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref}</div>
                                 <div style={{fontSize:"0.78rem",color:"#f05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
                                 <div style={{fontSize:"0.82rem"}}>{fmtEur(r.precio)}</div>
