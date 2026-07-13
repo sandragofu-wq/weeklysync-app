@@ -38,16 +38,6 @@ const calcStats = (vv=[]) => {
   const totalParc=vv.filter(v=>!isViv(v)).length;
   return {total,vendidas,reservadas,disponibles,precioMedio,precioMedioParc,ingresosTotal,ingresosVR,totalViv,totalParc};
 };
-  const viviendas=vv.filter(isVivienda);
-  const parcelas=vv.filter(v=>!isVivienda(v));
-  const cpV=viviendas.filter(v=>Number(v.precio)>0);
-  const cpP=parcelas.filter(v=>Number(v.precio)>0);
-  const precioMedio=cpV.length?Math.round(cpV.reduce((a,v)=>a+Number(v.precio),0)/cpV.length):0;
-  const precioMedioParcela=cpP.length?Math.round(cpP.reduce((a,v)=>a+Number(v.precio),0)/cpP.length):0;
-  const ingresosTotal=vv.reduce((a,v)=>a+Number(v.precio||0),0);
-  const ingresosVR=vv.filter(v=>v.estado==="vendida"||v.estado==="reservada").reduce((a,v)=>a+Number(v.precio||0),0);
-  return {total,vendidas,reservadas,disponibles,precioMedio,precioMedioParcela,ingresosTotal,ingresosVR,numViviendas:viviendas.length,numParcelas:parcelas.length};
-};
 
 const parsePrice = raw => {
   if(!raw&&raw!==0) return 0;
