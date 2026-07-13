@@ -1036,6 +1036,7 @@ export default function Overview(){
                       </label>
                     </div>
                   ):(()=>{
+                    try {
                     const m=proj.master;
                     const ventas=m.ventas||[];const rescisiones=m.rescisiones||[];const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
                     const libres=ventas.filter(v=>v.status==="disponible");
@@ -1119,6 +1120,14 @@ export default function Overview(){
                         )}
                       </div>
                     );
+                    } catch(err) {
+                      return <div style={{padding:20,color:"#f05a5a",background:"#141720",borderRadius:12,border:"1px solid rgba(240,90,90,0.3)"}}>
+                        <div style={{fontWeight:700,marginBottom:8}}>Error en Master Comercial</div>
+                        <div style={{fontSize:"0.82rem",fontFamily:"monospace"}}>{err.message}</div>
+                        <div style={{fontSize:"0.75rem",color:"#6b7394",marginTop:8}}>Borrar y reimportar el master puede solucionar el problema.</div>
+                        <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{marginTop:12,background:"#f05a5a",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontFamily:"inherit"}}>Borrar master</button>
+                      </div>;
+                    }
                   })()}
                 </div>
               )}
