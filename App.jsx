@@ -559,194 +559,126 @@ export default function Overview(){
     reader.onload=ev=>{
       if(!window.XLSX){alert("SheetJS cargando.");return;}
       try{
-        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
-        const partidas=[];const sheets=[];
-        const toISOMkt=v=>{if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} if(s.length>=10&&s.includes("-")) return s.substring(0,10);return "";};
-        const meses=[];// will hold {label,colIdx} from PPTO header row
-        wb.SheetNames.forEach(sheetName=>{
-          const ws=wb.Sheets[sheetName];if(!ws) return;
-          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-          if(!rows||rows.length<2) return;
+        const wb2=window.XLSX.read(ev.target.result,{type:"binary",cellDates:true});
+        const partidas=[];
+        const sheets=[];
 
-          // Detect PPTO sheet (monthly calendar format): has month labels in header
-          let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,5);i++){
-            const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
-            if(r.some(c=>c.includes("proveedor")||c.includes("tipo campana")||c.includes("tipo campa"))){hdrIdx=i;break;}
-            // PPTO format: has "tipo campaña" in col1 and month names like "may-25"
-            if(r.some(c=>/^[a-z]{3}-\d{2}$/.test(c))||r.some(c=>c==="tipo campaña"||c==="tipo campana")){hdrIdx=i;break;}
+        const toISOMkt=v=>{
+          if(!v) return "";
+          if(v instanceof Date||Object.prototype.toString.call(v)==="[object Date]") return v.toISOString().substring(0,10);
+          const s=String(v).trim();
+          if(s.match(/^\d{4}-\d{2}-\d{2}/)) return s.substring(0,10);
+          if(s.includes("/")){const p=s.split("/");if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");}
+          return "";
+        };
+
+        const monthLabel=v=>{
+          if(!v) return null;
+          if(v instanceof Date||Object.prototype.toString.call(v)==="[object Date]"){
+            const ms=["ene","feb","mar","abr","may","jun","jul","ago","sept","oct","nov","dic"];
+            return ms[v.getMonth()]+"-"+(v.getFullYear()+"").substring(2);
           }
-          if(hdrIdx===-1) return;
-          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim());
-          const headersL=headers.map(h=>h.toLowerCase());
+          const s=String(v).trim().toLowerCase();
+          if(/^[a-z]{2,4}-\d{2}$/.test(s)) return s;
+          return null;
+        };
 
-          // Check if PPTO monthly format (has month columns)
-          const monthCols=[];
-          headers.forEach((h,i)=>{
-            const hl=h.toLowerCase();
-            // Match "may-25", "jun-25", or date strings for months
-            if(/^[a-z]{3}-\d{2}$/.test(hl)){
-              // Parse month label to ISO start date
-              const mNames={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sept:"09",sep:"09",oct:"10",nov:"11",dic:"12"};
-              const parts=hl.split("-");
-              const m=mNames[parts[0]]||"01";
-              const y="20"+parts[1];
-              monthCols.push({label:h,col:i,iso:y+"-"+m+"-01"});
-            } else if(h.length>=10&&h.includes("-")&&h.includes("00:00")){
-              monthCols.push({label:h.substring(0,7),col:i,iso:h.substring(0,10)});
-            }
-          });
+        wb2.SheetNames.forEach(sheetName=>{
+          const ws2=wb2.Sheets[sheetName];if(!ws2) return;
+          const rows=window.XLSX.utils.sheet_to_json(ws2,{header:1,defval:null,raw:false,cellDates:true});
+          if(!rows||rows.length<3) return;
 
-          const iTotal=headersL.findIndex(h=>h==="total");
-          const iTipo=headersL.findIndex(h=>h==="tipo campaña"||h==="tipo campana"||h.includes("tipo"));
-          const iAccion=headersL.findIndex(h=>h==="acción"||h==="accion"||h.includes("acci"));
-          const iPagador=headersL.findIndex(h=>h==="pagador"||h==="pagador");
-          const iProveedor=headersL.findIndex(h=>h==="proveedor");
+          // Detect PPTO monthly format: find header row with month cols
+          let hdrIdx=-1;
+          let monthCols=[];
 
-          if(monthCols.length>0){
+          for(let i=0;i<Math.min(rows.length,5);i++){
+            const r=rows[i]||[];
+            const mcs=[];
+            r.forEach((c,ci)=>{
+              const lbl=monthLabel(c);
+              if(lbl) mcs.push({col:ci,label:lbl,val:c});
+            });
+            if(mcs.length>=3){hdrIdx=i;monthCols=mcs;break;}
+          }
+
+          if(hdrIdx>=0&&monthCols.length>0){
             // PPTO monthly format
             sheets.push(sheetName);
+            const hdr=(rows[hdrIdx]||[]);
+            // Fixed column positions based on actual file:
+            // col1=Tipo Campaña, col2=Acción, col3=PAGADOR, col4=Proveedor, col36=Total
+            const iTipo=1,iAccion=2,iPagador=3,iProv=4;
+            let iTotalCol=hdr.findIndex((c,i)=>i>5&&String(c||"").toLowerCase().includes("total"));
+            if(iTotalCol===-1) iTotalCol=36;
+
+            // Build ISO dates for month cols
+            const mColsWithISO=monthCols.map(mc=>{
+              const lbl=mc.label;
+              const mNames={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sept:"09",sep:"09",oct:"10",nov:"11",dic:"12"};
+              const parts=lbl.split("-");
+              const m=mNames[parts[0]]||"01";
+              const y=parts[1]&&parts[1].length===2?"20"+parts[1]:parts[1]||"2025";
+              return {...mc,iso:y+"-"+m+"-01"};
+            });
+
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              const tipo=String(r[iTipo>=0?iTipo:1]||"").trim();
-              const accion=String(r[iAccion>=0?iAccion:2]||"").trim();
+              const tipo=String(r[iTipo]||"").trim();
+              const accion=String(r[iAccion]||"").trim();
               if(!tipo&&!accion) continue;
-              if(tipo.toLowerCase()==="total"||accion.toLowerCase()==="total") continue;
-              const total=iTotal>=0?Number(r[iTotal])||0:0;
-              if(!accion&&!total) continue;
-              // Get monthly breakdown - only months with values
-              const monthly=monthCols.filter(mc=>Number(r[mc.col])>0).map(mc=>({label:mc.label,iso:mc.iso,amount:Number(r[mc.col])}));
-              // Derive inicio/fin from first/last active month
+              if(["total","totales","subtotal"].includes(accion.toLowerCase())) continue;
+              // Total: prefer dedicated total col, else sum month cols
+              let total=Number(r[iTotalCol])||0;
+              if(!total) total=mColsWithISO.reduce((a,mc)=>a+(Number(r[mc.col])||0),0);
+              // Monthly breakdown - ALL months (even 0 to preserve structure)
+              const monthly=mColsWithISO.map(mc=>({label:mc.label,iso:mc.iso,amount:Number(r[mc.col])||0}));
               const activeMeses=monthly.filter(m=>m.amount>0);
               const inicio=activeMeses.length>0?activeMeses[0].iso:"";
               const fin=activeMeses.length>0?activeMeses[activeMeses.length-1].iso:"";
               partidas.push({
                 categoria:tipo||"Sin categoria",
-                proveedor:String(r[iProveedor>=0?iProveedor:3]||"").trim(),
-                accion,detalle:"",inicio,fin,total,monthly,
+                proveedor:String(r[iProv]||"").trim(),
+                accion,
+                detalle:String(r[iPagador]||"").trim(),
+                inicio,fin,total,monthly,
               });
             }
           } else {
-            // Lanzamiento format (has Inicio/Fin columns)
-            const iInicio=headersL.findIndex(h=>h==="inicio");
-            const iFin=headersL.findIndex(h=>h==="fin");
-            const iTotalL=headersL.findIndex(h=>h.includes("presupuesto total")||h.includes("total"));
-            if(iTotalL===-1) return;
+            // Lanzamiento format: col0=Proveedor,col1=Tipo,col2=Accion,col3=Detalle,col4=Inicio,col5=Fin,col6=Total
+            let hdrL=-1;
+            for(let i=0;i<Math.min(rows.length,5);i++){
+              const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
+              if(r.some(c=>c==="proveedor"||c==="tipo campaña"||c==="tipo campana")) {hdrL=i;break;}
+            }
+            if(hdrL===-1) return;
             sheets.push(sheetName);
-            for(let i=hdrIdx+1;i<rows.length;i++){
+            const hdrL2=(rows[hdrL]||[]).map(c=>String(c||"").toLowerCase().trim());
+            const fi=(k)=>hdrL2.findIndex(h=>h.includes(k));
+            const iP=fi("proveedor"),iT=fi("tipo"),iA=fi("acci"),iD=fi("detall"),iI=fi("inicio"),iF=fi("fin");
+            const iTL=hdrL2.findIndex(h=>h.includes("presupuesto total")||h==="total");
+            if(iTL===-1) return;
+            for(let i=hdrL+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              const accion=String(r[iAccion>=0?iAccion:2]||"").trim();
-              if(!accion||accion.toLowerCase()==="total") continue;
-              const total=Number(r[iTotalL])||0;
-              if(!accion&&!total) continue;
-              const categoria=String(r[iTipo>=0?iTipo:1]||"").trim()||"Sin categoria";
+              const ac=String(r[iA>=0?iA:2]||"").trim();
+              if(!ac) continue;
+              const total=Number(r[iTL])||0;
               partidas.push({
-                categoria,
-                proveedor:String(r[iProveedor>=0?iProveedor:0]||"").trim(),
-                accion,
-                detalle:String(r[3]||"").trim(),
-                inicio:toISOMkt(r[iInicio>=0?iInicio:4]),
-                fin:toISOMkt(r[iFin>=0?iFin:5]),
+                categoria:String(r[iT>=0?iT:1]||"").trim()||"Sin categoria",
+                proveedor:String(r[iP>=0?iP:0]||"").trim(),
+                accion:ac,
+                detalle:String(r[iD>=0?iD:3]||"").trim(),
+                inicio:toISOMkt(r[iI>=0?iI:4]),
+                fin:toISOMkt(r[iF>=0?iF:5]),
                 total,monthly:[],
               });
             }
           }
         });
+
         if(!partidas.length){alert("No se encontraron partidas de marketing.");return;}
         upd(activeId,p=>({...p,marketing:{partidas,sheets,importado:new Date().toISOString().split("T")[0]}}));
         alert("OK: "+partidas.length+" partidas importadas");
-      }catch(err){alert("Error: "+err.message);}
-    };
-    reader.readAsBinaryString(file);e.target.value="";
-  },[activeId,upd]);
-
-  const handleMasterFile=useCallback(e=>{
-    const file=e.target.files[0];if(!file) return;
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      if(!window.XLSX){alert("SheetJS cargando.");return;}
-      try{
-        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
-        const result={ventas:[],rescisiones:[],repricings:[]};
-        const toISO=v=>{if(!v) return "";const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");return p[2]+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");}if(s.includes("-")&&s.length>=10) return s.substring(0,10);if(typeof v==="number"&&v>40000){const d=new Date(Math.round((v-25569)*86400*1000));return d.toISOString().substring(0,10);}return "";};
-        const toN=v=>{const n=Number(v);return isNaN(n)?0:n;};
-
-        // Main sheet - find header row (has VVDA + STATUS COMERCIAL)
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        if(ws){
-          const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-          let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,8);i++){
-            const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().trim());
-            if(r.some(c=>c==="VVDA"||c==="VIVIENDA")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO"))) {hdrIdx=i;break;}
-          }
-          if(hdrIdx>=0){
-            const hdr=(rows[hdrIdx]||[]).map(c=>String(c||"").toUpperCase().trim());
-            const iRef=hdr.findIndex(h=>h==="VVDA"||h==="VIVIENDA"||h==="REF");
-            const iTipo=hdr.findIndex(h=>h==="TIPOLOGIA");
-            const iStatus=hdr.findIndex(h=>h.includes("STATUS COMERCIAL"));
-            const iPrecio=hdr.findIndex(h=>h==="PRECIO DE VENTA");
-            const iPrecioOrigen=hdr.findIndex(h=>h.includes("PRECIO ORIGEN"));
-            const iM2=hdr.findIndex(h=>h==="M2 UTIL INT"||h==="M2 UTIL");
-            const iNombre=hdr.findIndex(h=>h==="NOMBRE 1"||h==="NOMBRE");
-            const iAgencia=hdr.findIndex(h=>h==="AGENCIA");
-            const iFReserva=hdr.findIndex(h=>h==="F. RESERVA");
-            const iFCpcv=hdr.findIndex(h=>h==="F. CPCV");
-            const iComision=hdr.findIndex(h=>h.includes("TOTAL COMISION"));
-            const iPctCom=hdr.findIndex(h=>h.includes("% COMISION"));
-            // Find repricing cols (REPRICING 1..N)
-            const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")) rpCols.push(i);});
-
-            for(let i=hdrIdx+1;i<rows.length;i++){
-              const r=rows[i];if(!r) continue;
-              const ref=String(r[iRef>=0?iRef:2]||"").trim();
-              if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase().includes("RESUMEN")) continue;
-              const precio=toN(r[iPrecio>=0?iPrecio:6]);
-              if(!precio) continue;
-              const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
-              const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
-              const statusMap={"RESERVA":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida"};
-              const status=statusMap[statusRaw]||"disponible";
-              result.ventas.push({
-                ref,
-                tipo:String(r[iTipo>=0?iTipo:1]||"").trim(),
-                status,
-                precio,
-                precioOrigen:toN(r[iPrecioOrigen>=0?iPrecioOrigen:17]),
-                m2:toN(r[iM2>=0?iM2:8]),
-                nombre:String(r[iNombre>=0?iNombre:35]||"").trim(),
-                agencia:String(r[iAgencia>=0?iAgencia:55]||"").trim(),
-                fReserva:toISO(r[iFReserva>=0?iFReserva:64]),
-                fCpcv:toISO(r[iFCpcv>=0?iFCpcv:65]),
-                comision:toN(r[iComision>=0?iComision:59]),
-                pctComision:toN(r[iPctCom>=0?iPctCom:58]),
-                repricings:rps,
-                incremento:precio-(toN(r[iPrecioOrigen>=0?iPrecioOrigen:17])||precio),
-              });
-            }
-          }
-        }
-
-        // Rescisiones sheet
-        const wsR=wb.Sheets["Rescisiones"];
-        if(wsR){
-          const rowsR=window.XLSX.utils.sheet_to_json(wsR,{header:1,defval:null,raw:true});
-          const hdrR=(rowsR[0]||[]).map(c=>String(c||"").toUpperCase().trim());
-          const iRef=hdrR.findIndex(h=>h==="VVDA");
-          const iFecha=hdrR.findIndex(h=>h==="FECHA RESCISION");
-          const iPrecio=hdrR.findIndex(h=>h==="PRECIO DE VENTA");
-          const iNombre=hdrR.findIndex(h=>h==="NOMBRE 1");
-          for(let i=1;i<rowsR.length;i++){
-            const r=rowsR[i];if(!r) continue;
-            const ref=String(r[iRef>=0?iRef:2]||"").trim();
-            if(!ref) continue;
-            result.rescisiones.push({ref,fecha:toISO(r[iFecha>=0?iFecha:15]),precio:toN(r[iPrecio>=0?iPrecio:6]),nombre:String(r[iNombre>=0?iNombre:32]||"").trim()});
-          }
-        }
-
-        if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
-        upd(activeId,p=>({...p,master:{...result,importado:new Date().toISOString().split("T")[0]}}));
-        alert("OK: "+result.ventas.length+" unidades cargadas - sincronizado con Viviendas automaticamente");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);e.target.value="";
