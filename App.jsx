@@ -181,11 +181,8 @@ const parseBP = wb => {
       }
       if(fin.mktSalesMgmt) break;
     }
-    // comercialActual for marketing budget = Marketing and Sales Mgmt only (not Master Broker or Structuring)
-    if(fin.mktSalesMgmt) fin.mktBudget=fin.mktSalesMgmt;
-    else fin.mktBudget=fin.comercialActual||0;
-
-    // Fees sheet (Atabal Estático format): extract Presupuesto M&C = pure marketing budget
+    // Priority 1: Fees sheet "Presupuesto M&C" = pure marketing budget (most accurate)
+    let feesFound=false;
     const feesSheets=["Fees","Fees_1","fees"];
     for(const fsName of feesSheets){
       if(!wb.Sheets[fsName]) continue;
@@ -193,17 +190,21 @@ const parseBP = wb => {
       for(let i=0;i<feesRows.length;i++){
         const r=feesRows[i];if(!r) continue;
         const t1=tv(r,1);const t0=tv(r,0);
-        // "Presupuesto M&C" row has the value in col5 or col6
         if(t1==="Presupuesto M&C"||t0==="Presupuesto M&C"){
           const v=nv(r,5)||nv(r,6)||nv(r,2);
-          if(v>0){ fin.mktBudget=v; break; }
+          if(v>0){ fin.mktBudget=v; feesFound=true; break; }
         }
-        // Also grab breakdowns
         if(t1==="% lanzamiento") fin.mktLanzamiento=nv(r,5)||nv(r,6);
         if(t1==="% durante proyecto") fin.mktDurante=nv(r,5)||nv(r,6);
         if(t1.includes("allowance")) fin.mktAllowance=nv(r,5)||nv(r,6);
       }
-      if(fin.mktBudget&&fin.mktBudget!==fin.comercialActual) break;
+      if(feesFound) break;
+    }
+    // Priority 2: Cash Flow "Marketing and Sales Mgmt." (Elviria multi-negocio)
+    if(!feesFound){
+      if(fin.mktSalesMgmt) fin.mktBudget=fin.mktSalesMgmt;
+      // Priority 3: Total COMERCIALIZACION as last resort
+      else fin.mktBudget=fin.comercialActual||0;
     }
 
     fin.viviendas=viviendas;
@@ -560,34 +561,95 @@ export default function Overview(){
       try{
         const wb=window.XLSX.read(ev.target.result,{type:"binary"});
         const partidas=[];const sheets=[];
+        const toISOMkt=v=>{if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} if(s.length>=10&&s.includes("-")) return s.substring(0,10);return "";};
+        const meses=[];// will hold {label,colIdx} from PPTO header row
         wb.SheetNames.forEach(sheetName=>{
           const ws=wb.Sheets[sheetName];if(!ws) return;
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
+
+          // Detect PPTO sheet (monthly calendar format): has month labels in header
           let hdrIdx=-1;
           for(let i=0;i<Math.min(rows.length,5);i++){
             const r=(rows[i]||[]).map(c=>String(c||"").toLowerCase().trim());
-            if(r.some(c=>c.includes("proveedor")||c.includes("tipo")||c.includes("accion")||c.includes("tipo campana"))){hdrIdx=i;break;}
+            if(r.some(c=>c.includes("proveedor")||c.includes("tipo campana")||c.includes("tipo campa"))){hdrIdx=i;break;}
+            // PPTO format: has "tipo campaña" in col1 and month names like "may-25"
+            if(r.some(c=>/^[a-z]{3}-\d{2}$/.test(c))||r.some(c=>c==="tipo campaña"||c==="tipo campana")){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
-          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim().toLowerCase());
-          const iProveedor=headers.findIndex(h=>h.includes("proveedor"));
-          const iTipo=headers.findIndex(h=>h.includes("tipo"));
-          const iAccion=headers.findIndex(h=>h.includes("acci")||h.includes("accion"));
-          const iDetalle=headers.findIndex(h=>h.includes("detall"));
-          const iInicio=headers.findIndex(h=>h.includes("inicio"));
-          const iFin=headers.findIndex(h=>h.includes("fin"));
-          const iTotal=headers.findIndex(h=>h.includes("total")||h.includes("presupuesto"));
-          if(iTotal===-1) return;
-          sheets.push(sheetName);
-          for(let i=hdrIdx+1;i<rows.length;i++){
-            const r=rows[i];if(!r) continue;
-            const accion=String(r[iAccion!==-1?iAccion:0]||"").trim();
-            if(!accion||accion.toLowerCase()==="total") continue;
-            const total=Number(iTotal!==-1?r[iTotal]:null)||0;
-            if(!accion&&!total) continue;
-            const categoria=String(r[iTipo!==-1?iTipo:1]||"").trim()||"Sin categoria";
-            partidas.push({categoria,proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),accion,detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),inicio:(()=>{const v=r[iInicio!==-1?iInicio:4];if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/"); if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} if(s.length>=10&&s.includes("-")) return s.substring(0,10); return "";})(),fin:(()=>{const v=r[iFin!==-1?iFin:5];if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/"); if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} if(s.length>=10&&s.includes("-")) return s.substring(0,10); return "";})(),total});
+          const headers=(rows[hdrIdx]||[]).map(c=>String(c||"").trim());
+          const headersL=headers.map(h=>h.toLowerCase());
+
+          // Check if PPTO monthly format (has month columns)
+          const monthCols=[];
+          headers.forEach((h,i)=>{
+            const hl=h.toLowerCase();
+            // Match "may-25", "jun-25", or date strings for months
+            if(/^[a-z]{3}-\d{2}$/.test(hl)){
+              // Parse month label to ISO start date
+              const mNames={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sept:"09",sep:"09",oct:"10",nov:"11",dic:"12"};
+              const parts=hl.split("-");
+              const m=mNames[parts[0]]||"01";
+              const y="20"+parts[1];
+              monthCols.push({label:h,col:i,iso:y+"-"+m+"-01"});
+            } else if(h.length>=10&&h.includes("-")&&h.includes("00:00")){
+              monthCols.push({label:h.substring(0,7),col:i,iso:h.substring(0,10)});
+            }
+          });
+
+          const iTotal=headersL.findIndex(h=>h==="total");
+          const iTipo=headersL.findIndex(h=>h==="tipo campaña"||h==="tipo campana"||h.includes("tipo"));
+          const iAccion=headersL.findIndex(h=>h==="acción"||h==="accion"||h.includes("acci"));
+          const iPagador=headersL.findIndex(h=>h==="pagador"||h==="pagador");
+          const iProveedor=headersL.findIndex(h=>h==="proveedor");
+
+          if(monthCols.length>0){
+            // PPTO monthly format
+            sheets.push(sheetName);
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const tipo=String(r[iTipo>=0?iTipo:1]||"").trim();
+              const accion=String(r[iAccion>=0?iAccion:2]||"").trim();
+              if(!tipo&&!accion) continue;
+              if(tipo.toLowerCase()==="total"||accion.toLowerCase()==="total") continue;
+              const total=iTotal>=0?Number(r[iTotal])||0:0;
+              if(!accion&&!total) continue;
+              // Get monthly breakdown - only months with values
+              const monthly=monthCols.filter(mc=>Number(r[mc.col])>0).map(mc=>({label:mc.label,iso:mc.iso,amount:Number(r[mc.col])}));
+              // Derive inicio/fin from first/last active month
+              const activeMeses=monthly.filter(m=>m.amount>0);
+              const inicio=activeMeses.length>0?activeMeses[0].iso:"";
+              const fin=activeMeses.length>0?activeMeses[activeMeses.length-1].iso:"";
+              partidas.push({
+                categoria:tipo||"Sin categoria",
+                proveedor:String(r[iProveedor>=0?iProveedor:3]||"").trim(),
+                accion,detalle:"",inicio,fin,total,monthly,
+              });
+            }
+          } else {
+            // Lanzamiento format (has Inicio/Fin columns)
+            const iInicio=headersL.findIndex(h=>h==="inicio");
+            const iFin=headersL.findIndex(h=>h==="fin");
+            const iTotalL=headersL.findIndex(h=>h.includes("presupuesto total")||h.includes("total"));
+            if(iTotalL===-1) return;
+            sheets.push(sheetName);
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const accion=String(r[iAccion>=0?iAccion:2]||"").trim();
+              if(!accion||accion.toLowerCase()==="total") continue;
+              const total=Number(r[iTotalL])||0;
+              if(!accion&&!total) continue;
+              const categoria=String(r[iTipo>=0?iTipo:1]||"").trim()||"Sin categoria";
+              partidas.push({
+                categoria,
+                proveedor:String(r[iProveedor>=0?iProveedor:0]||"").trim(),
+                accion,
+                detalle:String(r[3]||"").trim(),
+                inicio:toISOMkt(r[iInicio>=0?iInicio:4]),
+                fin:toISOMkt(r[iFin>=0?iFin:5]),
+                total,monthly:[],
+              });
+            }
           }
         });
         if(!partidas.length){alert("No se encontraron partidas de marketing.");return;}
@@ -1198,29 +1260,96 @@ export default function Overview(){
                             <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(pctUsado,100)+"%",background:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#4f8ef7",borderRadius:5}}/></div>
                           </div>
                         )}
-                        <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden"}}>
-                          <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem"}}>Por categoria</div>
-                          {Object.entries(byCat).map(([cat,data],ci)=>(
-                            <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #1c2030":"none"}}>
-                              <div style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
-                                <div style={{fontWeight:600,fontSize:"0.84rem"}}>{cat}</div>
-                                <div style={{fontSize:"0.82rem",fontWeight:700,color:"#4f8ef7"}}>{fmtEur(data.total)}</div>
-                                <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{data.items.length} partida{data.items.length!==1?"s":""}</div>
+                        {/* Monthly timeline view if PPTO data available */}
+                        {(()=>{
+                          const hasMensual=mkt.partidas.some(p=>p.monthly&&p.monthly.length>0);
+                          if(hasMensual){
+                            // Build sorted unique month list
+                            const allMeses={};
+                            mkt.partidas.forEach(p=>(p.monthly||[]).forEach(m=>{if(m.amount>0) allMeses[m.iso]=m.label;}));
+                            const mesesSorted=Object.keys(allMeses).sort().map(iso=>({iso,label:allMeses[iso]}));
+                            return (
+                              <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden"}}>
+                                <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
+                                  <span>Planificacion mensual</span>
+                                  <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{mesesSorted.length} meses activos</span>
+                                </div>
+                                <div style={{overflowX:"auto"}}>
+                                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.75rem",minWidth:800}}>
+                                    <thead>
+                                      <tr style={{background:"#1c2030"}}>
+                                        <th style={{textAlign:"left",padding:"8px 14px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",position:"sticky",left:0,background:"#1c2030",minWidth:200}}>Tipo / Accion</th>
+                                        <th style={{textAlign:"right",padding:"8px 10px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:80}}>Total</th>
+                                        {mesesSorted.map(m=>(
+                                          <th key={m.iso} style={{textAlign:"right",padding:"8px 8px",color:"#4f8ef7",fontWeight:700,minWidth:70,whiteSpace:"nowrap"}}>{m.label}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {Object.entries(byCat).map(([cat,data])=>[
+                                        <tr key={cat+"_hdr"} style={{background:"#1a1e2c"}}>
+                                          <td colSpan={2+mesesSorted.length} style={{padding:"7px 14px",fontWeight:700,color:"#a78bfa",fontSize:"0.78rem"}}>{cat}</td>
+                                        </tr>,
+                                        ...data.items.map((item,ii)=>{
+                                          const byMes={};(item.monthly||[]).forEach(m=>{byMes[m.iso]=m.amount;});
+                                          return (
+                                            <tr key={cat+ii} style={{borderBottom:"1px solid #1c2030"}}
+                                              onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                              <td style={{padding:"7px 14px",position:"sticky",left:0,background:"inherit"}}>
+                                                <div style={{fontWeight:500}}>{item.accion}</div>
+                                                {item.proveedor&&<div style={{fontSize:"0.68rem",color:"#6b7394"}}>{item.proveedor}</div>}
+                                              </td>
+                                              <td style={{textAlign:"right",padding:"7px 10px",fontWeight:700,color:"#4f8ef7",whiteSpace:"nowrap"}}>{fmtEur(item.total)}</td>
+                                              {mesesSorted.map(m=>(
+                                                <td key={m.iso} style={{textAlign:"right",padding:"7px 8px",color:byMes[m.iso]?"#22d3a0":"#252a3a",fontWeight:byMes[m.iso]?600:400}}>
+                                                  {byMes[m.iso]?fmtEur(byMes[m.iso]):"-"}
+                                                </td>
+                                              ))}
+                                            </tr>
+                                          );
+                                        })
+                                      ])}
+                                      <tr style={{background:"#1c2030",fontWeight:700}}>
+                                        <td style={{padding:"8px 14px",color:"#e8eaf2"}}>TOTAL</td>
+                                        <td style={{textAlign:"right",padding:"8px 10px",color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</td>
+                                        {mesesSorted.map(m=>{
+                                          const tot=mkt.partidas.reduce((a,p)=>a+((p.monthly||[]).find(mm=>mm.iso===m.iso)?.amount||0),0);
+                                          return <td key={m.iso} style={{textAlign:"right",padding:"8px 8px",color:tot>0?"#f5c842":"#252a3a",fontWeight:600}}>{tot>0?fmtEur(tot):"-"}</td>;
+                                        })}
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
                               </div>
-                              {data.items.map((item,ii)=>(
-                                <div key={ii} style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
-                                  onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                  <div>
-                                    <div style={{fontSize:"0.8rem"}}>{item.accion}{item.detalle?" - "+item.detalle:""}</div>
-                                    {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                            );
+                          }
+                          // Fallback: simple list view (Lanzamiento format)
+                          return (
+                            <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden"}}>
+                              <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem"}}>Por categoria</div>
+                              {Object.entries(byCat).map(([cat,data],ci)=>(
+                                <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #1c2030":"none"}}>
+                                  <div style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
+                                    <div style={{fontWeight:600,fontSize:"0.84rem"}}>{cat}</div>
+                                    <div style={{fontSize:"0.82rem",fontWeight:700,color:"#4f8ef7"}}>{fmtEur(data.total)}</div>
+                                    <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{data.items.length} partidas</div>
                                   </div>
-                                  <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
-                                  <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio||item.fin?((!item.inicio||!item.fin)?fmt(item.inicio||item.fin):(fmt(item.inicio)+" - "+fmt(item.fin))):"-"}</div>
+                                  {data.items.map((item,ii)=>(
+                                    <div key={ii} style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
+                                      onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                      <div>
+                                        <div style={{fontSize:"0.8rem"}}>{item.accion}{item.detalle?" - "+item.detalle:""}</div>
+                                        {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                                      </div>
+                                      <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
+                                      <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio||item.fin?((!item.inicio||!item.fin)?fmt(item.inicio||item.fin):(fmt(item.inicio)+" - "+fmt(item.fin))):"-"}</div>
+                                    </div>
+                                  ))}
                                 </div>
                               ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
