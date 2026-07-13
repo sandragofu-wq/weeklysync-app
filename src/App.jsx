@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 
 const DEFAULT_HITOS = ["Demolicion","Licencia parcelacion","Licencia de obra","Proyecto ejecucion","Licitacion","Construccion excavacion","Construccion civil","Construccion edificacion","Licencia 1a ocupacion"];
 const HITO_CYCLE = ["pendiente","en-curso","completado","retrasado"];
@@ -372,11 +372,29 @@ function LoginScreen({onLogin}){
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props){super(props);this.state={hasError:false,error:null};}
+  static getDerivedStateFromError(error){return {hasError:true,error};}
+  render(){
+    if(this.state.hasError){
+      return <div style={{padding:40,fontFamily:"sans-serif",background:"#0d0f14",color:"#e8eaf2",minHeight:"100vh"}}>
+        <div style={{maxWidth:600,margin:"0 auto",paddingTop:80}}>
+          <div style={{fontSize:"1.2rem",fontWeight:700,color:"#f05a5a",marginBottom:16}}>Error al cargar la aplicacion</div>
+          <div style={{fontSize:"0.85rem",color:"#6b7394",fontFamily:"monospace",background:"#141720",padding:16,borderRadius:8,marginBottom:20}}>{String(this.state.error)}</div>
+          <div style={{fontSize:"0.82rem",color:"#6b7394",marginBottom:16}}>Puede que haya datos incompatibles guardados. Prueba a limpiar el cache:</div>
+          <button onClick={()=>{localStorage.clear();sessionStorage.clear();window.location.reload();}} style={{background:"#4f8ef7",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.88rem",fontWeight:600}}>Limpiar cache y recargar</button>
+        </div>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 export default function Overview(){
   const [loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("ov_auth")==="1");
   const doLogin=()=>{sessionStorage.setItem("ov_auth","1");setLoggedIn(true);};
 
-  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov10");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
+  const [projects,setProjects]=useState(()=>{try{const s=localStorage.getItem("ov11");if(s){const p=JSON.parse(s);return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));}return DEFAULT_PROJECTS;}catch{return DEFAULT_PROJECTS;}});
   const [view,setView]=useState("dashboard");
   const [activeId,setActiveId]=useState(null);
   const [tab,setTab]=useState("hitos");
@@ -395,7 +413,7 @@ export default function Overview(){
   const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false);
 
   const proj=projects.find(p=>p.id===activeId);
-  useEffect(()=>{try{localStorage.setItem("ov10",JSON.stringify(projects));}catch{}},[projects]);
+  useEffect(()=>{try{localStorage.setItem("ov11",JSON.stringify(projects));}catch{}},[projects]);
   useEffect(()=>{if(proj) setResumenLocal(proj.resumenSemanal||"");},[activeId]);
   const save=fn=>setProjects(prev=>fn(prev));
   const upd=useCallback((id,fn)=>setProjects(prev=>prev.map(p=>p.id!==id?p:fn(p))),[]);
@@ -724,9 +742,10 @@ export default function Overview(){
     {id:"reporte",l:"Reporte"},
   ];
 
-  if(!loggedIn) return <LoginScreen onLogin={doLogin}/>;
+  if(!loggedIn) return <ErrorBoundary><LoginScreen onLogin={doLogin}/></ErrorBoundary>;
 
   return (
+    <ErrorBoundary>
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:"#0d0f14",color:"#e8eaf2",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 32px",borderBottom:"1px solid #252a3a",background:"#141720",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:14,cursor:"pointer"}} onClick={()=>setView("dashboard")}>
@@ -1037,15 +1056,17 @@ export default function Overview(){
                     </div>
                   ):(()=>{
                     try {
-                    const m=proj.master;
-                    const ventas=m.ventas||[];const rescisiones=m.rescisiones||[];const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
+                    const m=proj.master||{};
+                    const ventas=(m.ventas||[]).filter(v=>v&&v.ref);
+                    const rescisiones=m.rescisiones||[];
+                    const vendidas=ventas.filter(v=>v.status==="vendida"||v.status==="reservada");
                     const libres=ventas.filter(v=>v.status==="disponible");
                     const rescindidas=ventas.filter(v=>v.status==="rescindida");
                     const totalVentas=vendidas.reduce((a,v)=>a+(v.precio||0),0);
                     const comisionTotal=vendidas.reduce((a,v)=>a+(v.comision||0),0);
                     // Split viviendas vs parcelas for price averages
-                    const vivsVendidas=vendidas.filter(v=>v.tipo==="VIVIENDA"||(v.ref||'').toUpperCase().includes("-V"));
-                    const parcVendidas=vendidas.filter(v=>v.tipo!=="VIVIENDA"&&!(v.ref||'').toUpperCase().includes("-V"));
+                    const vivsVendidas=vendidas.filter(v=>v&&(v.tipo==="VIVIENDA"||(v.ref||'').toUpperCase().includes("-V"));
+                    const parcVendidas=vendidas.filter(v=>v&&(v.tipo!=="VIVIENDA"&&!(v.ref||'').toUpperCase().includes("-V"));
                     const precioMedioVenta=vivsVendidas.length?Math.round(vivsVendidas.reduce((a,v)=>a+v.precio,0)/vivsVendidas.length):0;
                     const precioMedioParc=parcVendidas.length?Math.round(parcVendidas.reduce((a,v)=>a+v.precio,0)/parcVendidas.length):0;
                     const conRepricing=ventas.filter(v=>v.incremento>0);
@@ -1082,14 +1103,14 @@ export default function Overview(){
                             ))}
                           </div>
                           <div style={{maxHeight:400,overflowY:"auto"}}>
-                            {ventas.map((v,i)=>{
+                            {ventas.filter(v=>v&&v.ref).map((v,i)=>{
                               const statusKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");const vs=VIV_ESTADOS[statusKey]||VIV_ESTADOS.disponible;
-                              const hasInc=v.incremento>0;
+                              const hasInc=(v.incremento||0)>0;
                               return (
                                 <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.8fr 0.8fr 1fr 1fr 1fr 0.9fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
                                   onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                   <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref}</div>
-                                  <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.tipo==="VIVIENDA"?"VIV":"PA"}</div>
+                                  <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
                                   <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
                                   <div style={{fontSize:"0.82rem",color:"#6b7394"}}>{fmtEur(v.precioOrigen)}</div>
                                   <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
@@ -1500,5 +1521,6 @@ export default function Overview(){
         </Modal>
       )}
     </div>
+    </ErrorBoundary>
   );
 }
