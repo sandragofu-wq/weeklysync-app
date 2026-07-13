@@ -39,6 +39,24 @@ const calcStats = (vv=[]) => {
   return {total,vendidas,reservadas,disponibles,precioMedio,precioMedioParc,ingresosTotal,ingresosVR,totalViv,totalParc};
 };
 
+// Returns active viviendas - master.ventas if master loaded, else proj.viviendas
+// Also converts master.ventas format to viviendas format on the fly
+const masterToVivs = (master) => {
+  if(!master||!master.ventas) return null;
+  const estadoMap={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+  return master.ventas.map(v=>({
+    id:v.ref,
+    ref:v.ref,
+    tipologia:v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V")?"Vivienda":"Parcela",
+    planta:"-",
+    superficie:v.m2||0,
+    precio:v.precio||0,
+    estado:estadoMap[v.status]||"disponible",
+    notas:[v.nombre?v.nombre:"",v.agencia?v.agencia:"",v.fCpcv?"CPCV: "+v.fCpcv:""].filter(Boolean).join(" - "),
+    _fromMaster:true,
+  }));
+};
+
 const parsePrice = raw => {
   if(!raw&&raw!==0) return 0;
   if(typeof raw==="number") return Math.round(raw);
@@ -59,7 +77,8 @@ const excelDateToISO = n => {
 const nv = (r,c) => { try { const v=r&&r[c]; return (v!==null&&v!==undefined&&!isNaN(Number(v)))?Number(v):0; } catch { return 0; } };
 const tv = (r,c) => { try { return String(r&&r[c]||"").trim(); } catch { return ""; } };
 
-const parseSheetFin = (rows) => {
+const parseSheetFin = (rows, sheetName) => {
+  const estatico=sheetName==="Estático"||sheetName==="Estatico";
   const f={};
   for(let i=0;i<rows.length;i++){
     const r=rows[i]; if(!r||r.length<5) continue;
@@ -73,21 +92,21 @@ const parseSheetFin = (rows) => {
     if(t37.includes("escritura")) f.fechaEntrega=excelDateToISO(r[47]||r[46]);
     if(t37.includes("Duracion de obra")) f.duracionObra=nv(r,46);
     if(t37.includes("Meses ejecucion")) f.duracionMeses=nv(r,46);
-    if(t5u==="VENTAS"||t5u==="A. VENTAS"){if(!f.ventasPrev){f.ventasPrev=nv(r,32);f.ventasActual=nv(r,37);}}
-    if(t5u.includes("COMPRA")){if(!f.sueloPrev){f.sueloPrev=nv(r,32);f.sueloActual=nv(r,37);}}
-    if(t5u.includes("CONTRATA")||t5u.includes("HARD")){if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=nv(r,37);}}
-    if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=nv(r,37);}}
-    if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=nv(r,37);}}
-    if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=nv(r,37);}}
-    if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=nv(r,37);}
-    if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=nv(r,37);}
-    if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=nv(r,37);}
-    if(t3.includes("Beneficio de la p")){if(!f.beneficioActual||f.beneficioActual===0){f.beneficioPrev=nv(r,32);f.beneficioActual=nv(r,37);}}
-    if(t3.includes("Beneficio / Fondos")){f.roePrev=nv(r,32);f.roeActual=nv(r,37);}
-    if(t3.includes("MgV")){f.mgvPrev=nv(r,32);f.mgvActual=nv(r,37);}
-    if(t3==="TIR (pretax)"||t3==="TIR pretax"){f.tirPrev=nv(r,32);f.tirActual=nv(r,37);}
+    if(t5u==="VENTAS"||t5u==="A. VENTAS"){if(!f.ventasPrev){f.ventasPrev=nv(r,32);f.ventasActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("COMPRA")){if(!f.sueloPrev){f.sueloPrev=nv(r,32);f.sueloActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("CONTRATA")||t5u.includes("HARD")){if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
+    if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=estatico?nv(r,32):nv(r,37);}
+    if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}
+    if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=estatico?nv(r,32):nv(r,37);}
+    if(t3.includes("Beneficio de la p")){if(!f.beneficioActual||f.beneficioActual===0){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}}
+    if(t3.includes("Beneficio / Fondos")){f.roePrev=nv(r,32);f.roeActual=estatico?nv(r,32):nv(r,37);}
+    if(t3.includes("MgV")){f.mgvPrev=nv(r,32);f.mgvActual=estatico?nv(r,32):nv(r,37);}
+    if(t3==="TIR (pretax)"||t3==="TIR pretax"){f.tirPrev=nv(r,32);f.tirActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("TIR (post-tax)")){f.tirPostPrev=nv(r,32);f.tirPostActual=nv(r,37);}
-    if(t3.includes("Mom (pretax)")){f.momPrev=nv(r,32);f.momActual=nv(r,37);}
+    if(t3.includes("Mom (pretax)")){f.momPrev=nv(r,32);f.momActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("REI")){f.reiPrev=nv(r,32);f.reiActual=nv(r,37);}
     if(t3.includes("RRP")){f.rrpPrev=nv(r,32);f.rrpActual=nv(r,37);}
   }
@@ -99,13 +118,13 @@ const parseBP = wb => {
   try {
     const X=window.XLSX;
     const sheetRows=name=>{ const ws=wb.Sheets[name]; if(!ws) return []; return X.utils.sheet_to_json(ws,{header:1,defval:null,raw:true}); };
-    const sheetPriority=["Monitoring","RESUMEN","Resumen Consolidado"];
+    const sheetPriority=["Monitoring","RESUMEN","Resumen Consolidado","Estático","Estatico"];
     const mainSheetName=sheetPriority.find(s=>wb.Sheets[s])||null;
     if(!mainSheetName){result.error="No se encontro hoja financiera";return result;}
-    const fin=parseSheetFin(sheetRows(mainSheetName));
+    const fin=parseSheetFin(sheetRows(mainSheetName),mainSheetName);
     fin.mainSheet=mainSheetName;
     const bizSheets=wb.SheetNames.filter(s=>s.startsWith("Resumen ")&&s!=="Resumen Consolidado"&&s!=="Resumen Consolidado (desc)");
-    if(bizSheets.length>0){fin.negocios=bizSheets.map(sn=>{const f=parseSheetFin(sheetRows(sn));f.nombre=sn.replace("Resumen ","");return f;});}
+    if(bizSheets.length>0){fin.negocios=bizSheets.map(sn=>{const f=parseSheetFin(sheetRows(sn),sn);f.nombre=sn.replace("Resumen ","");return f;});}
     if(wb.Sheets["PL and KPIs"]){
       const plRows=sheetRows("PL and KPIs");
       for(let i=0;i<plRows.length;i++){
@@ -165,6 +184,27 @@ const parseBP = wb => {
     // comercialActual for marketing budget = Marketing and Sales Mgmt only (not Master Broker or Structuring)
     if(fin.mktSalesMgmt) fin.mktBudget=fin.mktSalesMgmt;
     else fin.mktBudget=fin.comercialActual||0;
+
+    // Fees sheet (Atabal Estático format): extract Presupuesto M&C = pure marketing budget
+    const feesSheets=["Fees","Fees_1","fees"];
+    for(const fsName of feesSheets){
+      if(!wb.Sheets[fsName]) continue;
+      const feesRows=sheetRows(fsName);
+      for(let i=0;i<feesRows.length;i++){
+        const r=feesRows[i];if(!r) continue;
+        const t1=tv(r,1);const t0=tv(r,0);
+        // "Presupuesto M&C" row has the value in col5 or col6
+        if(t1==="Presupuesto M&C"||t0==="Presupuesto M&C"){
+          const v=nv(r,5)||nv(r,6)||nv(r,2);
+          if(v>0){ fin.mktBudget=v; break; }
+        }
+        // Also grab breakdowns
+        if(t1==="% lanzamiento") fin.mktLanzamiento=nv(r,5)||nv(r,6);
+        if(t1==="% durante proyecto") fin.mktDurante=nv(r,5)||nv(r,6);
+        if(t1.includes("allowance")) fin.mktAllowance=nv(r,5)||nv(r,6);
+      }
+      if(fin.mktBudget&&fin.mktBudget!==fin.comercialActual) break;
+    }
 
     fin.viviendas=viviendas;
     result.ok=true;result.data=fin;
@@ -394,7 +434,23 @@ export default function Overview(){
   const openEditV=useCallback(v=>{editId.current=v.id;setVF({ref:v.ref,tipologia:v.tipologia,planta:v.planta||"",superficie:String(v.superficie||""),precio:String(v.precio||""),estado:v.estado,notas:v.notas||""});setModal("vivienda");},[]);
   const saveV=useCallback(()=>{if(!vF.ref.trim()) return;const clean={...vF,precio:parsePrice(vF.precio),superficie:parseFloat(String(vF.superficie).replace(",","."))||0};if(editId.current) upd(activeId,p=>({...p,viviendas:p.viviendas.map(v=>v.id!==editId.current?v:{...v,...clean})}));else upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),{id:Date.now(),...clean}]}));setModal(null);},[activeId,vF,upd]);
   const delV=useCallback(vid=>upd(activeId,p=>({...p,viviendas:p.viviendas.filter(v=>v.id!==vid)})),[activeId,upd]);
-  const cycleViv=useCallback(vid=>{const cyc=["disponible","reservada","vendida","no-venta"];upd(activeId,p=>({...p,viviendas:p.viviendas.map(v=>v.id!==vid?v:{...v,estado:cyc[(cyc.indexOf(v.estado)+1)%cyc.length]})}));},[activeId,upd]);
+  const cycleViv=useCallback(vid=>{
+    const cyc=["disponible","reservada","vendida","no-venta"];
+    const estadoToStatus={"disponible":"disponible","reservada":"reservada","vendida":"vendida","no-venta":"rescindida"};
+    upd(activeId,p=>{
+      if(p.master){
+        // Update master.ventas
+        const newVentas=p.master.ventas.map(v=>{
+          if(v.ref!==vid) return v;
+          const curEstado={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"}[v.status]||"disponible";
+          const nextEstado=cyc[(cyc.indexOf(curEstado)+1)%cyc.length];
+          return {...v,status:estadoToStatus[nextEstado]||nextEstado};
+        });
+        return {...p,master:{...p.master,ventas:newVentas}};
+      }
+      return {...p,viviendas:p.viviendas.map(v=>v.id!==vid?v:{...v,estado:cyc[(cyc.indexOf(v.estado)+1)%cyc.length]})};
+    });
+  },[activeId,upd]);
   const clearViv=useCallback(()=>{if(!confirm("Eliminar todas las viviendas?")) return;upd(activeId,p=>({...p,viviendas:[]}));},[activeId,upd]);
 
   useEffect(()=>{if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);}},[]);
@@ -531,7 +587,7 @@ export default function Overview(){
             const total=Number(iTotal!==-1?r[iTotal]:null)||0;
             if(!accion&&!total) continue;
             const categoria=String(r[iTipo!==-1?iTipo:1]||"").trim()||"Sin categoria";
-            partidas.push({categoria,proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),accion,detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),inicio:(()=>{const v=r[iInicio!==-1?iInicio:4];if(!v) return "";const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");return p[2]+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} return s.substring(0,10);})(),fin:(()=>{const v=r[iFin!==-1?iFin:5];if(!v) return "";const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");return p[2]+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} return s.substring(0,10);})(),total});
+            partidas.push({categoria,proveedor:String(r[iProveedor!==-1?iProveedor:0]||"").trim(),accion,detalle:String(r[iDetalle!==-1?iDetalle:3]||"").trim(),inicio:(()=>{const v=r[iInicio!==-1?iInicio:4];if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/"); if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} if(s.length>=10&&s.includes("-")) return s.substring(0,10); return "";})(),fin:(()=>{const v=r[iFin!==-1?iFin:5];if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/"); if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");} if(s.length>=10&&s.includes("-")) return s.substring(0,10); return "";})(),total});
           }
         });
         if(!partidas.length){alert("No se encontraron partidas de marketing.");return;}
@@ -627,23 +683,8 @@ export default function Overview(){
         }
 
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
-        // Build viviendas array from master data to sync with Viviendas tab and header KPIs
-        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta","no-venta":"no-venta"};
-        const viviendasFromMaster=result.ventas.map(v=>({
-          id:Date.now()+Math.random(),
-          ref:v.ref,
-          tipologia:v.tipo==="VIVIENDA"?"Vivienda":"Parcela",
-          planta:"-",
-          superficie:v.m2||0,
-          precio:v.precio||0,
-          estado:estadoMap2[v.status]||"disponible",
-          notas:[v.nombre?v.nombre:"",v.agencia?v.agencia:"",v.fCpcv?"CPCV: "+v.fCpcv:""].filter(Boolean).join(" - "),
-        }));
-        upd(activeId,p=>({...p,
-          master:{...result,importado:new Date().toISOString().split("T")[0]},
-          viviendas:viviendasFromMaster,
-        }));
-        alert("OK: "+result.ventas.length+" unidades cargadas y sincronizadas con Viviendas");
+        upd(activeId,p=>({...p,master:{...result,importado:new Date().toISOString().split("T")[0]}}));
+        alert("OK: "+result.ventas.length+" unidades cargadas - sincronizado con Viviendas automaticamente");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);e.target.value="";
@@ -672,7 +713,9 @@ export default function Overview(){
   const allStats=projects.map(p=>calcStats(p.viviendas||[]));
   const totalU=allStats.reduce((a,s)=>a+s.total,0),totalV=allStats.reduce((a,s)=>a+s.vendidas,0);
   const bloq=projects.filter(p=>p.estado==="bloqueado").length,risk=projects.filter(p=>p.estado==="en-riesgo").length;
-  const st=proj?calcStats(proj.viviendas||[]):{total:0,vendidas:0,reservadas:0,disponibles:0,precioMedio:0,ingresosTotal:0,ingresosVR:0};
+  // Master es fuente de verdad cuando existe; si no, usa viviendas standalone
+  const activeVivs=proj?(proj.master?masterToVivs(proj.master):(proj.viviendas||[])):[];
+  const st=proj?calcStats(activeVivs):{total:0,vendidas:0,reservadas:0,disponibles:0,precioMedio:0,precioMedioParc:0,ingresosTotal:0,ingresosVR:0,totalViv:0,totalParc:0};
   const pct=st.total?Math.round(st.vendidas/st.total*100):0;
   const projEst=proj?(ESTADOS[proj.estado]||ESTADOS.planificacion):null;
 
@@ -929,7 +972,7 @@ export default function Overview(){
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                     <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Tabla de viviendas</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Click en estado para cambiarlo</div></div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                      {proj.viviendas.length>0&&<Btn onClick={clearViv} v="danger" sm>Limpiar</Btn>}
+                      {activeVivs.length>0&&!proj.master&&<Btn onClick={clearViv} v="danger" sm>Limpiar</Btn>}
                       <label style={{background:"transparent",border:"1px solid rgba(167,139,250,0.4)",color:"#a78bfa",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
                         Desde BP<input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleBPFile} style={{display:"none"}}/>
                       </label>
@@ -947,7 +990,7 @@ export default function Overview(){
                       </div>
                     ))}
                   </div>
-                  {proj.viviendas.length===0?(
+                  {activeVivs.length===0?(
                     <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
                       <div style={{fontSize:"2.5rem",marginBottom:10}}>[]</div>
                       <div style={{fontWeight:600,marginBottom:4,color:"#e8eaf2"}}>No hay viviendas cargadas</div>
@@ -959,10 +1002,10 @@ export default function Overview(){
                         <div style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
                           {["Ref","Tipologia","Tipo","m2","Precio PVP","Estado","Notas",""].map(h=><div key={h} style={{fontSize:"0.62rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
                         </div>
-                        {proj.viviendas.map((v,i)=>{
+                        {activeVivs.map((v,i)=>{
                           const vs=VIV_ESTADOS[v.estado]||VIV_ESTADOS.disponible;
                           return (
-                            <div key={v.id} style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"10px 16px",borderBottom:i<proj.viviendas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
+                            <div key={v.id} style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"10px 16px",borderBottom:i<activeVivs.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
                               onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                               <div style={{fontWeight:600,fontSize:"0.84rem"}}>{v.ref}</div>
                               <div style={{fontSize:"0.82rem"}}>{v.tipologia||"-"}</div>
@@ -1159,20 +1202,20 @@ export default function Overview(){
                           <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem"}}>Por categoria</div>
                           {Object.entries(byCat).map(([cat,data],ci)=>(
                             <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #1c2030":"none"}}>
-                              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
+                              <div style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
                                 <div style={{fontWeight:600,fontSize:"0.84rem"}}>{cat}</div>
                                 <div style={{fontSize:"0.82rem",fontWeight:700,color:"#4f8ef7"}}>{fmtEur(data.total)}</div>
                                 <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{data.items.length} partida{data.items.length!==1?"s":""}</div>
                               </div>
                               {data.items.map((item,ii)=>(
-                                <div key={ii} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
+                                <div key={ii} style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
                                   onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                   <div>
                                     <div style={{fontSize:"0.8rem"}}>{item.accion}{item.detalle?" - "+item.detalle:""}</div>
                                     {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
                                   </div>
                                   <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
-                                  <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio?fmt(item.inicio):""}{item.inicio&&item.fin?" > ":""}{item.fin?fmt(item.fin):""}</div>
+                                  <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio||item.fin?((!item.inicio||!item.fin)?fmt(item.inicio||item.fin):(fmt(item.inicio)+" - "+fmt(item.fin))):"-"}</div>
                                 </div>
                               ))}
                             </div>
@@ -1184,23 +1227,99 @@ export default function Overview(){
                 </div>
               )}
 
-              {tab==="comercial"&&(
-                <div>
-                  <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:13,marginBottom:18}}>
-                    {[{label:"Total",val:st.total||0},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio),sub:st.precioMedioParc?("Parc: "+fmtEur(st.precioMedioParc)):""},{label:"% Vendido",val:pct+"%",color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}].map(k=>(
-                      <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"15px 18px"}}>
-                        <div style={{fontSize:"0.63rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:7}}>{k.label}</div>
-                        <div style={{fontSize:"1.45rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
+              {tab==="comercial"&&(()=>{
+                const m=proj.master;
+                const absorcionPct=st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0;
+                const absorcionColor=absorcionPct>60?"#22d3a0":absorcionPct>30?"#f5c842":"#f05a5a";
+                // Master-derived metrics
+                const ingresosCom=m?m.ventas.filter(v=>v.status==="reservada"||v.status==="vendida").reduce((a,v)=>a+v.precio,0):st.ingresosVR;
+                const comisionTotal=m?m.ventas.reduce((a,v)=>a+(v.comision||0),0):0;
+                const rescisiones=m?m.rescisiones.length:0;
+                const conRepricing=m?m.ventas.filter(v=>v.incremento>0):[];
+                const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
+                // Agencias breakdown
+                const agencias={};
+                if(m) m.ventas.filter(v=>v.agencia&&(v.status==="reservada"||v.status==="vendida")).forEach(v=>{agencias[v.agencia]=(agencias[v.agencia]||0)+1;});
+                const agList=Object.entries(agencias).sort((a,b)=>b[1]-a[1]);
+                return (
+                  <div>
+                    <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales{m?" - datos del Master Comercial":""}</div>
+
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+                      {[
+                        {label:"Total unidades",val:st.total||0},
+                        {label:"Reservadas",val:st.reservadas,color:"#f5c842"},
+                        {label:"Escrituradas/Vendidas",val:st.vendidas,color:"#22d3a0"},
+                        {label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},
+                        {label:"Precio medio VIV",val:fmtEur(st.precioMedio),sub:st.precioMedioParc?"Parcelas: "+fmtEur(st.precioMedioParc):""},
+                        {label:"Ingresos comprometidos",val:fmtEur(ingresosCom),color:"#22d3a0"},
+                        {label:"Rescisiones",val:rescisiones,color:rescisiones>0?"#f05a5a":"#6b7394"},
+                        {label:"Incremento medio repricing",val:incrementoMedio>0?fmtEur(incrementoMedio):"-",color:"#f5c842"},
+                      ].map(k=>(
+                        <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
+                          <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{k.label}</div>
+                          <div style={{fontSize:"1.25rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
+                          {k.sub&&<div style={{fontSize:"0.68rem",color:"#6b7394",marginTop:3}}>{k.sub}</div>}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}>
+                          <span style={{fontSize:"0.78rem",color:"#6b7394",fontWeight:500}}>Absorcion (reservadas + vendidas)</span>
+                          <span style={{fontSize:"0.92rem",fontWeight:800,color:absorcionColor}}>{absorcionPct}%</span>
+                        </div>
+                        <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden",marginBottom:10}}>
+                          <div style={{height:"100%",width:absorcionPct+"%",background:absorcionColor,borderRadius:5}}/>
+                        </div>
+                        <div style={{display:"flex",gap:16,fontSize:"0.75rem",color:"#6b7394"}}>
+                          <span style={{color:"#f5c842"}}>{st.reservadas} reservadas</span>
+                          <span style={{color:"#22d3a0"}}>{st.vendidas} escrituradas</span>
+                          <span style={{color:"#4f8ef7"}}>{st.disponibles} disponibles</span>
+                        </div>
                       </div>
-                    ))}
+
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                        <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Financiero</div>
+                        {[
+                          {l:"Ingresos potenciales totales",v:fmtEur(st.ingresosTotal)},
+                          {l:"Ingresos comprometidos",v:fmtEur(ingresosCom),c:"#22d3a0"},
+                          {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
+                          {l:"Presupuesto proyecto",v:proj.presupuesto||"-"},
+                          {l:"Comercializadora",v:proj.comercializadora||"-"},
+                          {l:"Entrega prevista",v:fmt(proj.fechaEntrega)},
+                        ].map(f=>(
+                          <div key={f.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1c2030",fontSize:"0.8rem"}}>
+                            <span style={{color:"#6b7394"}}>{f.l}</span>
+                            <span style={{fontWeight:600,color:f.c||"#e8eaf2"}}>{f.v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {agList.length>0&&(
+                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                        <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Ventas por agencia</div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                          {agList.map(([ag,n])=>{
+                            const pctAg=st.reservadas+st.vendidas>0?Math.round(n/(st.reservadas+st.vendidas)*100):0;
+                            return (
+                              <div key={ag} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
+                                <div style={{fontSize:"0.78rem",fontWeight:600,marginBottom:4}}>{ag||"Directa"}</div>
+                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                                  <span style={{fontSize:"1rem",fontWeight:800,color:"#4f8ef7"}}>{n}</span>
+                                  <span style={{fontSize:"0.72rem",color:"#6b7394"}}>{pctAg}%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}><span style={{fontSize:"0.78rem",color:"#6b7394",fontWeight:500}}>Absorcion</span><span style={{fontSize:"0.92rem",fontWeight:800,color:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a"}}>{pct}%</span></div>
-                    <div style={{height:8,background:"#1c2030",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:pct+"%",background:pct>60?"#22d3a0":pct>30?"#f5c842":"#f05a5a",borderRadius:4}}/></div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {tab==="equipo"&&(
                 <div>
