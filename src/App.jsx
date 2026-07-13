@@ -1,5 +1,34 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 
+// ─── CLOUD STORAGE ───────────────────────────────────────────────────────────
+const JBKEY = "$2a$10$a6n7i3E/5IrfUHuOxXwrJ.vZTzL/7uOxSEt5laKErphDwS85ZETbW";
+const JBURL = "https://api.jsonbin.io/v3/b";
+
+const cloudSave = async (data) => {
+  try {
+    let binId = localStorage.getItem("ov_bin");
+    const body = JSON.stringify({projects:data});
+    const headers = {"Content-Type":"application/json","X-Master-Key":JBKEY};
+    if(!binId){
+      const r = await fetch(JBURL,{method:"POST",headers:{...headers,"X-Bin-Name":"overview-re","X-Bin-Private":"true"},body});
+      const j = await r.json();
+      if(j.metadata && j.metadata.id){ localStorage.setItem("ov_bin",j.metadata.id); }
+    } else {
+      await fetch(JBURL+"/"+binId,{method:"PUT",headers,body});
+    }
+  } catch(e){}
+};
+
+const cloudLoad = async () => {
+  try {
+    const binId = localStorage.getItem("ov_bin");
+    if(!binId) return null;
+    const r = await fetch(JBURL+"/"+binId+"/latest",{headers:{"X-Master-Key":JBKEY,"X-Bin-Meta":"false"}});
+    const j = await r.json();
+    return Array.isArray(j.projects) ? j.projects : null;
+  } catch(e){ return null; }
+};
+
 const DEFAULT_HITOS = ["Demolicion","Licencia parcelacion","Licencia de obra","Proyecto ejecucion","Licitacion","Construccion excavacion","Construccion civil","Construccion edificacion","Licencia 1a ocupacion"];
 const HITO_CYCLE = ["pendiente","en-curso","completado","retrasado"];
 const ESTADOS = {"en-marcha":{label:"En marcha",color:"#22d3a0",bg:"rgba(34,211,160,0.12)"},"en-riesgo":{label:"En riesgo",color:"#f5c842",bg:"rgba(245,200,66,0.12)"},"bloqueado":{label:"Bloqueado",color:"#f05a5a",bg:"rgba(240,90,90,0.12)"},"planificacion":{label:"Planificacion",color:"#4f8ef7",bg:"rgba(79,142,247,0.12)"},"entregado":{label:"Entregado",color:"#a78bfa",bg:"rgba(167,139,250,0.12)"}};
@@ -395,7 +424,7 @@ export default function Overview(){
   const doLogin=()=>{sessionStorage.setItem("ov_auth","1");setLoggedIn(true);};
 
   const [projects,setProjects]=useState(()=>{
-    // Try all storage keys newest to oldest to find saved data
+    // Load from localStorage first (fast), then sync from cloud
     const keys=["ov11","ov10","ov9","ov8","ov7"];
     for(const key of keys){
       try{
@@ -403,7 +432,6 @@ export default function Overview(){
         if(s){
           const p=JSON.parse(s);
           if(Array.isArray(p)&&p.length>0){
-            // Migrate to ov11 if found in older key
             if(key!=="ov11"){try{localStorage.setItem("ov11",s);}catch{}}
             return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
           }
@@ -412,6 +440,7 @@ export default function Overview(){
     }
     return DEFAULT_PROJECTS;
   });
+  const [cloudSynced,setCloudSynced]=useState(false);
   const [view,setView]=useState("dashboard");
   const [activeId,setActiveId]=useState(null);
   const [tab,setTab]=useState("hitos");
@@ -430,7 +459,24 @@ export default function Overview(){
   const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false);
 
   const proj=projects.find(p=>p.id===activeId);
-  useEffect(()=>{try{localStorage.setItem("ov11",JSON.stringify(projects));}catch{}},[projects]);
+  useEffect(()=>{
+    // Sync from cloud on first load (for shared access)
+    if(!cloudSynced){
+      setCloudSynced(true);
+      cloudLoad().then(data=>{
+        if(data&&Array.isArray(data)&&data.length>0){
+          const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+          setProjects(migrated);
+          try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
+        }
+      });
+    }
+  },[]);
+
+  useEffect(()=>{
+    try{localStorage.setItem("ov11",JSON.stringify(projects));}catch(e){}
+    if(cloudSynced) cloudSave(projects);
+  },[projects]);
   useEffect(()=>{if(proj) setResumenLocal(proj.resumenSemanal||"");},[activeId]);
   const save=fn=>setProjects(prev=>fn(prev));
   const upd=useCallback((id,fn)=>setProjects(prev=>prev.map(p=>p.id!==id?p:fn(p))),[]);
@@ -759,7 +805,7 @@ export default function Overview(){
     {id:"reporte",l:"Reporte"},
   ];
 
-  if(!loggedIn) return <ErrorBoundary><LoginScreen onLogin={doLogin}/></ErrorBoundary>;
+  if(!loggedIn) return <LoginScreen onLogin={doLogin}/>;
 
   return (
     <ErrorBoundary>
