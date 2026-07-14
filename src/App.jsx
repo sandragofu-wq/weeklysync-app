@@ -192,38 +192,42 @@ const parseBP = wb => {
         viviendas.push({id:Date.now()+Math.random(),ref:tipo+"-"+ref,tipologia:tipo==="VIV"?"Vivienda":"Parcela",planta:tipo==="VIV"?"-":"Parcela",superficie:0,precio:precioActual,precioOrigen,estado:estadoMap[status]||"disponible",notas:precioActual!==precioOrigen?"Origen: "+new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(precioOrigen):""});
       }
     }
-    // Extract Marketing and Sales Mgmt from Cash Flow consolidado (separate from total comercializacion)
-    // Use consolidado first, then individual sheets as fallback
-    const cfSheets=["Cash Flow consolidado","Cash Flow consolidado (desc)","Cash Flow Living","Cash Flow Suites","Cash Flow Wellness"];
+    // Extract fees from Cash Flow sheets - consolidado for totals, individual for per-negocio breakdown
+    const cfSheets=["Cash Flow consolidado","Cash Flow consolidado (desc)","Cash Flow Living","Cash Flow Suites","Cash Flow Suites Marbella","Cash Flow Wellness","Cash Flow Viviendas"];
+    const feesByNegocio={};
     for(const cfName of cfSheets){
       if(!wb.Sheets[cfName]) continue;
       const cfRows=sheetRows(cfName);
+      const isConsolidado=cfName.toLowerCase().includes("consolidado");
+      const negocioName=isConsolidado?"Consolidado":cfName.replace("Cash Flow ","").trim();
+      const fees={nombre:negocioName,mktSalesMgmt:0,masterBroker:0,structuringFee:0,comercialTotal:0,bankGuarantee:0};
       for(let i=0;i<cfRows.length;i++){
         const r=cfRows[i];if(!r) continue;
         const t1=tv(r,1);
-        if(t1.includes("Marketing and Sales Mgmt")||t1.includes("Marketing and Sales Coord")){
-          const v=Math.abs(nv(r,4))||Math.abs(nv(r,32))||0;
-          if(v>0&&(!fin.mktSalesMgmt||cfName.includes("consolidado"))) fin.mktSalesMgmt=v;
-        }
-        if(t1.includes("Master Broker")){
-          const v=Math.abs(nv(r,4))||0;
-          if(v>0&&(!fin.masterBroker||cfName.includes("consolidado"))) fin.masterBroker=v;
-        }
-        if(t1.includes("Structuring fee")||t1.includes("Exit Fee")){
-          const v=Math.abs(nv(r,4))||0;
-          if(v>0&&(!fin.structuringFee||cfName.includes("consolidado"))) fin.structuringFee=v;
-        }
-        if(t1.includes("Marketing, Broker Sales")||t1.includes("Commercial Fees")){
-          const v=Math.abs(nv(r,4))||0;
-          if(v>0&&(!fin.comercialFeesTotal||cfName.includes("consolidado"))) fin.comercialFeesTotal=v;
-        }
-        if(t1.includes("Buyers Bank Guarantee")){
-          const v=Math.abs(nv(r,4))||0;
-          if(v>0&&(!fin.bankGuaranteeFee||cfName.includes("consolidado"))) fin.bankGuaranteeFee=v;
+        const v=Math.abs(nv(r,4))||Math.abs(nv(r,32))||0;
+        if(t1.includes("Marketing and Sales Mgmt")||t1.includes("Marketing and Sales Coord")) fees.mktSalesMgmt=v;
+        if(t1.includes("Master Broker")) fees.masterBroker=v;
+        if(t1.includes("Structuring fee")||t1.includes("Exit Fee")) fees.structuringFee=v;
+        if(t1.includes("Marketing, Broker Sales")||t1.includes("Commercial Fees")) fees.comercialTotal=v;
+        if(t1.includes("Buyers Bank Guarantee")) fees.bankGuarantee=v;
+      }
+      if(fees.mktSalesMgmt||fees.masterBroker||fees.structuringFee||fees.comercialTotal){
+        feesByNegocio[negocioName]=fees;
+        // Set consolidado values as main fin values
+        if(isConsolidado){
+          if(fees.mktSalesMgmt) fin.mktSalesMgmt=fees.mktSalesMgmt;
+          if(fees.masterBroker) fin.masterBroker=fees.masterBroker;
+          if(fees.structuringFee) fin.structuringFee=fees.structuringFee;
+          if(fees.comercialTotal) fin.comercialFeesTotal=fees.comercialTotal;
+          if(fees.bankGuarantee) fin.bankGuaranteeFee=fees.bankGuarantee;
+        } else if(!fin.mktSalesMgmt&&fees.mktSalesMgmt){
+          fin.mktSalesMgmt=fees.mktSalesMgmt;
         }
       }
-      if(fin.mktSalesMgmt) break;
     }
+    // Store per-negocio fees breakdown (exclude consolidado from breakdown list)
+    const feeDesglose=Object.values(feesByNegocio).filter(f=>f.nombre!=="Consolidado");
+    if(feeDesglose.length>0) fin.feesByNegocio=feeDesglose;
     // Priority 1: Fees sheet "Presupuesto M&C" = pure marketing budget (most accurate)
     let feesFound=false;
     const feesSheets=["Fees","Fees_1","fees"];
@@ -1283,22 +1287,64 @@ export default function Overview(){
                         {/* Desglose Comercial Fees */}
                         {(d.masterBroker||d.structuringFee||d.mktSalesMgmt)&&(
                           <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px",marginBottom:14}}>
-                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Desglose Comercial Fees</div>
-                            {[
-                              {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#4f8ef7"},
-                              {l:"Master Broker",v:d.masterBroker,c:"#f5924e"},
-                              {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#f5c842"},
-                              {l:"Bank Guarantee Fee",v:d.bankGuaranteeFee,c:"#6b7394"},
-                              {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#e8eaf2",bold:true},
-                            ].filter(x=>x.v>0).map(x=>(
-                              <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
-                                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                  <div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/>
-                                  <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:400}}>{x.l}</span>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Desglose Comercial Fees</div>
+
+                            {/* Per-negocio breakdown if available */}
+                            {d.feesByNegocio&&d.feesByNegocio.length>0?(
+                              <div>
+                                <div style={{display:"grid",gridTemplateColumns:"repeat("+d.feesByNegocio.length+",1fr)",gap:10,marginBottom:14}}>
+                                  {d.feesByNegocio.map((neg,ni)=>(
+                                    <div key={ni} style={{background:"#1c2030",borderRadius:10,padding:"12px 14px"}}>
+                                      <div style={{fontWeight:700,fontSize:"0.82rem",color:"#a78bfa",marginBottom:8}}>{neg.nombre}</div>
+                                      {[
+                                        {l:"Mktg & Sales",v:neg.mktSalesMgmt,c:"#4f8ef7"},
+                                        {l:"Master Broker",v:neg.masterBroker,c:"#f5924e"},
+                                        {l:"Structuring/Exit",v:neg.structuringFee,c:"#f5c842"},
+                                        {l:"Bank Guarantee",v:neg.bankGuarantee,c:"#6b7394"},
+                                        {l:"Total",v:neg.comercialTotal,c:"#e8eaf2",bold:true},
+                                      ].filter(x=>x.v>0).map(x=>(
+                                        <div key={x.l} style={{display:"flex",justifyContent:"space-between",fontSize:"0.75rem",marginBottom:4}}>
+                                          <span style={{color:"#6b7394"}}>{x.l}</span>
+                                          <span style={{fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ))}
                                 </div>
-                                <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                                <div style={{borderTop:"1px solid #252a3a",paddingTop:12}}>
+                                  <div style={{fontWeight:700,fontSize:"0.78rem",color:"#6b7394",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Consolidado</div>
+                                  {[
+                                    {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#4f8ef7"},
+                                    {l:"Master Broker",v:d.masterBroker,c:"#f5924e"},
+                                    {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#f5c842"},
+                                    {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#e8eaf2",bold:true},
+                                  ].filter(x=>x.v>0).map(x=>(
+                                    <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1c2030"}}>
+                                      <span style={{fontSize:"0.8rem",fontWeight:x.bold?700:400}}>{x.l}</span>
+                                      <span style={{fontSize:"0.8rem",fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            ))}
+                            ):(
+                              <div>
+                                {[
+                                  {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#4f8ef7"},
+                                  {l:"Master Broker",v:d.masterBroker,c:"#f5924e"},
+                                  {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#f5c842"},
+                                  {l:"Bank Guarantee Fee",v:d.bankGuaranteeFee,c:"#6b7394"},
+                                  {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#e8eaf2",bold:true},
+                                ].filter(x=>x.v>0).map(x=>(
+                                  <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
+                                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                      <div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/>
+                                      <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:400}}>{x.l}</span>
+                                    </div>
+                                    <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
