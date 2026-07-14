@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 // ─── CLOUD STORAGE ───────────────────────────────────────────────────────────
 const JBKEY = "$2a$10$a6n7i3E/5IrfUHuOxXwrJ.vZTzL/7uOxSEt5laKErphDwS85ZETbW";
 const JBURL = "https://api.jsonbin.io/v3/b";
-const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
 
 // BIN ID FIJO - compartido por TODOS los usuarios
 const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
