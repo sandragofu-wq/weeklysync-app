@@ -3,27 +3,26 @@ import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 // ─── CLOUD STORAGE ───────────────────────────────────────────────────────────
 const JBKEY = "$2a$10$a6n7i3E/5IrfUHuOxXwrJ.vZTzL/7uOxSEt5laKErphDwS85ZETbW";
 const JBURL = "https://api.jsonbin.io/v3/b";
+const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
+
+// BIN ID FIJO - compartido por TODOS los usuarios
+const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
 
 const cloudSave = async (data) => {
   try {
-    let binId = localStorage.getItem("ov_bin");
-    const body = JSON.stringify({projects:data});
-    const headers = {"Content-Type":"application/json","X-Master-Key":JBKEY};
-    if(!binId){
-      const r = await fetch(JBURL,{method:"POST",headers:{...headers,"X-Bin-Name":"overview-re","X-Bin-Private":"true"},body});
-      const j = await r.json();
-      if(j.metadata && j.metadata.id){ localStorage.setItem("ov_bin",j.metadata.id); }
-    } else {
-      await fetch(JBURL+"/"+binId,{method:"PUT",headers,body});
-    }
+    await fetch(JBURL+"/"+FIXED_BIN_ID, {
+      method:"PUT",
+      headers:{"Content-Type":"application/json","X-Master-Key":JBKEY},
+      body: JSON.stringify({projects:data})
+    });
   } catch(e){}
 };
 
 const cloudLoad = async () => {
   try {
-    const binId = localStorage.getItem("ov_bin");
-    if(!binId) return null;
-    const r = await fetch(JBURL+"/"+binId+"/latest",{headers:{"X-Master-Key":JBKEY,"X-Bin-Meta":"false"}});
+    const r = await fetch(JBURL+"/"+FIXED_BIN_ID+"/latest",{
+      headers:{"X-Master-Key":JBKEY,"X-Bin-Meta":"false"}
+    });
     const j = await r.json();
     return Array.isArray(j.projects) ? j.projects : null;
   } catch(e){ return null; }
