@@ -1406,7 +1406,8 @@ export default function Overview(){
                                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.75rem",minWidth:800}}>
                                     <thead>
                                       <tr style={{background:"#1c2030"}}>
-                                        <th style={{textAlign:"left",padding:"8px 14px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",position:"sticky",left:0,background:"#1c2030",minWidth:200}}>Tipo / Accion</th>
+                                        <th style={{textAlign:"left",padding:"8px 14px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",position:"sticky",left:0,background:"#1c2030",minWidth:180}}>Tipo Campana</th>
+                                        <th style={{textAlign:"left",padding:"8px 10px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:160}}>Accion / Proveedor</th>
                                         <th style={{textAlign:"right",padding:"8px 10px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:80}}>Total</th>
                                         {mesesSorted.map(m=>(
                                           <th key={m.iso} style={{textAlign:"right",padding:"8px 8px",color:"#4f8ef7",fontWeight:700,minWidth:70,whiteSpace:"nowrap"}}>{m.label}</th>
@@ -1414,34 +1415,51 @@ export default function Overview(){
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {Object.entries(byCat).map(([cat,data])=>[
-                                        <tr key={cat+"_hdr"} style={{background:"#1a1e2c"}}>
-                                          <td colSpan={2+mesesSorted.length} style={{padding:"7px 14px",fontWeight:700,color:"#a78bfa",fontSize:"0.78rem"}}>{cat}</td>
-                                        </tr>,
-                                        ...data.items.map((item,ii)=>{
-                                          const byMes={};(item.monthly||[]).forEach(m=>{byMes[m.iso]=m.amount;});
-                                          return (
-                                            <tr key={cat+ii} style={{borderBottom:"1px solid #1c2030"}}
-                                              onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                                              <td style={{padding:"7px 14px",position:"sticky",left:0,background:"inherit"}}>
-                                                <div style={{fontWeight:500}}>{item.accion}</div>
-                                                {item.proveedor&&<div style={{fontSize:"0.68rem",color:"#6b7394"}}>{item.proveedor}</div>}
+                                      {Object.entries(byCat).map(([cat,data])=>{
+                                        const catTotal=data.items.reduce((a,it)=>a+(it.total||0),0);
+                                        const catByMes={};
+                                        data.items.forEach(it=>(it.monthly||[]).forEach(m=>{catByMes[m.iso]=(catByMes[m.iso]||0)+m.amount;}));
+                                        return [
+                                          // Categoria header row con totales
+                                          <tr key={cat+"_hdr"} style={{background:"#1a1e2c",borderBottom:"2px solid #252a3a"}}>
+                                            <td style={{padding:"8px 14px",fontWeight:700,color:"#a78bfa",fontSize:"0.8rem"}}>{cat}</td>
+                                            <td style={{padding:"8px 10px",fontSize:"0.72rem",color:"#6b7394"}}>{data.items.length} partidas</td>
+                                            <td style={{textAlign:"right",padding:"8px 10px",fontWeight:700,color:"#a78bfa"}}>{fmtEur(catTotal)}</td>
+                                            {mesesSorted.map(m=>(
+                                              <td key={m.iso} style={{textAlign:"right",padding:"8px 8px",color:catByMes[m.iso]?"#a78bfa":"#252a3a",fontWeight:600,fontSize:"0.72rem"}}>
+                                                {catByMes[m.iso]?fmtEur(catByMes[m.iso]):"-"}
                                               </td>
-                                              <td style={{textAlign:"right",padding:"7px 10px",fontWeight:700,color:"#4f8ef7",whiteSpace:"nowrap"}}>{fmtEur(item.total)}</td>
-                                              {mesesSorted.map(m=>(
-                                                <td key={m.iso} style={{textAlign:"right",padding:"7px 8px",color:byMes[m.iso]?"#22d3a0":"#252a3a",fontWeight:byMes[m.iso]?600:400}}>
-                                                  {byMes[m.iso]?fmtEur(byMes[m.iso]):"-"}
+                                            ))}
+                                          </tr>,
+                                          // Filas de detalle
+                                          ...data.items.map((item,ii)=>{
+                                            const byMes={};(item.monthly||[]).forEach(m=>{byMes[m.iso]=m.amount;});
+                                            return (
+                                              <tr key={cat+ii} style={{borderBottom:"1px solid #1c2030"}}
+                                                onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                                <td style={{padding:"6px 14px 6px 24px",color:"#6b7394",fontSize:"0.72rem"}}>
+                                                  {cat}
                                                 </td>
-                                              ))}
-                                            </tr>
-                                          );
-                                        })
-                                      ])}
-                                      <tr style={{background:"#1c2030",fontWeight:700}}>
-                                        <td style={{padding:"8px 14px",color:"#e8eaf2"}}>TOTAL</td>
+                                                <td style={{padding:"6px 10px"}}>
+                                                  <div style={{fontWeight:500,fontSize:"0.78rem"}}>{item.accion}</div>
+                                                  {item.proveedor&&<div style={{fontSize:"0.67rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                                                </td>
+                                                <td style={{textAlign:"right",padding:"6px 10px",fontWeight:600,color:"#4f8ef7",whiteSpace:"nowrap",fontSize:"0.78rem"}}>{fmtEur(item.total)}</td>
+                                                {mesesSorted.map(m=>(
+                                                  <td key={m.iso} style={{textAlign:"right",padding:"6px 8px",color:byMes[m.iso]?"#22d3a0":"#252a3a",fontWeight:byMes[m.iso]?600:400,fontSize:"0.75rem"}}>
+                                                    {byMes[m.iso]?fmtEur(byMes[m.iso]):"-"}
+                                                  </td>
+                                                ))}
+                                              </tr>
+                                            );
+                                          })
+                                        ];
+                                      })}
+                                      <tr style={{background:"#1c2030",fontWeight:700,borderTop:"2px solid #252a3a"}}>
+                                        <td colSpan={2} style={{padding:"8px 14px",color:"#e8eaf2"}}>TOTAL</td>
                                         <td style={{textAlign:"right",padding:"8px 10px",color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</td>
                                         {mesesSorted.map(m=>{
-                                          const tot=mkt.partidas.reduce((a,p)=>a+((p.monthly||[]).find(mm=>mm.iso===m.iso)?.amount||0),0);
+                                          const tot=mkt.partidas.reduce((a,p)=>a+((p.monthly||[]).find(mm=>mm.iso===m.iso)?((p.monthly||[]).find(mm=>mm.iso===m.iso).amount):0),0);
                                           return <td key={m.iso} style={{textAlign:"right",padding:"8px 8px",color:tot>0?"#f5c842":"#252a3a",fontWeight:600}}>{tot>0?fmtEur(tot):"-"}</td>;
                                         })}
                                       </tr>
