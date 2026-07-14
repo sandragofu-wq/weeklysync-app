@@ -195,7 +195,8 @@ const parseBP = wb => {
       }
     }
     // Extract Marketing and Sales Mgmt from Cash Flow consolidado (separate from total comercializacion)
-    const cfSheets=["Cash Flow consolidado","Cash Flow Living","Cash Flow Suites","Cash Flow Wellness"];
+    // Use consolidado first, then individual sheets as fallback
+    const cfSheets=["Cash Flow consolidado","Cash Flow consolidado (desc)","Cash Flow Living","Cash Flow Suites","Cash Flow Wellness"];
     for(const cfName of cfSheets){
       if(!wb.Sheets[cfName]) continue;
       const cfRows=sheetRows(cfName);
@@ -203,7 +204,8 @@ const parseBP = wb => {
         const r=cfRows[i];if(!r) continue;
         const t1=tv(r,1);
         if(t1.includes("Marketing and Sales Mgmt")||t1.includes("Marketing and Sales Coord")){
-          fin.mktSalesMgmt=Math.abs(nv(r,4))||Math.abs(nv(r,32))||0;
+          const v=Math.abs(nv(r,4))||Math.abs(nv(r,32))||0;
+          if(v>0&&(!fin.mktSalesMgmt||cfName.includes("consolidado"))) fin.mktSalesMgmt=v;
         }
         if(t1.includes("Master Broker")){fin.masterBroker=Math.abs(nv(r,4))||0;}
         if(t1.includes("Structuring fee")){fin.structuringFee=Math.abs(nv(r,4))||0;}
@@ -905,11 +907,11 @@ export default function Overview(){
             // Build ISO dates for month cols
             const mColsWithISO=monthCols.map(mc=>{
               const lbl=mc.label;
-              const mNames={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sept:"09",sep:"09",oct:"10",nov:"11",dic:"12"};
-              const parts=lbl.split("-");
-              const m=mNames[parts[0]]||"01";
-              const y=parts[1]&&parts[1].length===2?"20"+parts[1]:parts[1]||"2025";
-              return {...mc,iso:y+"-"+m+"-01"};
+              const mNamesMap={ene:"01",feb:"02",mar:"03",abr:"04",may:"05",jun:"06",jul:"07",ago:"08",sept:"09",sep:"09",oct:"10",nov:"11",dic:"12"};
+              const lblParts=lbl.split("-");
+              const mNum=mNamesMap[lblParts[0]]||"01";
+              const yNum=lblParts[1]&&lblParts[1].length===2?"20"+lblParts[1]:lblParts[1]||"2025";
+              return {...mc,iso:yNum+"-"+mNum+"-01"};
             });
 
             const toNum=v=>{if(!v&&v!==0) return 0;if(typeof v==="number") return v;const s=String(v).replace(/^'+/,"").replace(/[^0-9.-]/g,"");return parseFloat(s)||0;};
