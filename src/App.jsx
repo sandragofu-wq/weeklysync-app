@@ -888,7 +888,17 @@ export default function Overview(){
             const hdr=(rows[hdrIdx]||[]);
             // Fixed column positions based on actual file:
             // col1=Tipo Campaña, col2=Acción, col3=PAGADOR, col4=Proveedor, col36=Total
-            const iTipo=1,iAccion=2,iPagador=3,iProv=4;
+            // Detect column order: some files have Tipo in col1, others in col2
+            // Check header row for "Tipo" vs "Acción" labels
+            const hdrL2=(hdr||[]).map(c=>String(c||"").toLowerCase().trim());
+            const iTipoCand=hdrL2.findIndex(h=>h.includes("tipo"));
+            const iAccionCand=hdrL2.findIndex(h=>h.includes("acci")||h==="accion"||h==="acción");
+            const iPagadorCand=hdrL2.findIndex(h=>h==="pagador");
+            const iProvCand=hdrL2.findIndex(h=>h==="proveedor");
+            const iTipo=iTipoCand>=0?iTipoCand:1;
+            const iAccion=iAccionCand>=0?iAccionCand:2;
+            const iPagador=iPagadorCand>=0?iPagadorCand:3;
+            const iProv=iProvCand>=0?iProvCand:4;
             let iTotalCol=hdr.findIndex((c,i)=>i>5&&String(c||"").toLowerCase().includes("total"));
             if(iTotalCol===-1) iTotalCol=36;
 
