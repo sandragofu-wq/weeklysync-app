@@ -660,14 +660,46 @@ export default function Overview(){
           const ws=wb.Sheets[sheetName];if(!ws) return;
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
-          let isNvoga=false,hdrIdx=-1;
+          let isNvoga=false,isMedHills=false,hdrIdx=-1;
           for(let i=0;i<Math.min(rows.length,25);i++){
             const r=(rows[i]||[]).map(c=>norm(c));
+            // MedHills/Cashflow format: has "bloque viviendas" and "precio vivienda aislada"
+            if(r.some(c=>c.includes("bloque"))&&r.some(c=>c.includes("precio vivienda"))){isMedHills=true;hdrIdx=i;break;}
             if(r.some(c=>c==="bloque")&&(r.some(c=>c.includes("apto"))||r.some(c=>c==="tipologia"))){isNvoga=true;hdrIdx=i;break;}
             if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
-          if(isNvoga){
+          if(isMedHills){
+            // MedHills Cashflow format: col2=ref, col1=status, col12=precio aislada, col13=precio+anejos
+            const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
+            const iRef=headers.findIndex(h=>h.includes("bloque")&&h.includes("vivend"));
+            const iStatus=headers.findIndex(h=>h==="status");
+            const iPrecio=headers.findIndex(h=>h.includes("precio vivienda")&&h.includes("anej"));
+            const iPrecioBase=headers.findIndex(h=>h.includes("precio vivienda")&&!h.includes("anej"));
+            const refCol=iRef>=0?iRef:2;
+            const statusCol=iStatus>=0?iStatus:1;
+            const precioCol=iPrecio>=0?iPrecio:(iPrecioBase>=0?iPrecioBase:12);
+            const statusMapMH={"escritura":"vendida","escriturado":"vendida","reserva":"reservada","reservado":"reservada","libre":"disponible","disponible":"disponible"};
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const ref=String(r[refCol]||"").trim();
+              if(!ref||!ref.match(/^B\d/)) continue;
+              const precio=Number(r[precioCol])||0;
+              if(!precio||precio<1000) continue;
+              const rawStatus=String(r[statusCol]||"").trim().toLowerCase();
+              const estado=statusMapMH[rawStatus]||"disponible";
+              allVvs.push({
+                id:Date.now()+Math.random(),
+                ref:ref.trim(),
+                tipologia:"Vivienda",
+                planta:"-",
+                superficie:0,
+                precio,
+                estado,
+                notas:"",
+              });
+            }
+          } else if(isNvoga){
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
             const iBloque=headers.findIndex(h=>h==="bloque");
             const iApto=headers.findIndex(h=>h.includes("apto"));
