@@ -205,8 +205,22 @@ const parseBP = wb => {
           const v=Math.abs(nv(r,4))||Math.abs(nv(r,32))||0;
           if(v>0&&(!fin.mktSalesMgmt||cfName.includes("consolidado"))) fin.mktSalesMgmt=v;
         }
-        if(t1.includes("Master Broker")){fin.masterBroker=Math.abs(nv(r,4))||0;}
-        if(t1.includes("Structuring fee")){fin.structuringFee=Math.abs(nv(r,4))||0;}
+        if(t1.includes("Master Broker")){
+          const v=Math.abs(nv(r,4))||0;
+          if(v>0&&(!fin.masterBroker||cfName.includes("consolidado"))) fin.masterBroker=v;
+        }
+        if(t1.includes("Structuring fee")||t1.includes("Exit Fee")){
+          const v=Math.abs(nv(r,4))||0;
+          if(v>0&&(!fin.structuringFee||cfName.includes("consolidado"))) fin.structuringFee=v;
+        }
+        if(t1.includes("Marketing, Broker Sales")||t1.includes("Commercial Fees")){
+          const v=Math.abs(nv(r,4))||0;
+          if(v>0&&(!fin.comercialFeesTotal||cfName.includes("consolidado"))) fin.comercialFeesTotal=v;
+        }
+        if(t1.includes("Buyers Bank Guarantee")){
+          const v=Math.abs(nv(r,4))||0;
+          if(v>0&&(!fin.bankGuaranteeFee||cfName.includes("consolidado"))) fin.bankGuaranteeFee=v;
+        }
       }
       if(fin.mktSalesMgmt) break;
     }
@@ -1266,6 +1280,28 @@ export default function Overview(){
                             <KpiCard label="Comercializacion" val={fmtEurM(d.comercialActual)} color="#4f8ef7"/>
                           </div>
                         </div>
+                        {/* Desglose Comercial Fees */}
+                        {(d.masterBroker||d.structuringFee||d.mktSalesMgmt)&&(
+                          <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px",marginBottom:14}}>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Desglose Comercial Fees</div>
+                            {[
+                              {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#4f8ef7"},
+                              {l:"Master Broker",v:d.masterBroker,c:"#f5924e"},
+                              {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#f5c842"},
+                              {l:"Bank Guarantee Fee",v:d.bankGuaranteeFee,c:"#6b7394"},
+                              {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#e8eaf2",bold:true},
+                            ].filter(x=>x.v>0).map(x=>(
+                              <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/>
+                                  <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:400}}>{x.l}</span>
+                                </div>
+                                <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                           <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 18px"}}>
                             <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Fuentes de financiacion</div>
