@@ -919,13 +919,14 @@ export default function Overview(){
               const tipo=cleanStr(r[iTipo]);
               const accion=cleanStr(r[iAccion]);
               if(!tipo&&!accion) continue;
-              // Skip summary rows: TOTAL x, PRESUPUESTO BP, LANZAMIENTO, DURANTE, DESVIACION, %
-              const tipoUP=tipo.toUpperCase();
+              // Skip summary rows
+              const tipoUP=(tipo||"").toUpperCase();
+              const accionUP=(accion||"").toUpperCase();
               if(tipoUP.startsWith("TOTAL")||tipoUP.startsWith("PRESUPUESTO BP")||
                  tipoUP.startsWith("LANZAMIENTO")||tipoUP.startsWith("DURANTE")||
                  tipoUP.startsWith("DESVIACI")||tipoUP.startsWith("VARIABLE")||
-                 tipoUP.startsWith("%")||tipoUP.startsWith("COSTE OPERATIVO")) continue;
-              if(!accion&&!total) continue;
+                 tipoUP.startsWith("%")||accionUP.startsWith("TOTAL")) continue;
+              if(!accion) continue;
               let total=toNum(r[iTotalCol]);
               if(!total) total=mColsWithISO.reduce((a,mc)=>a+toNum(r[mc.col]),0);
               const monthly=mColsWithISO.map(mc=>({label:mc.label,iso:mc.iso,amount:toNum(r[mc.col])}));
