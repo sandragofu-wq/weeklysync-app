@@ -750,8 +750,10 @@ export default function Overview(){
             const priceCol=iPrecio!==-1?iPrecio:18;
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              const apto=String(r[iApto!==-1?iApto:1]||"").trim();
-              if(!apto||isNaN(Number(apto))) continue;
+              const aptoRaw=r[iApto!==-1?iApto:1];
+              const apto=String(aptoRaw!=null?aptoRaw:"").trim();
+              if(apto===""||apto===null||apto===undefined) continue;
+              if(isNaN(Number(apto))&&!apto.match(/[0-9]/)) continue;
               const precio=typeof r[priceCol]==="number"?r[priceCol]:parseFloat(String(r[priceCol]||"").replace(/[^0-9.]/g,""))||0;if(!precio||precio<1000) continue;
               const bloque=String(r[iBloque!==-1?iBloque:0]||"").trim();
               const tipo=String(r[iTipo!==-1?iTipo:2]||"").trim();
