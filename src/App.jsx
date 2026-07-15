@@ -688,35 +688,46 @@ export default function Overview(){
           }
           if(hdrIdx===-1) return;
           if(isMedHills){
-            // MedHills Cashflow format: col2=ref, col1=status, col12=precio aislada, col13=precio+anejos
+            // MedHills Cashflow format
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
             const iRef=headers.findIndex(h=>h.includes("bloque")&&h.includes("vivend"));
             const iStatus=headers.findIndex(h=>h==="status");
-            const iPrecio=headers.findIndex(h=>h.includes("precio vivienda")&&h.includes("anej"));
-            const iPrecioBase=headers.findIndex(h=>h.includes("precio vivienda")&&!h.includes("anej"));
+            const iPrecio=headers.findIndex(h=>h.includes("precio vivienda")&&(h.includes("anej")||h.includes("cv")));
+            const iPrecioBase=headers.findIndex(h=>h.includes("precio vivienda aislada"));
+            const iFinca=headers.findIndex(h=>h==="finca");
+            const iComision=headers.findIndex(h=>h.includes("total comisiones")&&!h.includes("iva")&&!h.includes("con"));
+            const iEscritura=headers.findIndex(h=>h.includes("escritura sin iva"));
+            const iReserva=headers.findIndex(h=>h==="reserva");
             const refCol=iRef>=0?iRef:2;
             const statusCol=iStatus>=0?iStatus:1;
-            const precioCol=iPrecio>=0?iPrecio:(iPrecioBase>=0?iPrecioBase:12);
-            const statusMapMH={"escritura":"vendida","escriturado":"vendida","reserva":"reservada","reservado":"reservada","libre":"disponible","disponible":"disponible"};
+            const precioCol=iPrecio>=0?iPrecio:(iPrecioBase>=0?iPrecioBase:13);
+            const fmtE=v=>new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v);
+            const statusMapMH={"vendida":"vendida","escritura":"vendida","escriturado":"vendida","reserva":"reservada","reservado":"reservada","rescindida":"no-venta","rescision":"no-venta","libre":"disponible","disponible":"disponible"};
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
               const ref=String(r[refCol]||"").trim();
-              if(!ref||!ref.match(/^B\d/)) continue;
-              const precio=Number(r[precioCol])||0;
+              if(!ref||ref.length<3) continue;
+              const precio=Number(r[precioCol])||Number(r[12])||0;
               if(!precio||precio<1000) continue;
               const rawStatus=String(r[statusCol]||"").trim().toLowerCase();
               const estado=statusMapMH[rawStatus]||"disponible";
+              const finca=iFinca>=0?String(r[iFinca]||"").trim():"";
+              const comision=iComision>=0?Number(r[iComision])||0:0;
+              const escritura=iEscritura>=0?Number(r[iEscritura])||0:0;
+              const reserva=iReserva>=0?Number(r[iReserva])||0:0;
+              const notas=[
+                finca?"Finca: "+finca:"",
+                comision?"Comision: "+fmtE(comision):"",
+                escritura?"Escritura: "+fmtE(escritura):"",
+                reserva&&estado==="reservada"?"Reserva: "+fmtE(reserva):"",
+              ].filter(Boolean).join(" | ");
               allVvs.push({
                 id:Date.now()+Math.random(),
-                ref:ref.trim(),
-                tipologia:"Vivienda",
-                planta:"-",
-                superficie:0,
-                precio,
-                estado,
-                notas:"",
+                ref:ref.trim(),tipologia:"Vivienda",planta:"-",superficie:0,
+                precio,precioOrigen:Number(r[12])||precio,estado,notas,
               });
             }
+          } else if(isNvoga){
           } else if(isNvoga){
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
             const iBloque=headers.findIndex(h=>h==="bloque");
@@ -1083,7 +1094,39 @@ export default function Overview(){
           <div style={{width:1,height:16,background:"#252a3a"}}/>
           <span style={{fontSize:"0.73rem",color:"#6b7394"}}>Gestion de promociones inmobiliarias</span>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>{
+            const data=JSON.stringify(projects,null,2);
+            const blob=new Blob([data],{type:"application/json"});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement("a");
+            a.href=url;a.download="overview-backup-"+new Date().toISOString().split("T")[0]+".json";
+            a.click();URL.revokeObjectURL(url);
+          }} style={{background:"transparent",border:"1px solid #252a3a",color:"#6b7394",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}} title="Exportar backup de datos">
+            Backup
+          </button>
+          <label style={{background:"transparent",border:"1px solid #252a3a",color:"#6b7394",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,display:"inline-flex",alignItems:"center"}} title="Restaurar desde backup">
+            Restaurar
+            <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
+              const file=e.target.files[0];if(!file) return;
+              if(!confirm("Esto reemplazara TODOS los datos actuales. Seguro?")) return;
+              const reader=new FileReader();
+              reader.onload=ev=>{
+                try{
+                  const data=JSON.parse(ev.target.result);
+                  if(Array.isArray(data)&&data.length>0){
+                    const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+                    setProjects(migrated);
+                    try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
+                    alert("Datos restaurados correctamente");
+                  } else {alert("Archivo no valido");}
+                }catch{alert("Error al leer el archivo");}
+              };
+              reader.readAsText(file);
+              e.target.value="";
+            }}/>
+          </label>
+          <div style={{width:1,height:16,background:"#252a3a"}}/>
           <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(34,211,160,0.08)",border:"1px solid rgba(34,211,160,0.25)",color:"#22d3a0",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
             <div style={{width:5,height:5,background:"#22d3a0",borderRadius:"50%"}}/>En vivo
           </div>
