@@ -51,7 +51,15 @@ const fmtNum = n => new Intl.NumberFormat("es-ES").format(Number(n)||0);
 const isViv = v => {
   const r=String(v.ref||"").toUpperCase();
   const t=String(v.tipologia||"").toUpperCase();
-  return t.includes("VIVIENDA")||r.includes("-V")||(t==="VIV")||(!t.includes("PARCELA")&&!r.match(/-P\d/));
+  const tipo=String(v.tipo||"").toUpperCase();
+  // Explicit non-vivienda types
+  if(tipo==="PK"||tipo==="TR"||tipo==="PARKING"||tipo==="TRASTERO") return false;
+  if(t.includes("PARCELA")||t.includes("PARKING")||t.includes("TRASTERO")) return false;
+  // Explicit vivienda types
+  if(tipo==="VIV"||t.includes("VIVIENDA")||r.includes("-V")) return true;
+  // Default: if ref ends in -P followed by digits it's a parking/parcela
+  if(/-P\d/.test(r)) return false;
+  return true;
 };
 const calcStats = (vv=[]) => {
   const total=vv.length,vendidas=vv.filter(v=>v.estado==="vendida").length,reservadas=vv.filter(v=>v.estado==="reservada").length,disponibles=vv.filter(v=>v.estado==="disponible").length;
@@ -74,7 +82,8 @@ const masterToVivs = (master) => {
   return master.ventas.map(v=>({
     id:v.ref,
     ref:v.ref,
-    tipologia:v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V")?"Vivienda":"Parcela",
+    tipo:v.tipo||"VIV",
+    tipologia:v.tipo==="VIV"||v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V")?"Vivienda":(v.tipo==="PK"?"Parking":v.tipo==="TR"?"Trastero":"Parcela"),
     planta:"-",
     superficie:v.m2||0,
     precio:v.precio||0,
@@ -743,7 +752,7 @@ export default function Overview(){
               const r=rows[i];if(!r) continue;
               const apto=String(r[iApto!==-1?iApto:1]||"").trim();
               if(!apto||isNaN(Number(apto))) continue;
-              const precio=Number(r[priceCol])||0;if(!precio||precio<1000) continue;
+              const precio=typeof r[priceCol]==="number"?r[priceCol]:parseFloat(String(r[priceCol]||"").replace(/[^0-9.]/g,""))||0;if(!precio||precio<1000) continue;
               const bloque=String(r[iBloque!==-1?iBloque:0]||"").trim();
               const tipo=String(r[iTipo!==-1?iTipo:2]||"").trim();
               const planta=String(r[iPlanta!==-1?iPlanta:3]||"").trim();
@@ -845,11 +854,12 @@ export default function Overview(){
               const precio=toN(r[iPrecio>=0?iPrecio:12]);
               if(!precio) continue;
               const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
-              const statusMap={"RESERVA":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida"};
+              const statusMap={"RESERVA":"reservada","RESERVADO":"reservada","CV":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida","BLOQUEADO":"no-venta","BLOQUEADO PROMOTOR":"no-venta"};
               const status=statusMap[statusRaw]||"disponible";
               const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
+              const tipoInmueble=String(r[1]||"").trim().toUpperCase()||"VIV";// col1=INMUEBLE (VIV/PK/TR)
               result.ventas.push({
-                ref,tipo:String(r[iTipo>=0?iTipo:1]||"").trim(),status,precio,
+                ref,tipo:tipoInmueble,status,precio,
                 precioOrigen:toN(r[iPrecioOrigen>=0?iPrecioOrigen:17]),
                 m2:toN(r[iM2>=0?iM2:8]),
                 nombre:String(r[iNombre>=0?iNombre:35]||"").trim(),
