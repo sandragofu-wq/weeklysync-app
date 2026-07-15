@@ -738,8 +738,12 @@ export default function Overview(){
               });
             }
           } else if(isNvoga){
-          } else if(isNvoga){
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
+            // DEBUG
+            const dbgPriceCol=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
+            const dbgApto=headers.findIndex(h=>h.includes("apto"));
+            const dbgR17=rows[hdrIdx+1]||[];
+            alert("Nvoga debug: hdrIdx="+hdrIdx+" priceCol="+(dbgPriceCol!==-1?dbgPriceCol:18)+" aptoCol="+dbgApto+" apto0="+dbgR17[dbgApto!==-1?dbgApto:1]+" precio="+dbgR17[dbgPriceCol!==-1?dbgPriceCol:18]);
             const iBloque=headers.findIndex(h=>h==="bloque");
             const iApto=headers.findIndex(h=>h.includes("apto"));
             const iTipo=headers.findIndex(h=>h==="tipologia");
