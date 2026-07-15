@@ -801,34 +801,45 @@ export default function Overview(){
         const result={ventas:[],rescisiones:[]};
         const toISO=v=>{if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");}if(s.length>=10&&s.includes("-")) return s.substring(0,10);return "";};
         const toN=v=>{const n=Number(v);return isNaN(n)?0:n;};
-        const ws=wb.Sheets[wb.SheetNames[0]];
+        // Try to find the right sheet - prefer "MED Hills - Master" or similar
+        const masterSheetName=wb.SheetNames.find(s=>s.toLowerCase().includes("master")||s.toLowerCase().includes("med hills"))||wb.SheetNames[0];
+        const ws=wb.Sheets[masterSheetName];
         if(ws){
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,8);i++){
+          for(let i=0;i<Math.min(rows.length,10);i++){
             const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().trim());
             if(r.some(c=>c==="VVDA"||c==="VIVIENDA")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO"))){hdrIdx=i;break;}
           }
           if(hdrIdx>=0){
             const hdr=(rows[hdrIdx]||[]).map(c=>String(c||"").toUpperCase().trim());
             const iRef=hdr.findIndex(h=>h==="VVDA"||h==="VIVIENDA"||h==="REF");
-            const iTipo=hdr.findIndex(h=>h==="TIPOLOGIA");
-            const iStatus=hdr.findIndex(h=>h.includes("STATUS COMERCIAL"));
-            const iPrecio=hdr.findIndex(h=>h==="PRECIO DE VENTA");
+            const iTipo=hdr.findIndex(h=>h==="TIPOLOGIA"||h==="INMUEBLE");
+            const iBlq=hdr.findIndex(h=>h==="BLQ"||h==="BLOQUE");
+            const iStatus=hdr.findIndex(h=>h.includes("STATUS COMERCIAL")||h==="STATUS");
+            // Price: prefer "PRECIO DE VENTA" or "PRECIO TOTAL OPERACION" or "PRECIO VENTA CON ANEJOS"
+            const iPrecio=hdr.findIndex(h=>h==="PRECIO DE VENTA")||hdr.findIndex(h=>h.includes("PRECIO TOTAL OPERAC"))||hdr.findIndex(h=>h.includes("PRECIO VENTA CON ANEJOS"));
             const iPrecioOrigen=hdr.findIndex(h=>h.includes("PRECIO ORIGEN"));
-            const iM2=hdr.findIndex(h=>h==="M2 UTIL INT"||h==="M2 UTIL");
+            const iM2=hdr.findIndex(h=>h==="M2 UTIL INT"||h==="M2 UTIL"||h==="M2 CONST INT");
             const iNombre=hdr.findIndex(h=>h==="NOMBRE 1"||h==="NOMBRE");
             const iAgencia=hdr.findIndex(h=>h==="AGENCIA");
             const iFReserva=hdr.findIndex(h=>h==="F. RESERVA");
             const iFCpcv=hdr.findIndex(h=>h==="F. CPCV");
-            const iComision=hdr.findIndex(h=>h.includes("TOTAL COMISION"));
+            const iComision=hdr.findIndex(h=>h.includes("TOTAL COMISION")||h.includes("TOTAL COMISIONES"));
             const iPctCom=hdr.findIndex(h=>h.includes("% COMISION"));
-            const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")) rpCols.push(i);});
+            // Repricings: SUBIDA cols
+            const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")||h.startsWith("SUBIDA")) rpCols.push(i);});
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              const ref=String(r[iRef>=0?iRef:2]||"").trim();
-              if(!ref||ref.toUpperCase().includes("TOTAL")) continue;
-              const precio=toN(r[iPrecio>=0?iPrecio:6]);
+              // Ref: could be just VVDA number or full ref like "B1-401"
+              let ref=String(r[iRef>=0?iRef:3]||"").trim();
+              // If ref is just a number and we have BLQ, build full ref
+              if(ref&&!ref.includes("-")&&iBlq>=0){
+                const blq=String(r[iBlq]||"").trim();
+                if(blq) ref="B"+blq+"-"+ref;
+              }
+              if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase()==="VVDA") continue;
+              const precio=toN(r[iPrecio>=0?iPrecio:12]);
               if(!precio) continue;
               const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
               const statusMap={"RESERVA":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida"};
