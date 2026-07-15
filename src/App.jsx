@@ -681,9 +681,10 @@ export default function Overview(){
           let isNvoga=false,isMedHills=false,hdrIdx=-1;
           for(let i=0;i<Math.min(rows.length,25);i++){
             const r=(rows[i]||[]).map(c=>norm(c));
-            // MedHills/Cashflow format: has "bloque viviendas" and "precio vivienda aislada"
-            if(r.some(c=>c.includes("bloque"))&&r.some(c=>c.includes("precio vivienda"))){isMedHills=true;hdrIdx=i;break;}
-            if(r.some(c=>c==="bloque")&&(r.some(c=>c.includes("apto"))||r.some(c=>c==="tipologia"))){isNvoga=true;hdrIdx=i;break;}
+            // MedHills Cashflow: MUST have "bloque viviendas" (multi-word) AND "precio vivienda"
+            if(r.some(c=>c==="bloque viviendas"||c.includes("bloque")&&c.includes("vivend"))&&r.some(c=>c.includes("precio vivienda"))){isMedHills=true;hdrIdx=i;break;}
+            // Nvoga Senior Living: has "bloque" AND ("apto" OR "tipologia") but NOT "precio vivienda"
+            if(r.some(c=>c==="bloque")&&(r.some(c=>c.includes("apto"))||r.some(c=>c==="tipologia"))&&!r.some(c=>c.includes("precio vivienda"))){isNvoga=true;hdrIdx=i;break;}
             if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
@@ -831,14 +832,16 @@ export default function Overview(){
             const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")||h.startsWith("SUBIDA")) rpCols.push(i);});
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              // Ref: could be just VVDA number or full ref like "B1-401"
-              let ref=String(r[iRef>=0?iRef:3]||"").trim();
-              // If ref is just a number and we have BLQ, build full ref
-              if(ref&&!ref.includes("-")&&iBlq>=0){
-                const blq=String(r[iBlq]||"").trim();
-                if(blq) ref="B"+blq+"-"+ref;
+              // Ref: col3=VVDA which already contains full ref like "B1-401"
+              // col2=BLQ is the block number only, col3=VVDA has the full reference
+              const vvdaVal=String(r[iRef>=0?iRef:3]||"").trim();
+              const blqVal=iBlq>=0?String(r[iBlq]||"").trim():"";
+              let ref=vvdaVal;
+              // Only prepend "B+blq-" if vvda is a plain number (no dash, no B prefix)
+              if(ref&&!ref.includes("-")&&!ref.toUpperCase().startsWith("B")&&blqVal){
+                ref="B"+blqVal+"-"+ref;
               }
-              if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase()==="VVDA") continue;
+              if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase()==="VVDA"||ref.toUpperCase()==="INMUEBLE") continue;
               const precio=toN(r[iPrecio>=0?iPrecio:12]);
               if(!precio) continue;
               const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
