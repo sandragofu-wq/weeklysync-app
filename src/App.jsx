@@ -36,7 +36,9 @@ const HITO_EST = {"completado":{color:"#22d3a0",bg:"rgba(34,211,160,0.15)",icon:
 const BLOCK_ST = {critico:{bg:"rgba(240,90,90,0.10)",border:"rgba(240,90,90,0.3)",icon:"[!]"},aviso:{bg:"rgba(245,200,66,0.10)",border:"rgba(245,200,66,0.3)",icon:"[?]"},info:{bg:"rgba(79,142,247,0.10)",border:"rgba(79,142,247,0.3)",icon:"[i]"}};
 const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#4f8ef7"},"reservada":{label:"Reservada",color:"#f5c842"},"vendida":{label:"Vendida",color:"#22d3a0"},"no-venta":{label:"No venta",color:"#6b7394"}};
 const PRIO_CLR = {alta:"#f05a5a",media:"#f5c842",baja:"#22d3a0"};
-const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","Dani (BSA)","Inma (BSA)"];
+const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","Dani (BSA)","Inma (BSA)","Cesar Mayor (BSA)","Silvia Martin (BSA)"];
+const DOC_ESTADOS = {"pendiente":{label:"Pendiente",color:"#6b7394",bg:"rgba(107,115,148,0.12)"},"en-tramite":{label:"En tramite",color:"#f5c842",bg:"rgba(245,200,66,0.12)"},"solicitada":{label:"Solicitada",color:"#4f8ef7",bg:"rgba(79,142,247,0.12)"},"aprobado":{label:"Aprobado / Concedido",color:"#22d3a0",bg:"rgba(34,211,160,0.12)"}};
+const DOC_CYCLE = ["pendiente","en-tramite","solicitada","aprobado"];
 const CSS = {inp:{width:"100%",background:"#1c2030",border:"1px solid #252a3a",borderRadius:8,padding:"8px 11px",color:"#e8eaf2",fontFamily:"inherit",fontSize:"0.84rem",outline:"none",boxSizing:"border-box"}};
 
 const DEFAULT_PROJECTS = [
@@ -305,6 +307,11 @@ const ModalProj = memo(function ModalProj({pF,onChange,onSave,onClose,isEdit}){
       <FL label="PM Tecnico (BSA)"><select style={CSS.inp} value={pF.pmTecnico} onChange={e=>onChange("pmTecnico",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
       <FL label="Responsable Comercial"><select style={CSS.inp} value={pF.responsableComercial} onChange={e=>onChange("responsableComercial",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
       <FL label="Comercializadora"><input style={CSS.inp} value={pF.comercializadora} onChange={e=>onChange("comercializadora",e.target.value)}/></FL>
+      <FL label="Responsable Arquitectura"><select style={CSS.inp} value={pF.arquitectura||""} onChange={e=>onChange("arquitectura",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
+      <FL label="Responsable Financiero"><select style={CSS.inp} value={pF.financiero||""} onChange={e=>onChange("financiero",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
+      <FL label="Responsable Contabilidad/Fiscal"><select style={CSS.inp} value={pF.contableFiscal||""} onChange={e=>onChange("contableFiscal",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
+      <FL label="Responsable Marketing"><select style={CSS.inp} value={pF.marketingResp||""} onChange={e=>onChange("marketingResp",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
+      <FL label="Responsable Juridico"><select style={CSS.inp} value={pF.juridico||""} onChange={e=>onChange("juridico",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
       <FL label="Presupuesto"><input style={CSS.inp} value={pF.presupuesto} onChange={e=>onChange("presupuesto",e.target.value)}/></FL>
       <FL label="Coste actual"><input style={CSS.inp} value={pF.costeActual} onChange={e=>onChange("costeActual",e.target.value)}/></FL>
     </div>
@@ -316,9 +323,10 @@ const ModalHito = memo(function ModalHito({hF,onChange,onSave,onClose}){
     <FL label="Nombre"><input style={CSS.inp} value={hF.nombre} onChange={e=>onChange("nombre",e.target.value)} autoFocus/></FL>
     <FL label="Estado"><select style={CSS.inp} value={hF.estado} onChange={e=>onChange("estado",e.target.value)}><option value="pendiente">Pendiente</option><option value="en-curso">En curso</option><option value="completado">Completado</option><option value="retrasado">Retrasado</option></select></FL>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-      <FL label="Fecha prevista"><input type="date" style={CSS.inp} value={hF.fechaPrevista} onChange={e=>onChange("fechaPrevista",e.target.value)}/></FL>
-      <FL label="Fecha real"><input type="date" style={CSS.inp} value={hF.fechaReal} onChange={e=>onChange("fechaReal",e.target.value)}/></FL>
+      <FL label="Fecha inicio / prevista"><input type="date" style={CSS.inp} value={hF.fechaPrevista} onChange={e=>onChange("fechaPrevista",e.target.value)}/></FL>
+      <FL label="Fecha fin (periodo, opcional)"><input type="date" style={CSS.inp} value={hF.fechaFin||""} onChange={e=>onChange("fechaFin",e.target.value)}/></FL>
     </div>
+    <FL label="Fecha real de finalizacion"><input type="date" style={CSS.inp} value={hF.fechaReal} onChange={e=>onChange("fechaReal",e.target.value)}/></FL>
     <FL label="Notas"><textarea style={{...CSS.inp,minHeight:70,resize:"vertical"}} value={hF.notas} onChange={e=>onChange("notas",e.target.value)}/></FL>
     <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">Guardar</Btn></div>
   </Modal>);
@@ -359,6 +367,17 @@ const ModalVivienda = memo(function ModalVivienda({vF,onChange,onSave,onClose,is
     <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">{isEdit?"Guardar":"Anadir"}</Btn></div>
   </Modal>);
 });
+const ModalDocumento = memo(function ModalDocumento({dF,onChange,onSave,onClose,isEdit}){
+  return (<Modal title={isEdit?"Editar documento":"Nuevo documento"} onClose={onClose}>
+    <FL label="Nombre / tramite"><input style={CSS.inp} value={dF.nombre} onChange={e=>onChange("nombre",e.target.value)} autoFocus/></FL>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <FL label="Estado"><select style={CSS.inp} value={dF.estado} onChange={e=>onChange("estado",e.target.value)}>{Object.entries(DOC_ESTADOS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></FL>
+      <FL label="Responsable"><select style={CSS.inp} value={dF.responsable} onChange={e=>onChange("responsable",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
+    </div>
+    <FL label="Notas"><textarea style={{...CSS.inp,minHeight:70,resize:"vertical"}} value={dF.notas} onChange={e=>onChange("notas",e.target.value)}/></FL>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">{isEdit?"Guardar":"Anadir"}</Btn></div>
+  </Modal>);
+});
 
 const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,isOver,onDragStart,onDragEnter,onDragEnd}){
   const hs=HITO_EST[h.estado]||HITO_EST.pendiente;
@@ -383,6 +402,85 @@ const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,
     </div>
   );
 });
+
+const HitosGantt = ({hitos,onCycle,onEdit,onDelete}) => {
+  const MS_DAY=86400000;
+  const toDate=s=>{ if(!s) return null; const d=new Date(s+"T00:00:00"); return isNaN(d.getTime())?null:d; };
+  const rows=(hitos||[]).map((h,idx)=>{
+    const start=toDate(h.fechaPrevista)||toDate(h.fechaReal);
+    const end=toDate(h.fechaFin)||start;
+    return {h,idx,start,end};
+  });
+  const withDates=rows.filter(r=>r.start);
+  const today=new Date(new Date().toISOString().split("T")[0]+"T00:00:00");
+  let minD,maxD;
+  if(withDates.length>0){
+    minD=new Date(Math.min(...withDates.map(r=>r.start.getTime()),today.getTime()));
+    maxD=new Date(Math.max(...withDates.map(r=>(r.end||r.start).getTime()),today.getTime()));
+  } else {
+    minD=new Date(today.getTime()-30*MS_DAY);
+    maxD=new Date(today.getTime()+180*MS_DAY);
+  }
+  const pad=Math.max(Math.round((maxD-minD)/MS_DAY*0.05),7)*MS_DAY;
+  minD=new Date(minD.getTime()-pad);
+  maxD=new Date(maxD.getTime()+pad);
+  const totalMs=Math.max(maxD-minD,MS_DAY);
+  const pctOf=d=>((d.getTime()-minD.getTime())/totalMs)*100;
+  // Month ticks
+  const ticks=[];
+  const cur=new Date(minD.getFullYear(),minD.getMonth(),1);
+  while(cur<=maxD){ ticks.push(new Date(cur)); cur.setMonth(cur.getMonth()+1); }
+  const todayPct=today>=minD&&today<=maxD?pctOf(today):null;
+  return (
+    <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",overflowX:"auto"}}>
+      <div style={{minWidth:640}}>
+        <div style={{position:"relative",height:26,marginBottom:8,borderBottom:"1px solid #252a3a"}}>
+          {ticks.map((t,i)=>(
+            <div key={i} style={{position:"absolute",left:pctOf(t)+"%",top:0,fontSize:"0.66rem",color:"#6b7394",whiteSpace:"nowrap",transform:"translateX(-2px)"}}>
+              {t.toLocaleDateString("es-ES",{month:"short",year:"2-digit"})}
+            </div>
+          ))}
+        </div>
+        <div style={{position:"relative"}}>
+          {ticks.map((t,i)=>(
+            <div key={i} style={{position:"absolute",left:pctOf(t)+"%",top:0,bottom:0,width:1,background:"#1c2030"}}/>
+          ))}
+          {todayPct!==null&&(
+            <div style={{position:"absolute",left:todayPct+"%",top:0,bottom:0,width:2,background:"#f5924e",zIndex:2}} title="Hoy"/>
+          )}
+          {rows.map(({h,idx,start,end})=>{
+            const hs=HITO_EST[h.estado]||HITO_EST.pendiente;
+            const left=start?pctOf(start):0;
+            const right=end?pctOf(end):left;
+            const width=Math.max(right-left,1.2);
+            return (
+              <div key={idx} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #1c2030"}}>
+                <div style={{width:150,flexShrink:0,fontSize:"0.78rem",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={h.nombre}>{h.nombre}</div>
+                <div style={{position:"relative",flex:1,height:22}}>
+                  {start?(
+                    <div onClick={()=>onCycle(idx)} title={fmt(h.fechaPrevista)+(h.fechaFin?" - "+fmt(h.fechaFin):"")+" ("+h.estado+")"}
+                      style={{position:"absolute",left:left+"%",width:width+"%",top:2,bottom:2,minWidth:10,background:hs.bg,border:"1px solid "+hs.color,borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",paddingLeft:6,overflow:"hidden"}}>
+                      <span style={{fontSize:"0.64rem",color:hs.color,fontWeight:700,whiteSpace:"nowrap"}}>{hs.icon}</span>
+                    </div>
+                  ):(
+                    <div style={{fontSize:"0.7rem",color:"#4a5070",lineHeight:"22px"}}>Sin fecha</div>
+                  )}
+                </div>
+                <div style={{display:"flex",gap:5,flexShrink:0}}><Btn onClick={()=>onEdit(idx)} sm>edit</Btn><Btn onClick={()=>onDelete(idx)} v="danger" sm>x</Btn></div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
+        {Object.entries(HITO_EST).map(([k,v])=>(
+          <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:v.color}}><div style={{width:7,height:7,borderRadius:"50%",background:v.color}}/>{k}</div>
+        ))}
+        <div style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:"#f5924e"}}><div style={{width:2,height:10,background:"#f5924e"}}/>hoy</div>
+      </div>
+    </div>
+  );
+};
 
 const KpiCard = ({label,val,sub,color,prev}) => (
   <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
@@ -585,23 +683,25 @@ export default function Overview(){
   const [modal,setModal]=useState(null);
   const dragItem=useRef(null),dragOverItem=useRef(null);
   const [dragIdx,setDragIdx]=useState(null),[overIdx,setOverIdx]=useState(null);
-  const [pF,setPF]=useState({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});
-  const [hF,setHF]=useState({nombre:"",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""});
+  const [pF,setPF]=useState({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",arquitectura:"",financiero:"",contableFiscal:"",marketingResp:"",juridico:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});
+  const [hF,setHF]=useState({nombre:"",estado:"pendiente",fechaPrevista:"",fechaFin:"",fechaReal:"",notas:""});
   const [tF,setTF]=useState({texto:"",responsable:"",prioridad:"media",vencimiento:""});
   const [bF,setBF]=useState({tipo:"aviso",titulo:"",desc:"",responsable:""});
   const [vF,setVF]=useState({ref:"",tipologia:"",planta:"",superficie:"",precio:"",estado:"disponible",notas:""});
+  const [dF,setDF]=useState({nombre:"",estado:"pendiente",responsable:"",notas:""});
   const [newHName,setNewHName]=useState("");
+  const [hitosView,setHitosView]=useState("lista");
   const [resumenLocal,setResumenLocal]=useState("");
   const [bpImporting,setBpImporting]=useState(false);
   const [bpPreview,setBpPreview]=useState(null);
-  const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false);
+  const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false),docIsEdit=useRef(false);
 
   const proj=projects.find(p=>p.id===activeId);
   useEffect(()=>{
     // Load from cloud FIRST - block saves until done
     cloudLoad().then(data=>{
       if(data&&Array.isArray(data)&&data.length>0){
-        const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+        const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,documentos:x.documentos||[],hitos:(x.hitos||[]).map(h=>({...h,fechaFin:h.fechaFin||""}))}));
         setProjects(migrated);
         try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
       }
@@ -622,10 +722,11 @@ export default function Overview(){
   const chTF=useCallback((k,v)=>setTF(p=>({...p,[k]:v})),[]);
   const chBF=useCallback((k,v)=>setBF(p=>({...p,[k]:v})),[]);
   const chVF=useCallback((k,v)=>setVF(p=>({...p,[k]:v})),[]);
+  const chDF=useCallback((k,v)=>setDF(p=>({...p,[k]:v})),[]);
 
-  const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
-  const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
-  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
+  const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",arquitectura:"",financiero:"",contableFiscal:"",marketingResp:"",juridico:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
+  const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",arquitectura:proj.arquitectura||"",financiero:proj.financiero||"",contableFiscal:proj.contableFiscal||"",marketingResp:proj.marketingResp||"",juridico:proj.juridico||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
+  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaFin:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],documentos:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
   const delP=useCallback(id=>{if(!confirm("Eliminar esta promocion?")) return;save(prev=>prev.filter(p=>p.id!==id));setView("dashboard");setActiveId(null);},[]);
 
   const cycleHito=useCallback(idx=>{upd(activeId,p=>{const h=[...p.hitos];const cur=h[idx].estado;const next=HITO_CYCLE[(HITO_CYCLE.indexOf(cur)+1)%HITO_CYCLE.length];h[idx]={...h[idx],estado:next,fechaReal:next==="completado"?new Date().toISOString().split("T")[0]:h[idx].fechaReal};return {...p,hitos:h};});},[activeId,upd]);
@@ -634,7 +735,7 @@ export default function Overview(){
   const handleDragEnd=useCallback(()=>{const from=dragItem.current,to=dragOverItem.current;if(from!==null&&to!==null&&from!==to){upd(activeId,p=>{const h=[...p.hitos];const el=h.splice(from,1)[0];h.splice(to,0,el);return {...p,hitos:h};});}dragItem.current=null;dragOverItem.current=null;setDragIdx(null);setOverIdx(null);},[activeId,upd]);
   const openEditH=useCallback(idx=>{hitoIdx.current=idx;const h=proj&&proj.hitos[idx];if(h) setHF({...h});setModal("hito");},[proj]);
   const saveH=useCallback(()=>{upd(activeId,p=>({...p,hitos:p.hitos.map((h,i)=>i!==hitoIdx.current?h:{...hF})}));setModal(null);},[activeId,hF,upd]);
-  const addH=useCallback(()=>{if(!newHName.trim()) return;upd(activeId,p=>({...p,hitos:[...p.hitos,{nombre:newHName,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""}]}));setNewHName("");},[activeId,newHName,upd]);
+  const addH=useCallback(()=>{if(!newHName.trim()) return;upd(activeId,p=>({...p,hitos:[...p.hitos,{nombre:newHName,estado:"pendiente",fechaPrevista:"",fechaFin:"",fechaReal:"",notas:""}]}));setNewHName("");},[activeId,newHName,upd]);
   const delH=useCallback(idx=>upd(activeId,p=>({...p,hitos:p.hitos.filter((_,i)=>i!==idx)})),[activeId,upd]);
 
   const openNewT=useCallback(()=>{editId.current=null;setTF({texto:"",responsable:(proj&&proj.projectOwner)||"",prioridad:"media",vencimiento:""});setModal("tarea");},[proj]);
@@ -670,6 +771,12 @@ export default function Overview(){
     });
   },[activeId,upd]);
   const clearViv=useCallback(()=>{if(!confirm("Eliminar todas las viviendas?")) return;upd(activeId,p=>({...p,viviendas:[]}));},[activeId,upd]);
+
+  const openNewDoc=useCallback(()=>{docIsEdit.current=false;editId.current=null;setDF({nombre:"",estado:"pendiente",responsable:(proj&&proj.pmTecnico)||"",notas:""});setModal("doc");},[proj]);
+  const openEditDoc=useCallback((d,idx)=>{docIsEdit.current=true;editId.current=idx;setDF({...d});setModal("doc");},[]);
+  const saveDoc=useCallback(()=>{if(!dF.nombre.trim()) return;upd(activeId,p=>{const docs=p.documentos||[];if(docIsEdit.current){return {...p,documentos:docs.map((d,i)=>i!==editId.current?d:{...dF})};}return {...p,documentos:[...docs,{...dF}]};});setModal(null);},[activeId,dF,upd]);
+  const delDoc=useCallback(idx=>upd(activeId,p=>({...p,documentos:(p.documentos||[]).filter((_,i)=>i!==idx)})),[activeId,upd]);
+  const cycleDoc=useCallback(idx=>{upd(activeId,p=>{const docs=[...(p.documentos||[])];const cur=docs[idx].estado;const next=DOC_CYCLE[(DOC_CYCLE.indexOf(cur)+1)%DOC_CYCLE.length];docs[idx]={...docs[idx],estado:next};return {...p,documentos:docs};});},[activeId,upd]);
 
   useEffect(()=>{if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);}},[]);
 
@@ -1101,6 +1208,79 @@ export default function Overview(){
   const pct=st.total?Math.round(st.vendidas/st.total*100):0;
   const projEst=proj?(ESTADOS[proj.estado]||ESTADOS.planificacion):null;
 
+  const exportExcel=()=>{
+    if(!proj) return;
+    if(!window.XLSX){alert("SheetJS cargando, espera 2s e intenta de nuevo.");return;}
+    const X=window.XLSX;
+    const wb=X.utils.book_new();
+
+    const resumenAoa=[
+      ["Reporte de estado - "+proj.name],
+      ["Generado",new Date().toLocaleString("es-ES")],
+      [],
+      ["Campo","Valor"],
+      ["Nombre",proj.name],
+      ["Ubicacion",proj.ubicacion||"-"],
+      ["Zona",proj.zona||"-"],
+      ["Estado",(ESTADOS[proj.estado]||{}).label||proj.estado||"-"],
+      ["Fecha entrega prevista",proj.fechaEntrega?fmt(proj.fechaEntrega):"-"],
+      ["Presupuesto",proj.presupuesto||"-"],
+      ["Coste actual",proj.costeActual||"-"],
+      ["Ultima actualizacion",proj.ultimaActualizacion?fmt(proj.ultimaActualizacion):"-"],
+      [],
+      ["Unidades totales",st.total],
+      ["Vendidas / escrituradas",st.vendidas],
+      ["Reservadas",st.reservadas],
+      ["Disponibles",st.disponibles],
+      ["Precio medio vivienda",st.precioMedio||0],
+      ["Ingresos comprometidos",st.ingresosVR||0],
+      [],
+      ["Resumen semanal",proj.resumenSemanal||"-"],
+    ];
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(resumenAoa),"Resumen");
+
+    const equipoAoa=[
+      ["Rol","Responsable"],
+      ["Project Owner (Overview)",proj.projectOwner||"-"],
+      ["PM Tecnico (BSA)",proj.pmTecnico||"-"],
+      ["Responsable Comercial",proj.responsableComercial||"-"],
+      ["Comercializadora",proj.comercializadora||"-"],
+      ["Arquitectura",proj.arquitectura||"-"],
+      ["Financiero",proj.financiero||"-"],
+      ["Contabilidad / Fiscal",proj.contableFiscal||"-"],
+      ["Marketing",proj.marketingResp||"-"],
+      ["Juridico",proj.juridico||"-"],
+    ];
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(equipoAoa),"Equipo");
+
+    const hitosAoa=[["Hito","Estado","Fecha inicio/prevista","Fecha fin","Fecha real","Notas"]];
+    (proj.hitos||[]).forEach(h=>hitosAoa.push([h.nombre,h.estado,h.fechaPrevista?fmt(h.fechaPrevista):"-",h.fechaFin?fmt(h.fechaFin):"-",h.fechaReal?fmt(h.fechaReal):"-",h.notas||""]));
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(hitosAoa),"Hitos");
+
+    const docsAoa=[["Documento / tramite","Estado","Responsable","Notas"]];
+    (proj.documentos||[]).forEach(d=>docsAoa.push([d.nombre,(DOC_ESTADOS[d.estado]||{}).label||d.estado,d.responsable||"-",d.notas||""]));
+    if(docsAoa.length===1) docsAoa.push(["Sin documentos registrados","","",""]);
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(docsAoa),"Documentacion");
+
+    const tareasAoa=[["Tarea","Responsable","Prioridad","Vencimiento","Completada"]];
+    (proj.tareas||[]).forEach(t=>tareasAoa.push([t.texto,t.responsable||"-",t.prioridad,t.vencimiento?fmt(t.vencimiento):"-",t.done?"Si":"No"]));
+    if(tareasAoa.length===1) tareasAoa.push(["Sin tareas","","","",""]);
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(tareasAoa),"Tareas");
+
+    const alertasAoa=[["Tipo","Titulo","Descripcion","Responsable"]];
+    (proj.blockers||[]).forEach(b=>alertasAoa.push([b.tipo,b.titulo,b.desc||"",b.responsable||"-"]));
+    if(alertasAoa.length===1) alertasAoa.push(["Sin alertas activas","","",""]);
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(alertasAoa),"Alertas");
+
+    const vivAoa=[["Referencia","Tipologia","Planta","Superficie m2","Precio","Estado","Notas"]];
+    activeVivs.forEach(v=>vivAoa.push([v.ref,v.tipologia||"-",v.planta||"-",v.superficie||0,v.precio||0,v.estado,v.notas||""]));
+    if(vivAoa.length===1) vivAoa.push(["Sin viviendas cargadas","","","","","",""]);
+    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(vivAoa),"Viviendas");
+
+    const safeName=proj.name.replace(/[^a-z0-9]+/gi,"_");
+    X.writeFile(wb,"Reporte_"+safeName+"_"+new Date().toISOString().split("T")[0]+".xlsx");
+  };
+
   const TABS=[
     {id:"hitos",l:"Hitos"},
     {id:"bp",l:"Business Plan"+(proj&&proj.bp?" OK":"")},
@@ -1146,7 +1326,7 @@ export default function Overview(){
                 try{
                   const data=JSON.parse(ev.target.result);
                   if(Array.isArray(data)&&data.length>0){
-                    const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+                    const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,documentos:x.documentos||[],hitos:(x.hitos||[]).map(h=>({...h,fechaFin:h.fechaFin||""}))}));
                     setProjects(migrated);
                     try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
                     alert("Datos restaurados correctamente");
@@ -1258,21 +1438,32 @@ export default function Overview(){
 
               {tab==="hitos"&&(
                 <div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Hitos del proyecto</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Arrastra para reordenar - Click en circulo para cambiar estado</div></div>
-                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Hitos del proyecto</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>{hitosView==="lista"?"Arrastra para reordenar - Click en circulo para cambiar estado":"Click en una barra para cambiar estado - edit para fechas"}</div></div>
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                      <div style={{display:"flex",background:"#1c2030",borderRadius:8,border:"1px solid #252a3a",padding:2}}>
+                        {["lista","gantt"].map(v=>(
+                          <button key={v} onClick={()=>setHitosView(v)} style={{background:hitosView===v?"#4f8ef7":"transparent",color:hitosView===v?"#fff":"#6b7394",border:"none",borderRadius:6,padding:"5px 12px",fontSize:"0.73rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{v}</button>
+                        ))}
+                      </div>
                       <input value={newHName} onChange={e=>setNewHName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addH();}}} placeholder="Nombre del nuevo hito..." style={{...CSS.inp,width:210}}/>
                       <Btn onClick={addH} sm>+ Anadir</Btn>
                     </div>
                   </div>
-                  {proj.hitos.map((h,idx)=>(
-                    <HitoRow key={idx} h={h} idx={idx} onCycle={cycleHito} onEdit={openEditH} onDelete={delH} onDragStart={handleDragStart} onDragEnter={handleDragEnter} onDragEnd={handleDragEnd} isDragging={dragIdx===idx} isOver={overIdx===idx&&dragIdx!==idx}/>
-                  ))}
-                  <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
-                    {Object.entries(HITO_EST).map(([k,v])=>(
-                      <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:v.color}}><div style={{width:7,height:7,borderRadius:"50%",background:v.color}}/>{k}</div>
-                    ))}
-                  </div>
+                  {hitosView==="lista"?(
+                    <>
+                      {proj.hitos.map((h,idx)=>(
+                        <HitoRow key={idx} h={h} idx={idx} onCycle={cycleHito} onEdit={openEditH} onDelete={delH} onDragStart={handleDragStart} onDragEnter={handleDragEnter} onDragEnd={handleDragEnd} isDragging={dragIdx===idx} isOver={overIdx===idx&&dragIdx!==idx}/>
+                      ))}
+                      <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
+                        {Object.entries(HITO_EST).map(([k,v])=>(
+                          <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:v.color}}><div style={{width:7,height:7,borderRadius:"50%",background:v.color}}/>{k}</div>
+                        ))}
+                      </div>
+                    </>
+                  ):(
+                    <HitosGantt hitos={proj.hitos} onCycle={cycleHito} onEdit={openEditH} onDelete={delH}/>
+                  )}
                 </div>
               )}
 
@@ -1808,8 +1999,8 @@ export default function Overview(){
               {tab==="equipo"&&(
                 <div>
                   <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Estructura de equipo - {proj.name}</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
-                    {[{rol:"Project Owner (Overview)",persona:proj.projectOwner,desc:"Responsable global. Coordinacion transversal, decisiones clave.",color:"#4f8ef7"},{rol:"PM Tecnico (BSA)",persona:proj.pmTecnico,desc:"Proyecto, obra, licencias. Exclusivamente tecnico.",color:"#22d3a0"},{rol:"Responsable Comercial",persona:proj.responsableComercial,desc:"Pricing, estrategia, posicionamiento, direccion comercializadora.",color:"#f5c842"},{rol:"Comercializadora",persona:proj.comercializadora||"Sin asignar",desc:"Ejecucion ventas, atencion leads, reporte semanal.",color:"#f5924e"}].map(r=>(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13,marginBottom:26}}>
+                    {[{rol:"Project Owner (Overview)",persona:proj.projectOwner,desc:"Responsable global. Coordinacion transversal, decisiones clave.",color:"#4f8ef7"},{rol:"PM Tecnico (BSA)",persona:proj.pmTecnico,desc:"Proyecto, obra, licencias. Exclusivamente tecnico.",color:"#22d3a0"},{rol:"Responsable Comercial",persona:proj.responsableComercial,desc:"Pricing, estrategia, posicionamiento, direccion comercializadora.",color:"#f5c842"},{rol:"Comercializadora",persona:proj.comercializadora||"Sin asignar",desc:"Ejecucion ventas, atencion leads, reporte semanal.",color:"#f5924e"},{rol:"Arquitectura",persona:proj.arquitectura,desc:"Proyecto basico/ejecucion, licencias, direccion de obra.",color:"#a78bfa"},{rol:"Financiero",persona:proj.financiero,desc:"Business plan, tesoreria, financiacion.",color:"#4f8ef7"},{rol:"Contabilidad / Fiscal",persona:proj.contableFiscal,desc:"Contabilidad de la SPV, facturacion, obligaciones fiscales.",color:"#22d3a0"},{rol:"Marketing",persona:proj.marketingResp||"Sin asignar",desc:"Posicionamiento, identidad visual, campanas.",color:"#f5c842"},{rol:"Juridico",persona:proj.juridico||"Sin asignar",desc:"Contratos de reserva/compraventa, asesoramiento legal.",color:"#f05a5a"}].map(r=>(
                       <div key={r.rol} style={{background:"#141720",borderRadius:12,border:"1px solid "+r.color+"20",padding:"17px 19px"}}>
                         <div style={{fontSize:"0.62rem",color:r.color,textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700,marginBottom:7}}>{r.rol}</div>
                         <div style={{fontWeight:700,fontSize:"0.98rem",marginBottom:7}}>{r.persona||"-"}</div>
@@ -1817,6 +2008,23 @@ export default function Overview(){
                       </div>
                     ))}
                   </div>
+
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Documentacion y licencias</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Click en el estado para avanzarlo</div></div>
+                    <Btn onClick={openNewDoc} sm>+ Anadir</Btn>
+                  </div>
+                  {(!proj.documentos||proj.documentos.length===0)&&<div style={{color:"#6b7394",fontSize:"0.84rem"}}>Sin documentos registrados.</div>}
+                  {(proj.documentos||[]).map((d,idx)=>{
+                    const ds=DOC_ESTADOS[d.estado]||DOC_ESTADOS.pendiente;
+                    return (
+                      <div key={idx} style={{display:"flex",alignItems:"center",gap:11,background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"11px 15px",marginBottom:7}}>
+                        <div onClick={()=>cycleDoc(idx)} style={{cursor:"pointer",fontSize:"0.71rem",fontWeight:700,padding:"3px 10px",borderRadius:8,background:ds.bg,color:ds.color,whiteSpace:"nowrap"}}>{ds.label}</div>
+                        <div style={{flex:1,fontSize:"0.83rem"}}>{d.nombre}</div>
+                        <div style={{fontSize:"0.71rem",padding:"2px 7px",borderRadius:8,background:"#1c2030",border:"1px solid #252a3a",color:"#6b7394",whiteSpace:"nowrap"}}>{d.responsable||"Sin asignar"}</div>
+                        <div style={{display:"flex",gap:5}}><Btn onClick={()=>openEditDoc(d,idx)} sm>edit</Btn><Btn onClick={()=>delDoc(idx)} v="danger" sm>x</Btn></div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -1858,7 +2066,10 @@ export default function Overview(){
 
               {tab==="reporte"&&(
                 <div>
-                  <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:4}}>Reporte semanal - {proj.name}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4,gap:10,flexWrap:"wrap"}}>
+                    <div style={{fontWeight:700,fontSize:"0.92rem"}}>Reporte semanal - {proj.name}</div>
+                    <Btn onClick={exportExcel} v="primary" sm>Exportar Excel</Btn>
+                  </div>
                   <div style={{fontSize:"0.77rem",color:"#f5c842",marginBottom:18,padding:"8px 12px",background:"rgba(245,200,66,0.06)",borderRadius:8,border:"1px solid rgba(245,200,66,0.2)"}}>Debe completarse por el Project Owner antes de cada reunion semanal</div>
                   <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px",marginBottom:14}}>
                     <div style={{fontSize:"0.7rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:9}}>Resumen ejecutivo de la semana</div>
@@ -1890,6 +2101,7 @@ export default function Overview(){
       {modal==="tarea"&&<ModalTarea tF={tF} onChange={chTF} onSave={saveT} onClose={()=>setModal(null)} isEdit={!!editId.current}/>}
       {modal==="blocker"&&<ModalBlocker bF={bF} onChange={chBF} onSave={saveB} onClose={()=>setModal(null)}/>}
       {modal==="vivienda"&&<ModalVivienda vF={vF} onChange={chVF} onSave={saveV} onClose={()=>setModal(null)} isEdit={!!editId.current}/>}
+      {modal==="doc"&&<ModalDocumento dF={dF} onChange={chDF} onSave={saveDoc} onClose={()=>setModal(null)} isEdit={docIsEdit.current}/>}
 
       {modal==="bpPreview"&&bpPreview&&(
         <Modal title="Confirmar importacion del Business Plan" onClose={()=>{setModal(null);setBpPreview(null);}} wide>
