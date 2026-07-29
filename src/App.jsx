@@ -1419,7 +1419,7 @@ export default function Overview(){
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
-                {[{label:"Total uds",val:st.total?st.numViviendas+"V / "+st.numParcelas+"P":"-"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#22d3a0":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#f5c842":"#f05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
+                {[{label:"Total uds",val:st.total?st.totalViv+"V / "+st.totalParc+"P":"-"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#22d3a0":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#f5c842":"#f05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
                   <div key={k.label} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px"}}>
                     <div style={{fontSize:"0.6rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.label}</div>
                     <div style={{fontSize:"1.1rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
