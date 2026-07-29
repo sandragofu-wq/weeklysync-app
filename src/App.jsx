@@ -273,6 +273,62 @@ const parseBP = wb => {
   return result;
 };
 
+const MESES_ES = {enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12};
+const mesAnoToISO = s => {
+  if(!s) return "";
+  const m = String(s).match(/([a-záéíóúA-ZÁÉÍÓÚ]+)\s+(\d{4})/);
+  if(!m) return "";
+  const mes = MESES_ES[m[1].toLowerCase()];
+  if(!mes) return "";
+  return m[2]+"-"+String(mes).padStart(2,"0")+"-01";
+};
+
+// Parses raw text extracted from a kick off .docx (formato interno Overview RE):
+// campos "Etiqueta: valor" y roles de equipo en formato "Rol // Nombre"
+const parseKickOffText = text => {
+  const lines = String(text||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const getAfter = (line,marker) => { const i=line.toLowerCase().indexOf(marker.toLowerCase()); return i>=0?line.slice(i+marker.length).trim():null; };
+  const out = {roles:{},documentos:[]};
+  for(const line of lines){
+    if(!out.name){ const v=getAfter(line,"Nombre comercial:"); if(v) out.name=v; }
+    if(!out.nombreTecnico){ const v=getAfter(line,"Nombre técnico:")||getAfter(line,"Nombre tecnico:"); if(v) out.nombreTecnico=v; }
+    if(!out.ubicacion){ const v=getAfter(line,"Ubicación exacta:")||getAfter(line,"Ubicacion exacta:"); if(v&&!v.startsWith("http")) out.ubicacion=v; }
+    if(!out.inicioComercializacion){ const v=getAfter(line,"Inicio de comercialización previsto:")||getAfter(line,"Inicio de comercializacion previsto:"); if(v) out.inicioComercializacion=v; }
+    if(!out.fechasConstruccionRaw && /fechas previstas construcci/i.test(line)){ out.fechasConstruccionRaw=line.slice(line.indexOf(":")+1).trim(); }
+    if(!out.estadoUrbanisticoRaw && /^estado urban/i.test(line)){ out.estadoUrbanisticoRaw=line.slice(line.indexOf(":")+1).trim(); }
+    if(line.includes("//")&&!/^responsabilidad/i.test(line)){
+      const idx=line.indexOf("//");
+      const label=line.slice(0,idx).toLowerCase();
+      const name=line.slice(idx+2).trim();
+      if(name && !/^(pdte|pendiente)/i.test(name)){
+        if(!out.roles.pmTecnico&&(label.includes("project manager")||label.includes("(pm)"))) out.roles.pmTecnico=name;
+        else if(!out.roles.responsableComercial&&label.includes("comercial")&&!label.includes("administra")) out.roles.responsableComercial=name;
+        else if(!out.roles.arquitectura&&label.includes("arquitectura")) out.roles.arquitectura=name;
+        else if(!out.roles.financiero&&label.includes("financiero")) out.roles.financiero=name;
+        else if(!out.roles.contableFiscal&&label.includes("contabilidad")) out.roles.contableFiscal=name;
+        else if(!out.roles.marketingResp&&label.includes("marketing")) out.roles.marketingResp=name;
+        else if(!out.roles.juridico&&(label.includes("jurídico")||label.includes("juridico"))) out.roles.juridico=name;
+      }
+    }
+  }
+  if(out.fechasConstruccionRaw){
+    out.fechasConstruccionRaw.split("/").forEach(part=>{
+      const p=part.trim();
+      const iso=mesAnoToISO(p);
+      if(iso&&/demolici/i.test(p)) out.demolicionFecha=iso;
+      if(iso&&/entrega/i.test(p)) out.fechaEntrega=iso;
+    });
+  }
+  if(out.estadoUrbanisticoRaw){
+    out.estadoUrbanisticoRaw.split(".").map(s=>s.trim()).filter(Boolean).forEach(frase=>{
+      const solicitada=/solicitad/i.test(frase);
+      const aprobada=/concedid|aprobad/i.test(frase);
+      out.documentos.push({nombre:frase,estado:aprobada?"aprobado":solicitada?"solicitada":"pendiente",responsable:out.roles.arquitectura||"",notas:""});
+    });
+  }
+  return out;
+};
+
 const Btn = ({onClick,children,v="ghost",sm}) => {
   const S={primary:{background:"#4f8ef7",color:"#fff",border:"none"},danger:{background:"transparent",color:"#f05a5a",border:"1px solid rgba(240,90,90,0.3)"},ghost:{background:"transparent",color:"#6b7394",border:"1px solid #252a3a"}};
   return <button onClick={onClick} style={{...S[v],borderRadius:8,padding:sm?"4px 10px":"7px 16px",cursor:"pointer",fontSize:sm?"0.73rem":"0.84rem",fontWeight:600,fontFamily:"inherit",whiteSpace:"nowrap"}}>{children}</button>;
@@ -694,6 +750,8 @@ export default function Overview(){
   const [resumenLocal,setResumenLocal]=useState("");
   const [bpImporting,setBpImporting]=useState(false);
   const [bpPreview,setBpPreview]=useState(null);
+  const [kickoffImporting,setKickoffImporting]=useState(false);
+  const [kickoffPreview,setKickoffPreview]=useState(null);
   const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false),docIsEdit=useRef(false);
 
   const proj=projects.find(p=>p.id===activeId);
@@ -779,6 +837,7 @@ export default function Overview(){
   const cycleDoc=useCallback(idx=>{upd(activeId,p=>{const docs=[...(p.documentos||[])];const cur=docs[idx].estado;const next=DOC_CYCLE[(DOC_CYCLE.indexOf(cur)+1)%DOC_CYCLE.length];docs[idx]={...docs[idx],estado:next};return {...p,documentos:docs};});},[activeId,upd]);
 
   useEffect(()=>{if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);}},[]);
+  useEffect(()=>{if(!document.getElementById("mammothjs")){const sc=document.createElement("script");sc.id="mammothjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";document.head.appendChild(sc);}},[]);
 
   const handleVivFile=useCallback(e=>{
     const file=e.target.files[0];if(!file) return;
@@ -1196,6 +1255,45 @@ export default function Overview(){
     setBpPreview(null);setModal(null);
   },[activeId,bpPreview,upd]);
 
+  const handleKickoffFile=useCallback(e=>{
+    const file=e.target.files[0];if(!file) return;setKickoffImporting(true);
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      if(!window.mammoth){alert("Cargando lector de Word, espera 2s e intenta de nuevo.");setKickoffImporting(false);e.target.value="";return;}
+      window.mammoth.extractRawText({arrayBuffer:ev.target.result}).then(result=>{
+        const parsed=parseKickOffText(result.value);
+        setKickoffPreview(parsed);
+        setModal("kickoffPreview");
+        setKickoffImporting(false);
+      }).catch(err=>{alert("Error al leer el documento: "+err.message);setKickoffImporting(false);});
+      e.target.value="";
+    };
+    reader.readAsArrayBuffer(file);
+  },[]);
+
+  const confirmKickoff=useCallback(()=>{
+    if(!kickoffPreview) return;
+    const d=kickoffPreview;
+    upd(activeId,p=>{
+      const updated={...p};
+      if(d.name&&!p.name) updated.name=d.name;
+      if(d.ubicacion) updated.ubicacion=d.ubicacion;
+      if(d.fechaEntrega) updated.fechaEntrega=d.fechaEntrega;
+      Object.entries(d.roles||{}).forEach(([k,v])=>{ if(v) updated[k]=v; });
+      if(d.documentos&&d.documentos.length>0){
+        const existing=(p.documentos||[]).map(x=>x.nombre);
+        const nuevos=d.documentos.filter(x=>!existing.includes(x.nombre));
+        updated.documentos=[...(p.documentos||[]),...nuevos];
+      }
+      if(d.demolicionFecha){
+        updated.hitos=p.hitos.map(h=>h.nombre==="Demolicion"&&!h.fechaPrevista?{...h,fechaPrevista:d.demolicionFecha}:h);
+      }
+      updated.ultimaActualizacion=new Date().toISOString().split("T")[0];
+      return updated;
+    });
+    setKickoffPreview(null);setModal(null);
+  },[activeId,kickoffPreview,upd]);
+
   const saveResumen=useCallback(()=>{upd(activeId,p=>({...p,resumenSemanal:resumenLocal,ultimaActualizacion:new Date().toISOString().split("T")[0]}));},[activeId,resumenLocal,upd]);
 
   const today=new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
@@ -1283,12 +1381,12 @@ export default function Overview(){
 
   const TABS=[
     {id:"hitos",l:"Hitos"},
+    {id:"equipo",l:"Datos del proyecto"},
     {id:"bp",l:"Business Plan"+(proj&&proj.bp?" OK":"")},
     {id:"viviendas",l:"Viviendas"+(st.total>0?" ("+st.total+")":"")},
     {id:"master",l:"Master Comercial"+(proj&&proj.master?" OK":"")},
     {id:"marketing",l:"Marketing"+(proj&&proj.marketing?" OK":"")},
     {id:"comercial",l:"Comercial"},
-    {id:"equipo",l:"Equipo"},
     {id:"blockers",l:"Alertas"+(proj&&proj.blockers.length>0?" ("+proj.blockers.length+")":"")},
     {id:"tareas",l:"Tareas"+(proj&&proj.tareas.filter(t=>!t.done).length>0?" ("+proj.tareas.filter(t=>!t.done).length+")":"")},
     {id:"reporte",l:"Reporte"},
@@ -1998,7 +2096,25 @@ export default function Overview(){
 
               {tab==="equipo"&&(
                 <div>
-                  <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Estructura de equipo - {proj.name}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,gap:10,flexWrap:"wrap"}}>
+                    <div style={{fontWeight:700,fontSize:"0.92rem"}}>Datos del proyecto - {proj.name}</div>
+                    <label style={{background:"transparent",border:"1px solid rgba(79,142,247,0.4)",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}>
+                      {kickoffImporting?"Leyendo documento...":"Importar Kick Off (.docx)"}
+                      <input type="file" accept=".docx" onChange={handleKickoffFile} style={{display:"none"}} disabled={kickoffImporting}/>
+                    </label>
+                  </div>
+
+                  <div style={{fontSize:"0.7rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:10}}>Datos generales</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:24}}>
+                    {[{l:"Ubicacion",v:proj.ubicacion||"-"},{l:"Zona",v:proj.zona||"-"},{l:"Estado",v:(ESTADOS[proj.estado]||{}).label||proj.estado||"-"},{l:"Fecha entrega",v:proj.fechaEntrega?fmt(proj.fechaEntrega):"-"},{l:"Presupuesto",v:proj.presupuesto||"-"},{l:"Coste actual",v:proj.costeActual||"-"},{l:"Comercializadora",v:proj.comercializadora||"-"},{l:"Ultima actualizacion",v:proj.ultimaActualizacion?fmt(proj.ultimaActualizacion):"-"}].map(x=>(
+                      <div key={x.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px"}}>
+                        <div style={{fontSize:"0.6rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div>
+                        <div style={{fontSize:"0.86rem",fontWeight:700}}>{x.v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{fontSize:"0.7rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:10}}>Equipo</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13,marginBottom:26}}>
                     {[{rol:"Project Owner (Overview)",persona:proj.projectOwner,desc:"Responsable global. Coordinacion transversal, decisiones clave.",color:"#4f8ef7"},{rol:"PM Tecnico (BSA)",persona:proj.pmTecnico,desc:"Proyecto, obra, licencias. Exclusivamente tecnico.",color:"#22d3a0"},{rol:"Responsable Comercial",persona:proj.responsableComercial,desc:"Pricing, estrategia, posicionamiento, direccion comercializadora.",color:"#f5c842"},{rol:"Comercializadora",persona:proj.comercializadora||"Sin asignar",desc:"Ejecucion ventas, atencion leads, reporte semanal.",color:"#f5924e"},{rol:"Arquitectura",persona:proj.arquitectura,desc:"Proyecto basico/ejecucion, licencias, direccion de obra.",color:"#a78bfa"},{rol:"Financiero",persona:proj.financiero,desc:"Business plan, tesoreria, financiacion.",color:"#4f8ef7"},{rol:"Contabilidad / Fiscal",persona:proj.contableFiscal,desc:"Contabilidad de la SPV, facturacion, obligaciones fiscales.",color:"#22d3a0"},{rol:"Marketing",persona:proj.marketingResp||"Sin asignar",desc:"Posicionamiento, identidad visual, campanas.",color:"#f5c842"},{rol:"Juridico",persona:proj.juridico||"Sin asignar",desc:"Contratos de reserva/compraventa, asesoramiento legal.",color:"#f05a5a"}].map(r=>(
                       <div key={r.rol} style={{background:"#141720",borderRadius:12,border:"1px solid "+r.color+"20",padding:"17px 19px"}}>
@@ -2122,6 +2238,34 @@ export default function Overview(){
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn onClick={()=>{setModal(null);setBpPreview(null);}}>Cancelar</Btn>
             <Btn onClick={confirmBP} v="primary">Confirmar importacion</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {modal==="kickoffPreview"&&kickoffPreview&&(
+        <Modal title="Confirmar importacion del Kick Off" onClose={()=>{setModal(null);setKickoffPreview(null);}} wide>
+          <div style={{fontSize:"0.84rem",color:"#6b7394",marginBottom:18}}>Se rellenaran estos campos en <strong style={{color:"#e8eaf2"}}>{proj&&proj.name}</strong> (solo si estan vacios, no se pisa nada ya cargado):</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+            {[{l:"Nombre",v:kickoffPreview.name},{l:"Nombre tecnico",v:kickoffPreview.nombreTecnico},{l:"Ubicacion",v:kickoffPreview.ubicacion},{l:"Fecha entrega",v:kickoffPreview.fechaEntrega?fmt(kickoffPreview.fechaEntrega):null},{l:"Inicio comercializacion",v:kickoffPreview.inicioComercializacion},{l:"Demolicion (hito)",v:kickoffPreview.demolicionFecha?fmt(kickoffPreview.demolicionFecha):null},{l:"PM Tecnico",v:kickoffPreview.roles.pmTecnico},{l:"Responsable Comercial",v:kickoffPreview.roles.responsableComercial},{l:"Arquitectura",v:kickoffPreview.roles.arquitectura},{l:"Financiero",v:kickoffPreview.roles.financiero},{l:"Contabilidad/Fiscal",v:kickoffPreview.roles.contableFiscal},{l:"Marketing",v:kickoffPreview.roles.marketingResp},{l:"Juridico",v:kickoffPreview.roles.juridico}].filter(x=>x.v).map(x=>(
+              <div key={x.l} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{fontSize:"0.65rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{x.l}</div>
+                <div style={{fontWeight:600,fontSize:"0.88rem"}}>{x.v}</div>
+              </div>
+            ))}
+          </div>
+          {kickoffPreview.documentos&&kickoffPreview.documentos.length>0&&(
+            <div style={{background:"rgba(34,211,160,0.06)",border:"1px solid rgba(34,211,160,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.8rem",color:"#22d3a0"}}>
+              Se anadiran {kickoffPreview.documentos.length} items a Documentacion (estado urbanistico)
+            </div>
+          )}
+          {Object.keys(kickoffPreview.roles||{}).length===0&&!kickoffPreview.name&&(
+            <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.8rem",color:"#f05a5a"}}>
+              No se ha reconocido ningun campo. Revisa que el documento siga el formato estandar de kick off (etiquetas "Campo:" y roles "Rol // Nombre").
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
+            <Btn onClick={()=>{setModal(null);setKickoffPreview(null);}}>Cancelar</Btn>
+            <Btn onClick={confirmKickoff} v="primary">Confirmar importacion</Btn>
           </div>
         </Modal>
       )}
