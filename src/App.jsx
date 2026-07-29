@@ -596,23 +596,22 @@ export default function Overview(){
 
   const proj=projects.find(p=>p.id===activeId);
   useEffect(()=>{
-    // Sync from cloud on first load (for shared access)
-    if(!cloudSynced){
+    // Load from cloud FIRST - block saves until done
+    cloudLoad().then(data=>{
+      if(data&&Array.isArray(data)&&data.length>0){
+        const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+        setProjects(migrated);
+        try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
+      }
       setCloudSynced(true);
-      cloudLoad().then(data=>{
-        if(data&&Array.isArray(data)&&data.length>0){
-          const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
-          setProjects(migrated);
-          try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
-        }
-      });
-    }
+    }).catch(()=>setCloudSynced(true));
   },[]);
 
   useEffect(()=>{
+    if(!cloudSynced) return;
     try{localStorage.setItem("ov11",JSON.stringify(projects));}catch(e){}
-    if(cloudSynced) cloudSave(projects);
-  },[projects]);
+    cloudSave(projects);
+  },[projects,cloudSynced]);
   useEffect(()=>{if(proj) setResumenLocal(proj.resumenSemanal||"");},[activeId]);
   const save=fn=>setProjects(prev=>fn(prev));
   const upd=useCallback((id,fn)=>setProjects(prev=>prev.map(p=>p.id!==id?p:fn(p))),[]);
