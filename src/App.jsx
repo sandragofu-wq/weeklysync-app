@@ -9,10 +9,12 @@ const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
 
 const cloudSave = async (data) => {
   try {
+    // Unica proteccion: nunca guardar array vacio
+    if(!data||!Array.isArray(data)||data.length===0) return;
     await fetch(JBURL+"/"+FIXED_BIN_ID, {
       method:"PUT",
       headers:{"Content-Type":"application/json","X-Master-Key":JBKEY},
-      body: JSON.stringify({projects:data})
+      body: JSON.stringify({projects:data, ts:Date.now()})
     });
   } catch(e){}
 };
