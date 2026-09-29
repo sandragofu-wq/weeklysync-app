@@ -29,21 +29,366 @@ const cloudLoad = async () => {
   } catch(e){ return null; }
 };
 
-const DEFAULT_HITOS = ["Demolicion","Licencia parcelacion","Licencia de obra","Proyecto ejecucion","Licitacion","Construccion excavacion","Construccion civil","Construccion edificacion","Licencia 1a ocupacion"];
+const DEFAULT_HITOS = ["Originación y due diligence","Firma compraventa del suelo","Constitución sociedad / fondos propios","Entrega proyecto básico","Solicitud y concesión licencia de obra","Kick-off comercial","Prelanzamiento (F&F / permutas)","Lanzamiento oficial de ventas","Term sheet financiación promotora","Aprobación riesgos entidad","Firma escritura préstamo promotor","Entrega proyecto de ejecución","Adjudicación obra / constructora","Acta de replanteo e inicio de obra","Disposición inicial préstamo promotor","División horizontal / distribución hipoteca","Certificado Final de Obra","Licencia de primera ocupación","Inicio escrituración y entregas","Cancelación préstamo y cierre proyecto"];
 const HITO_CYCLE = ["pendiente","en-curso","completado","retrasado"];
-const ESTADOS = {"en-marcha":{label:"En marcha",color:"#22d3a0",bg:"rgba(34,211,160,0.12)"},"en-riesgo":{label:"En riesgo",color:"#f5c842",bg:"rgba(245,200,66,0.12)"},"bloqueado":{label:"Bloqueado",color:"#f05a5a",bg:"rgba(240,90,90,0.12)"},"planificacion":{label:"Planificacion",color:"#4f8ef7",bg:"rgba(79,142,247,0.12)"},"entregado":{label:"Entregado",color:"#a78bfa",bg:"rgba(167,139,250,0.12)"}};
-const HITO_EST = {"completado":{color:"#22d3a0",bg:"rgba(34,211,160,0.15)",icon:"✓"},"en-curso":{color:"#4f8ef7",bg:"rgba(79,142,247,0.15)",icon:"->"},"pendiente":{color:"#4a5070",bg:"rgba(74,80,112,0.15)",icon:"o"},"retrasado":{color:"#f05a5a",bg:"rgba(240,90,90,0.15)",icon:"!"}};
-const BLOCK_ST = {critico:{bg:"rgba(240,90,90,0.10)",border:"rgba(240,90,90,0.3)",icon:"[!]"},aviso:{bg:"rgba(245,200,66,0.10)",border:"rgba(245,200,66,0.3)",icon:"[?]"},info:{bg:"rgba(79,142,247,0.10)",border:"rgba(79,142,247,0.3)",icon:"[i]"}};
-const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#4f8ef7"},"reservada":{label:"Reservada",color:"#f5c842"},"vendida":{label:"Vendida",color:"#22d3a0"},"no-venta":{label:"No venta",color:"#6b7394"}};
-const PRIO_CLR = {alta:"#f05a5a",media:"#f5c842",baja:"#22d3a0"};
-const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","Dani (BSA)","Inma (BSA)","Cesar Mayor (BSA)","Silvia Martin (BSA)"];
-const DOC_ESTADOS = {"pendiente":{label:"Pendiente",color:"#6b7394",bg:"rgba(107,115,148,0.12)"},"en-tramite":{label:"En tramite",color:"#f5c842",bg:"rgba(245,200,66,0.12)"},"solicitada":{label:"Solicitada",color:"#4f8ef7",bg:"rgba(79,142,247,0.12)"},"aprobado":{label:"Aprobado / Concedido",color:"#22d3a0",bg:"rgba(34,211,160,0.12)"}};
-const DOC_CYCLE = ["pendiente","en-tramite","solicitada","aprobado"];
-const CSS = {inp:{width:"100%",background:"#1c2030",border:"1px solid #252a3a",borderRadius:8,padding:"8px 11px",color:"#e8eaf2",fontFamily:"inherit",fontSize:"0.84rem",outline:"none",boxSizing:"border-box"}};
+const ESTADOS = {"en-marcha":{label:"En marcha",color:"#4ca99a",bg:"rgba(76,169,154,0.12)"},"en-riesgo":{label:"En riesgo",color:"#ddb96a",bg:"rgba(221,185,106,0.12)"},"bloqueado":{label:"Bloqueado",color:"#e05a5a",bg:"rgba(224,90,90,0.12)"},"planificacion":{label:"Planificacion",color:"#c9a86c",bg:"rgba(201,168,108,0.12)"},"entregado":{label:"Entregado",color:"#94a3b8",bg:"rgba(148,163,184,0.12)"}};
+const HITO_EST = {"completado":{color:"#4ca99a",bg:"rgba(76,169,154,0.15)",icon:"✓"},"en-curso":{color:"#c9a86c",bg:"rgba(201,168,108,0.15)",icon:"->"},"pendiente":{color:"#B0BBC6",bg:"rgba(61,80,112,0.15)",icon:"o"},"retrasado":{color:"#e05a5a",bg:"rgba(224,90,90,0.15)",icon:"!"}};
+const BLOCK_ST = {critico:{bg:"rgba(224,90,90,0.10)",border:"rgba(224,90,90,0.3)",icon:"[!]"},aviso:{bg:"rgba(221,185,106,0.10)",border:"rgba(221,185,106,0.3)",icon:"[?]"},info:{bg:"rgba(201,168,108,0.10)",border:"rgba(201,168,108,0.3)",icon:"[i]"}};
+const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#c9a86c"},"reservada":{label:"Reservada",color:"#ddb96a"},"vendida":{label:"Vendida",color:"#4ca99a"},"no-venta":{label:"No venta",color:"#6B7A8A"}};
+const PRIO_CLR = {alta:"#e05a5a",media:"#ddb96a",baja:"#4ca99a"};
+const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","Dani (BSA)","Inma (BSA)"];
+const CSS = {inp:{width:"100%",background:"#F0EEE9",border:"1px solid #DDD8CF",borderRadius:8,padding:"8px 11px",color:"#1E2D4E",fontFamily:"inherit",fontSize:"0.84rem",outline:"none",boxSizing:"border-box"}};
 
 const DEFAULT_PROJECTS = [
-  {id:1,name:"ATABAL",zona:"Sur",estado:"en-marcha",projectOwner:"Sandra",pmTecnico:"Sara (BSA)",responsableComercial:"Sandra",comercializadora:"",ubicacion:"Malaga",presupuesto:"EUR8.2M",costeActual:"EUR7.9M",fechaEntrega:"2026-06-01",hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<3?"completado":i===3?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2025-06-02"},
-  {id:2,name:"MEDHILLS",zona:"Sur",estado:"en-riesgo",projectOwner:"Sandra",pmTecnico:"Inma (BSA)",responsableComercial:"Sandra",comercializadora:"Engel & Volkers",ubicacion:"Fuengirola",presupuesto:"EUR5.1M",costeActual:"EUR4.8M",fechaEntrega:"2027-03-01",hitos:DEFAULT_HITOS.map((n,i)=>({nombre:n,estado:i<2?"completado":i===2?"en-curso":"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2025-06-01"},
+  {id:1,name:"ATALAYA EL ATABAL",zona:"Sur",estado:"en-marcha",projectOwner:"Sandra",pmTecnico:"Sara (BSA)",responsableComercial:"Sandra",comercializadora:"",ubicacion:"Málaga",presupuesto:"EUR49.88M",costeActual:"EUR40.81M",fechaEntrega:"2026-06-01",hitos:[
+    {nombre:"Originación y due diligence",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Legal / Técnica",responsable:"",depende:""},
+    {nombre:"Firma compraventa del suelo",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Legal",responsable:"",depende:""},
+    {nombre:"Constitución sociedad / fondos propios",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Legal / Financiera",responsable:"",depende:""},
+    {nombre:"Entrega proyecto básico",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Solicitud y concesión licencia de obra",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Kick-off comercial",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Comercial",responsable:"",depende:""},
+    {nombre:"Prelanzamiento (F&F / permutas)",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Comercial",responsable:"",depende:""},
+    {nombre:"Lanzamiento oficial de ventas",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Comercial",responsable:"",depende:""},
+    {nombre:"Term sheet financiación promotora",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Financiera",responsable:"",depende:""},
+    {nombre:"Aprobación riesgos entidad",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Financiera",responsable:"",depende:""},
+    {nombre:"Firma escritura préstamo promotor",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Financiera",responsable:"",depende:""},
+    {nombre:"Entrega proyecto de ejecución",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Adjudicación obra / constructora",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Acta de replanteo e inicio de obra",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Disposición inicial préstamo promotor",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Financiera",responsable:"",depende:""},
+    {nombre:"División horizontal / distribución hipoteca",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Legal / Financiera",responsable:"",depende:""},
+    {nombre:"Certificado Final de Obra",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Licencia de primera ocupación",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Técnica",responsable:"",depende:""},
+    {nombre:"Inicio escrituración y entregas",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Comercial / Legal",responsable:"",depende:""},
+    {nombre:"Cancelación préstamo y cierre proyecto",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:"",area:"Financiera",responsable:"",depende:""},
+  ],blockers:[
+    {id:1,texto:"Proyecto ejecutivo — pendiente de entrega",prioridad:"alta",responsable:"BSA",vencimiento:"",resuelto:false},
+    {id:2,texto:"Licencia de obra — pendiente de solicitud",prioridad:"alta",responsable:"",vencimiento:"",resuelto:false},
+    {id:3,texto:"Avances de financiación — pendiente",prioridad:"media",responsable:"",vencimiento:"",resuelto:false},
+    {id:4,texto:"Licitación — pendiente",prioridad:"media",responsable:"",vencimiento:"",resuelto:false},
+  ],tareas:[
+    {id:"t_atl_1",texto:"[GOBIERNO] Redacción del kick-off document",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_2",texto:"[GOBIERNO] Aprobación del kick-off en comité de inversión",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_3",texto:"[GOBIERNO] Project Manager / responsable del proyecto",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_4",texto:"[GOBIERNO] Teaser de inversión",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_5",texto:"[GOBIERNO] Calendario de comités de seguimiento",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_6",texto:"[GOBIERNO] Registro de riesgos y plan de mitigación",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_7",texto:"[LEGAL] Sociedad / SPV — constitución",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_8",texto:"[LEGAL] CIF",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_9",texto:"[LEGAL] Domicilio social",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_10",texto:"[LEGAL] Escritura de constitución",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_11",texto:"[LEGAL] Pacto de socios",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_12",texto:"[LEGAL] Administradores / Consejo de Administración",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_13",texto:"[LEGAL] Apoderados",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_14",texto:"[LEGAL] Escrituras de poderes vigentes",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_15",texto:"[LEGAL] Contrato de compraventa del suelo",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_16",texto:"[LEGAL] Contrato de arquitecto",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_17",texto:"[LEGAL] Contrato de constructora",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_18",texto:"[LEGAL] Contrato de dirección facultativa (Dir. Obra y Aparejador)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_19",texto:"[LEGAL] Contrato con comercializadora",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_20",texto:"[LEGAL] Contratos de financiación",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_21",texto:"[LEGAL] Contratos de marketing, branding y agencia de medios",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_22",texto:"[LEGAL] Contrato de project management / Development 360",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_23",texto:"[LEGAL] Contrato de OCT",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_24",texto:"[LEGAL] Nota simple registral actualizada",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_25",texto:"[LEGAL] Cargas del suelo — análisis y cancelación",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_26",texto:"[LEGAL] Situación registral y de inmatriculación",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_27",texto:"[LEGAL] Servidumbres, ocupantes y arrendatarios",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_28",texto:"[LEGAL] Litigios y contingencias",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_29",texto:"[LEGAL] Due diligence legal",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_30",texto:"[LEGAL] Due diligence técnica y urbanística",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_31",texto:"[LEGAL] Due diligence ambiental / ECO appraisal",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_32",texto:"[LEGAL] Valoración RICS",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_33",texto:"[URBANISMO] Clasificación y calificación del suelo",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_34",texto:"[URBANISMO] Planeamiento de desarrollo (Plan Parcial / Estudio de Detalle)",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_35",texto:"[URBANISMO] Proyecto de reparcelación e inscripción registral",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_36",texto:"[URBANISMO] Inscripción de fincas",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_37",texto:"[URBANISMO] Proyecto de urbanización",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_38",texto:"[URBANISMO] Licencia de urbanización",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_39",texto:"[URBANISMO] Ejecución de la obra de urbanización",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_40",texto:"[URBANISMO] Recepción de la urbanización por el Ayuntamiento",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_41",texto:"[URBANISMO] Avales y garantías urbanísticas",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_42",texto:"[URBANISMO] Acometida de agua y saneamiento",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_43",texto:"[URBANISMO] Acometida eléctrica y centro de transformación",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_44",texto:"[URBANISMO] Telecomunicaciones e ICT",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_45",texto:"[URBANISMO] Boletines y certificados de instalaciones",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_46",texto:"[TÉCNICA] Arquitecto / estudio redactor",responsable:"BSA",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_47",texto:"[TÉCNICA] Estudio topográfico",responsable:"BSA",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_48",texto:"[TÉCNICA] Estudio geotécnico",responsable:"BSA",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_49",texto:"[TÉCNICA] Estudio arqueológico (si exigible)",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_50",texto:"[TÉCNICA] Proyecto básico — pendiente de entrega",responsable:"BSA",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_51",texto:"[TÉCNICA] Proyecto de ejecución — pendiente de entrega",responsable:"BSA",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_52",texto:"[TÉCNICA] Proyectos técnicos específicos (estructura, instalaciones, ICT)",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_53",texto:"[TÉCNICA] Visados colegiales",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_54",texto:"[TÉCNICA] Estudio de seguridad y salud",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_55",texto:"[TÉCNICA] Estudio de gestión de residuos",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_56",texto:"[TÉCNICA] Memoria de calidades técnica",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_57",texto:"[TÉCNICA] Certificación energética / sello de sostenibilidad",responsable:"BSA",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_58",texto:"[TÉCNICA] Licencia de obra — pendiente de solicitud",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_59",texto:"[TÉCNICA] ICIO y tasas municipales",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_60",texto:"[TÉCNICA] Licencias complementarias (derribo, vado, ocupación vía pública, grúa)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_61",texto:"[TÉCNICA] Licencia de primera ocupación",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_62",texto:"[TÉCNICA] Licitación — pendiente",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_63",texto:"[TÉCNICA] Adjudicación y constructora seleccionada",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_64",texto:"[TÉCNICA] Planning de obra y camino crítico",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_65",texto:"[TÉCNICA] Acta de replanteo",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_66",texto:"[TÉCNICA] Inicio de obra",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_67",texto:"[TÉCNICA] Avance de certificaciones (% mes a mes)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_68",texto:"[TÉCNICA] Certificado Final de Obra (CFO)",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_69",texto:"[TÉCNICA] Acta de recepción de la obra",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_70",texto:"[TÉCNICA] Libro del edificio y manuales de uso",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_71",texto:"[TÉCNICA] Plan de postventa y garantías",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_72",texto:"[TÉCNICA] OCT (Organismo de Control Técnico)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_73",texto:"[TÉCNICA] Dirección facultativa (Dirección de Obra)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_74",texto:"[TÉCNICA] Dirección de ejecución (Aparejador)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_75",texto:"[TÉCNICA] Coordinador de Seguridad y Salud",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_76",texto:"[TÉCNICA] Interiorismo",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_77",texto:"[TÉCNICA] Declaración de obra nueva en construcción",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_78",texto:"[TÉCNICA] División horizontal (constitución)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_79",texto:"[TÉCNICA] AJD de obra nueva y división horizontal",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_80",texto:"[TÉCNICA] Declaración de obra nueva terminada",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_81",texto:"[TÉCNICA] Seguro decenal (SD)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_82",texto:"[TÉCNICA] Seguro todo riesgo construcción (TRC)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_83",texto:"[TÉCNICA] Seguro de responsabilidad civil",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_84",texto:"[FINANCIERA] Inversión total prevista — definir",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_85",texto:"[FINANCIERA] Aportación de fondos propios",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_86",texto:"[FINANCIERA] % LTC",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_87",texto:"[FINANCIERA] Cuenta operativa",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_88",texto:"[FINANCIERA] Cuenta especial de cantidades a cuenta (Ley 38/1999)",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_89",texto:"[FINANCIERA] Cuenta del préstamo promotor",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_90",texto:"[FINANCIERA] Poderes bancarios y firmas autorizadas",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_91",texto:"[FINANCIERA] Business plan: ventas totales, margen, TIR, MoM",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_92",texto:"[FINANCIERA] Presupuesto actualizado",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_93",texto:"[FINANCIERA] Ingresos comprometidos",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_94",texto:"[FINANCIERA] Tesorería real vs. prevista",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_95",texto:"[FINANCIERA] Próximos vencimientos",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_96",texto:"[FINANCIERA] IVA: liquidaciones y devoluciones",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_97",texto:"[FINANCIACIÓN] Avances de financiación — pendiente",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_98",texto:"[FINANCIACIÓN] Financiación de suelo — importe y entidad",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_99",texto:"[FINANCIACIÓN] Condiciones: tipo, comisiones, plazo y carencia",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_100",texto:"[FINANCIACIÓN] Garantías aportadas",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_101",texto:"[FINANCIACIÓN] Calendario de amortización y cancelación (suelo)",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_102",texto:"[FINANCIACIÓN] Entidades contactadas — financiación promotor",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_103",texto:"[FINANCIACIÓN] Teaser de financiación",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_104",texto:"[FINANCIACIÓN] Entidad elegida",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_105",texto:"[FINANCIACIÓN] Condiciones económicas — préstamo promotor",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_106",texto:"[FINANCIACIÓN] Plazo, carencia y calendario de amortización",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_107",texto:"[FINANCIACIÓN] Covenants y ratios exigidos",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_108",texto:"[FINANCIACIÓN] Firma de la escritura de préstamo promotor",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_109",texto:"[FINANCIACIÓN] AJD, notaría y registro de la hipoteca",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_110",texto:"[FINANCIACIÓN] Distribución de la hipoteca entre fincas",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_111",texto:"[FINANCIACIÓN] Calendario previsto de disposiciones",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_112",texto:"[FINANCIACIÓN] Disposición inicial del préstamo",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_113",texto:"[FINANCIACIÓN] Seguimiento de disposiciones realizadas vs. previstas",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_114",texto:"[FINANCIACIÓN] Avales de cantidades a cuenta — emisión y entrega",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_115",texto:"[FINANCIACIÓN] Subrogaciones de compradores",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_116",texto:"[FINANCIACIÓN] Amortización y cancelación del préstamo",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_117",texto:"[COMERCIAL] Naming y logo",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_118",texto:"[COMERCIAL] Renders",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_119",texto:"[COMERCIAL] Ficha / Presentación comercial de proyecto",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_120",texto:"[COMERCIAL] Memoria de calidades comercial",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_121",texto:"[COMERCIAL] Planos comerciales",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_122",texto:"[COMERCIAL] Web de la promoción y landing de captación",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_123",texto:"[COMERCIAL] Oficina de ventas / cartelería en obra",responsable:"Sandra",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_124",texto:"[COMERCIAL] Welcome package",responsable:"Sandra",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_125",texto:"[COMERCIAL] Plan de marketing online y offline",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_126",texto:"[COMERCIAL] Presupuesto de marketing aprobado",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_127",texto:"[COMERCIAL] Comercializadora / equipo de ventas asignado",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_128",texto:"[COMERCIAL] Documentación contractual validada (reserva, arras, CPV)",responsable:"",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_129",texto:"[COMERCIAL] Listado de precios",responsable:"Sandra",prioridad:"alta",vencimiento:"",done:false},
+    {id:"t_atl_130",texto:"[COMERCIAL] Adjudicación de anejos por vivienda",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_131",texto:"[COMERCIAL] Política de descuentos",responsable:"Sandra",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_132",texto:"[COMERCIAL] Permutas con vendedores del suelo",responsable:"",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_133",texto:"[COMERCIAL] Calendario de comercialización e hitos de subida de precios",responsable:"Sandra",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_134",texto:"[COMERCIAL] Inicio de ventas / Lanzamiento comercial",responsable:"Sandra",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_135",texto:"[COMERCIAL] Estado de ventas (% vendido)",responsable:"Sandra",prioridad:"media",vencimiento:"",done:false},
+    {id:"t_atl_136",texto:"[COMERCIAL] Estado de la promoción en Prinex",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+    {id:"t_atl_137",texto:"[COMERCIAL] Plan de entregas",responsable:"",prioridad:"baja",vencimiento:"",done:false},
+  ],
+  viviendas:[
+    {id:"V_ATL_1_V1",ref:"ATL-1-V1",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:711000,estado:"reservada",notas:"LOURDES MARTIN COMITRE"},
+    {id:"V_ATL_1_V2",ref:"ATL-1-V2",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:614000,estado:"reservada",notas:"JUAN JOSÉ NAVAS BLANQUEZ"},
+    {id:"V_ATL_1_V3",ref:"ATL-1-V3",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:604999,estado:"reservada",notas:"ALEJANDRO MARTÍN SEVILLA"},
+    {id:"V_ATL_1_V4",ref:"ATL-1-V4",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:614000,estado:"reservada",notas:"ANA ISABEL CORONADO GONZÁLEZ"},
+    {id:"V_ATL_1_V5",ref:"ATL-1-V5",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:614000,estado:"reservada",notas:"MARIA CRISTINA MORENO SÁNCHEZ"},
+    {id:"V_ATL_1_V6",ref:"ATL-1-V6",tipologia:"Vivienda",planta:"-",superficie:147.15,precio:676000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V7",ref:"ATL-1-V7",tipologia:"Vivienda",planta:"-",superficie:147.6,precio:599000,estado:"reservada",notas:"ALEJANDRO MORIEL CORONADO"},
+    {id:"V_ATL_1_V8",ref:"ATL-1-V8",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:625000,estado:"reservada",notas:"SUN XIAOLEI"},
+    {id:"V_ATL_1_V9",ref:"ATL-1-V9",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:604999,estado:"reservada",notas:"MIGUEL ANGEL MUÑOZ GUERRERO"},
+    {id:"V_ATL_1_V10",ref:"ATL-1-V10",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:625000,estado:"reservada",notas:"ENCARNACION PARRA MENA"},
+    {id:"V_ATL_1_V11",ref:"ATL-1-V11",tipologia:"Vivienda",planta:"-",superficie:147.35,precio:604999,estado:"reservada",notas:"SANDRA BENITEZ ACEBES"},
+    {id:"V_ATL_1_V12",ref:"ATL-1-V12",tipologia:"Vivienda",planta:"-",superficie:147.28,precio:619000,estado:"reservada",notas:"ANDRÉS ARANDA ROSA"},
+    {id:"V_ATL_1_V13",ref:"ATL-1-V13",tipologia:"Vivienda",planta:"-",superficie:152.78,precio:739000,estado:"reservada",notas:"ELOY ARCAS GUTIERREZ"},
+    {id:"V_ATL_1_V14",ref:"ATL-1-V14",tipologia:"Vivienda",planta:"-",superficie:153.25,precio:782000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V15",ref:"ATL-1-V15",tipologia:"Vivienda",planta:"-",superficie:153.25,precio:783000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V16",ref:"ATL-1-V16",tipologia:"Vivienda",planta:"-",superficie:153.25,precio:785000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V17",ref:"ATL-1-V17",tipologia:"Vivienda",planta:"-",superficie:153.25,precio:782000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V18",ref:"ATL-1-V18",tipologia:"Vivienda",planta:"-",superficie:153.25,precio:781000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V19",ref:"ATL-1-V19",tipologia:"Vivienda",planta:"-",superficie:156.67,precio:759000,estado:"reservada",notas:"ISAAC MERINO MUÑOZ"},
+    {id:"V_ATL_1_V20",ref:"ATL-1-V20",tipologia:"Vivienda",planta:"-",superficie:147.73,precio:685000,estado:"reservada",notas:"MARIA ACEVEDO GARCÍA"},
+    {id:"V_ATL_1_V21",ref:"ATL-1-V21",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:565000,estado:"reservada",notas:"JOSE CARLOS VALERA AVILA"},
+    {id:"V_ATL_1_V22",ref:"ATL-1-V22",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:599000,estado:"reservada",notas:"FERNANDO HEREDIA CLEMENTE"},
+    {id:"V_ATL_1_V23",ref:"ATL-1-V23",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:599000,estado:"reservada",notas:"SUSANA ECHAZARRETA MARTINEZ DE CAREAGA"},
+    {id:"V_ATL_1_V24",ref:"ATL-1-V24",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:558000,estado:"reservada",notas:"JOSE MANUEL ROSILLO SOLER"},
+    {id:"V_ATL_1_V25",ref:"ATL-1-V25",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:558000,estado:"reservada",notas:"RICARDO VITORES DELGADO"},
+    {id:"V_ATL_1_V26",ref:"ATL-1-V26",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:560000,estado:"reservada",notas:"SALVADOR AGUILAR HERNÁNDEZ"},
+    {id:"V_ATL_1_V27",ref:"ATL-1-V27",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:558000,estado:"reservada",notas:"LUIS MARIANO COLL PÉREZ"},
+    {id:"V_ATL_1_V28",ref:"ATL-1-V28",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:555000,estado:"reservada",notas:"FERNANDO RODRIGUEZ MADARIAGA"},
+    {id:"V_ATL_1_V29",ref:"ATL-1-V29",tipologia:"Vivienda",planta:"-",superficie:131.71,precio:555000,estado:"reservada",notas:"JOSE GIL ELENA"},
+    {id:"V_ATL_1_V30",ref:"ATL-1-V30",tipologia:"Vivienda",planta:"-",superficie:136.22,precio:620000,estado:"reservada",notas:"MIGUEL ÁNGEL GUERRERO ARIAS"},
+    {id:"V_ATL_1_V31",ref:"ATL-1-V31",tipologia:"Vivienda",planta:"-",superficie:152.42,precio:725000,estado:"reservada",notas:"FERNANDO SUSIN MALDONADO"},
+    {id:"V_ATL_1_V32",ref:"ATL-1-V32",tipologia:"Vivienda",planta:"-",superficie:152.45,precio:633000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V33",ref:"ATL-1-V33",tipologia:"Vivienda",planta:"-",superficie:152.45,precio:680000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V34",ref:"ATL-1-V34",tipologia:"Vivienda",planta:"-",superficie:152.45,precio:633000,estado:"reservada",notas:"FERNANDO CASTRO RODRIGUEZ"},
+    {id:"V_ATL_1_V35",ref:"ATL-1-V35",tipologia:"Vivienda",planta:"-",superficie:153.46,precio:599000,estado:"reservada",notas:"ANTONIO PÉREZ SIERRA"},
+    {id:"V_ATL_1_V36",ref:"ATL-1-V36",tipologia:"Vivienda",planta:"-",superficie:152.28,precio:707000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V37",ref:"ATL-1-V37",tipologia:"Vivienda",planta:"-",superficie:152.43,precio:585000,estado:"reservada",notas:"ANTONIO JESÚS LÓPEZ BERNAL"},
+    {id:"V_ATL_1_V38",ref:"ATL-1-V38",tipologia:"Vivienda",planta:"-",superficie:154.72,precio:685000,estado:"reservada",notas:"MARTINA PINEDA MARTINEZ"},
+    {id:"V_ATL_1_V39",ref:"ATL-1-V39",tipologia:"Vivienda",planta:"-",superficie:145.94,precio:693000,estado:"reservada",notas:"RAFAEL RUIZ SALAS"},
+    {id:"V_ATL_1_V40",ref:"ATL-1-V40",tipologia:"Vivienda",planta:"-",superficie:146,precio:747000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V41",ref:"ATL-1-V41",tipologia:"Vivienda",planta:"-",superficie:148.55,precio:751000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V42",ref:"ATL-1-V42",tipologia:"Vivienda",planta:"-",superficie:148.55,precio:749000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V43",ref:"ATL-1-V43",tipologia:"Vivienda",planta:"-",superficie:148.55,precio:745000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V44",ref:"ATL-1-V44",tipologia:"Vivienda",planta:"-",superficie:148.55,precio:750000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V45",ref:"ATL-1-V45",tipologia:"Vivienda",planta:"-",superficie:146.04,precio:745000,estado:"disponible",notas:""},
+    {id:"V_ATL_1_V46",ref:"ATL-1-V46",tipologia:"Vivienda",planta:"-",superficie:153.78,precio:753000,estado:"reservada",notas:"MY JET PLANE S.L.U"},
+    {id:"V_ATL_1_V47",ref:"ATL-1-V47",tipologia:"Vivienda",planta:"-",superficie:172.1,precio:750000,estado:"reservada",notas:"PABLO NORBERTO VILLARONGA COSTAS"},
+    {id:"V_ATL_2_V48",ref:"ATL-2-V48",tipologia:"Vivienda",planta:"-",superficie:104.1,precio:489000,estado:"reservada",notas:"JOSE MANUEL HIDALGO LÓPEZ"},
+    {id:"V_ATL_2_V49",ref:"ATL-2-V49",tipologia:"Vivienda",planta:"-",superficie:104.1,precio:510000,estado:"reservada",notas:"DOLORES PARRA CRESPO"},
+    {id:"V_ATL_2_V50",ref:"ATL-2-V50",tipologia:"Vivienda",planta:"-",superficie:104.1,precio:495000,estado:"reservada",notas:"TAMARA ELVIRA ARAGÓN ALBOLAFIO"},
+    {id:"V_ATL_2_V51",ref:"ATL-2-V51",tipologia:"Vivienda",planta:"-",superficie:104.1,precio:485000,estado:"reservada",notas:"IVÁN CANO GUTIERREZ"},
+    {id:"V_ATL_2_V52",ref:"ATL-2-V52",tipologia:"Vivienda",planta:"-",superficie:104.68,precio:465000,estado:"reservada",notas:"ALEJANDRO BRAVO MÉRIDA"},
+    {id:"V_ATL_2_V53",ref:"ATL-2-V53",tipologia:"Vivienda",planta:"-",superficie:104.68,precio:449000,estado:"reservada",notas:"ANA ISABEL MARIN GARCÍA"},
+    {id:"V_ATL_2_V54",ref:"ATL-2-V54",tipologia:"Vivienda",planta:"-",superficie:104.67,precio:473000,estado:"reservada",notas:"JUAN IGNACIO OLAYA MARÍN"},
+    {id:"V_ATL_2_V55",ref:"ATL-2-V55",tipologia:"Vivienda",planta:"-",superficie:104.67,precio:510000,estado:"reservada",notas:"ÁLVARO ESCOBAR GARCÍA"},
+    {id:"V_ATL_2_V56",ref:"ATL-2-V56",tipologia:"Vivienda",planta:"-",superficie:104.67,precio:510000,estado:"reservada",notas:"MARINA FLORES NAVAS"},
+    {id:"V_ATL_2_V57",ref:"ATL-2-V57",tipologia:"Vivienda",planta:"-",superficie:104.67,precio:478000,estado:"reservada",notas:"JIMABA S.L."},
+    {id:"V_ATL_2_V58",ref:"ATL-2-V58",tipologia:"Vivienda",planta:"-",superficie:104.67,precio:473000,estado:"reservada",notas:"RON BARDEM ESPAÑA S.L"},
+    {id:"V_ATL_2_V59",ref:"ATL-2-V59",tipologia:"Vivienda",planta:"-",superficie:104.67,precio:560000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V60",ref:"ATL-2-V60",tipologia:"Vivienda",planta:"-",superficie:103.81,precio:494000,estado:"reservada",notas:"CRISTINA BANDERA GARCÍA"},
+    {id:"V_ATL_2_V61",ref:"ATL-2-V61",tipologia:"Vivienda",planta:"-",superficie:165.04,precio:765000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V62",ref:"ATL-2-V62",tipologia:"Vivienda",planta:"-",superficie:145.04,precio:720000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V63",ref:"ATL-2-V63",tipologia:"Vivienda",planta:"-",superficie:143.64,precio:674000,estado:"reservada",notas:"MARIA TERESA ARIAS AYALA"},
+    {id:"V_ATL_2_V64",ref:"ATL-2-V64",tipologia:"Vivienda",planta:"-",superficie:143.41,precio:668000,estado:"reservada",notas:"ANTONIO HIDALGO HEREDERA"},
+    {id:"V_ATL_2_V65",ref:"ATL-2-V65",tipologia:"Vivienda",planta:"-",superficie:143.45,precio:695000,estado:"reservada",notas:"RAFAEL JAVIER RIERA RUIZ"},
+    {id:"V_ATL_2_V66",ref:"ATL-2-V66",tipologia:"Vivienda",planta:"-",superficie:146.32,precio:693000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V67",ref:"ATL-2-V67",tipologia:"Vivienda",planta:"-",superficie:135.79,precio:714000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V68",ref:"ATL-2-V68",tipologia:"Vivienda",planta:"-",superficie:132.71,precio:790000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V69",ref:"ATL-2-V69",tipologia:"Vivienda",planta:"-",superficie:135.2,precio:764000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V70",ref:"ATL-2-V70",tipologia:"Vivienda",planta:"-",superficie:135.22,precio:764000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V71",ref:"ATL-2-V71",tipologia:"Vivienda",planta:"-",superficie:135.2,precio:764000,estado:"disponible",notas:""},
+    {id:"V_ATL_2_V72",ref:"ATL-2-V72",tipologia:"Vivienda",planta:"-",superficie:134.9,precio:699000,estado:"reservada",notas:"ANTONIO DIEZ DE LA CORTINA NUÑEZ"},
+    {id:"V_ATL_P1",ref:"ATL-P1",tipologia:"Parcela",planta:"-",superficie:132.58,precio:239000,estado:"reservada",notas:"ISABEL MARÍA GÓMEZ EGEA"},
+    {id:"V_ATL_P2",ref:"ATL-P2",tipologia:"Parcela",planta:"-",superficie:123.55,precio:230000,estado:"reservada",notas:"DIEGO JESÚS MORIEL GARCESO"},
+    {id:"V_ATL_P3",ref:"ATL-P3",tipologia:"Parcela",planta:"-",superficie:172.24,precio:220000,estado:"disponible",notas:""},
+    {id:"V_ATL_P4",ref:"ATL-P4",tipologia:"Parcela",planta:"-",superficie:154.39,precio:250000,estado:"reservada",notas:"JOSÉ MORIEL DURAN"},
+    {id:"V_ATL_P5",ref:"ATL-P5",tipologia:"Parcela",planta:"-",superficie:122.54,precio:264000,estado:"reservada",notas:"FRANCISCO LUIS CRESPILLO FERNÁNDEZ"},
+    {id:"V_ATL_P6",ref:"ATL-P6",tipologia:"Parcela",planta:"-",superficie:122.5,precio:264000,estado:"reservada",notas:"FRANCISCO LUIS CRESPILLO FERNÁNDEZ"},
+    {id:"V_ATL_P7",ref:"ATL-P7",tipologia:"Parcela",planta:"-",superficie:122.57,precio:307000,estado:"disponible",notas:""},
+    {id:"V_ATL_P8",ref:"ATL-P8",tipologia:"Parcela",planta:"-",superficie:122.57,precio:290000,estado:"reservada",notas:"JOSE PALMA MEDINA"},
+    {id:"V_ATL_P9",ref:"ATL-P9",tipologia:"Parcela",planta:"-",superficie:122.5,precio:308000,estado:"disponible",notas:""},
+    {id:"V_ATL_P10",ref:"ATL-P10",tipologia:"Parcela",planta:"-",superficie:122.64,precio:308000,estado:"disponible",notas:""},
+    {id:"V_ATL_P11",ref:"ATL-P11",tipologia:"Parcela",planta:"-",superficie:135.1,precio:280000,estado:"disponible",notas:""},
+    {id:"V_ATL_P12",ref:"ATL-P12",tipologia:"Parcela",planta:"-",superficie:141.4,precio:225000,estado:"reservada",notas:"LOREA ARIADNA RUIZ GÓMEZ"},
+    {id:"V_ATL_P13",ref:"ATL-P13",tipologia:"Parcela",planta:"-",superficie:128.66,precio:268000,estado:"disponible",notas:""},
+    {id:"V_ATL_P14",ref:"ATL-P14",tipologia:"Parcela",planta:"-",superficie:122.96,precio:245000,estado:"reservada",notas:"ERNESTO MATA LOPEZ"},
+    {id:"V_ATL_P15",ref:"ATL-P15",tipologia:"Parcela",planta:"-",superficie:142.14,precio:230000,estado:"reservada",notas:"UNVEIL SPAIN S.L"},
+    {id:"V_ATL_P16",ref:"ATL-P16",tipologia:"Parcela",planta:"-",superficie:149.07,precio:296000,estado:"disponible",notas:""},
+    {id:"V_ATL_P17",ref:"ATL-P17",tipologia:"Parcela",planta:"-",superficie:125.79,precio:290000,estado:"disponible",notas:""},
+    {id:"V_ATL_P18",ref:"ATL-P18",tipologia:"Parcela",planta:"-",superficie:135.87,precio:225000,estado:"reservada",notas:"ALFONSO LÓPEZ MUÑOZ"},
+    {id:"V_ATL_P19",ref:"ATL-P19",tipologia:"Parcela",planta:"-",superficie:122.5,precio:280000,estado:"disponible",notas:""},
+    {id:"V_ATL_P20",ref:"ATL-P20",tipologia:"Parcela",planta:"-",superficie:122.5,precio:280000,estado:"disponible",notas:""},
+    {id:"V_ATL_P21",ref:"ATL-P21",tipologia:"Parcela",planta:"-",superficie:122.5,precio:280000,estado:"disponible",notas:""},
+    {id:"V_ATL_P22",ref:"ATL-P22",tipologia:"Parcela",planta:"-",superficie:122.5,precio:280000,estado:"disponible",notas:""},
+    {id:"V_ATL_P23",ref:"ATL-P23",tipologia:"Parcela",planta:"-",superficie:122.5,precio:280000,estado:"disponible",notas:""},
+    {id:"V_ATL_P24",ref:"ATL-P24",tipologia:"Parcela",planta:"-",superficie:122.5,precio:280000,estado:"disponible",notas:""},
+  ],
+  bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2026-09-28"},
+  {id:2,name:"MEDHILLS",zona:"Sur",estado:"en-riesgo",projectOwner:"Sandra",pmTecnico:"Inma (BSA)",responsableComercial:"Sandra",comercializadora:"Engel & Volkers",ubicacion:"Fuengirola",presupuesto:"EUR5.1M",costeActual:"EUR4.8M",fechaEntrega:"2027-03-01",
+  hitos:[
+    {nombre:"Demolicion",estado:"completado",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licencia parcelacion",estado:"completado",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licencia de obra",estado:"en-curso",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Proyecto ejecucion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licitacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Construccion excavacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Construccion civil",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Construccion edificacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licencia 1a ocupacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+  ],
+  blockers:[],tareas:[],
+  viviendas:[
+    {id:"V_B1_402",ref:"B1-402",tipologia:"Parcela",planta:"-",superficie:0,precio:27,estado:"vendida",notas:"EVA MIRANDA JIMENEZ - Best House - CPCV: 2024-07-29"},
+    {id:"V_B1_403",ref:"B1-403",tipologia:"Parcela",planta:"-",superficie:3,precio:29,estado:"vendida",notas:"FRANCISCO SENA FLORES - Best House - CPCV: 2024-09-20"},
+    {id:"V_B1_601",ref:"B1-601",tipologia:"Parcela",planta:"-",superficie:20,precio:91,estado:"vendida",notas:"Juan Carlos Aguilera Duarte - TERRA NEGOCIOS INMOBILIARIOS"},
+    {id:"V_B1_603",ref:"B1-603",tipologia:"Parcela",planta:"-",superficie:16,precio:8,estado:"disponible",notas:"ALICIA HU BU - Invest Casa"},
+    {id:"V_B1_801",ref:"B1-801",tipologia:"Parcela",planta:"-",superficie:5,precio:45,estado:"disponible",notas:""},
+    {id:"V_B1_802",ref:"B1-802",tipologia:"Parcela",planta:"-",superficie:6,precio:47,estado:"vendida",notas:"ORIOL CALL PIÑOL - Invest Casa - CPCV: 2024-10-22"},
+    {id:"V_B1_803",ref:"B1-803",tipologia:"Parcela",planta:"-",superficie:21,precio:49,estado:"disponible",notas:""},
+    {id:"V_B1_805",ref:"B1-805",tipologia:"Parcela",planta:"-",superficie:14,precio:5,estado:"vendida",notas:"LUIS ANTONIO BARRADO BEN-ABOUHAS - Marbella In - CPCV: 2024-09-23"},
+    {id:"V_B1_806",ref:"B1-806",tipologia:"Parcela",planta:"-",superficie:1,precio:61,estado:"disponible",notas:""},
+    {id:"V_B2_302",ref:"B2-302",tipologia:"Parcela",planta:"-",superficie:12,precio:63,estado:"vendida",notas:"MANUELA HOLMER LAGE"},
+    {id:"V_B2_303",ref:"B2-303",tipologia:"Parcela",planta:"-",superficie:15,precio:65,estado:"vendida",notas:"MATIAS NUÑEZ CORTES - CPCV: 2024-04-16"},
+    {id:"V_B2_304",ref:"B2-304",tipologia:"Parcela",planta:"-",superficie:2,precio:67,estado:"vendida",notas:"ANTONIO ROMERO - Carmen Guerra Tirado (Casas Benalmádena) - CPCV: 2024-06-25"},
+    {id:"V_B3_301",ref:"B3-301",tipologia:"Parcela",planta:"-",superficie:0,precio:71,estado:"vendida",notas:"JESUS CARRASCO GIL"},
+    {id:"V_B3_305",ref:"B3-305",tipologia:"Parcela",planta:"-",superficie:36,precio:100,estado:"vendida",notas:"REBECA VELARDE LOPEZ"},
+    {id:"V_B3_707",ref:"B3-707",tipologia:"Parcela",planta:"-",superficie:26,precio:131,estado:"vendida",notas:"JUAN MANUEL VILLANUEVA RUIZ - Arena Blanca Development SL"},
+    {id:"V_B4_302",ref:"B4-302",tipologia:"Parcela",planta:"-",superficie:59,precio:134,estado:"vendida",notas:"Ruth Esther José Estévez Jiménez"},
+    {id:"V_B4_304",ref:"B4-304",tipologia:"Parcela",planta:"-",superficie:68,precio:314,estado:"vendida",notas:"Isabel Moreno Osorio"},
+    {id:"V_B4_504",ref:"B4-504",tipologia:"Parcela",planta:"-",superficie:95,precio:238,estado:"vendida",notas:"ALEJANDRO ROIGE GODIA"},
+    {id:"V_B4_601",ref:"B4-601",tipologia:"Parcela",planta:"-",superficie:73,precio:151,estado:"vendida",notas:"Miguel Romero Heredia"},
+    {id:"V_B4_701",ref:"B4-701",tipologia:"Parcela",planta:"-",superficie:48,precio:143,estado:"vendida",notas:"José Romero Olmo"},
+    {id:"V_B4_705",ref:"B4-705",tipologia:"Parcela",planta:"-",superficie:28,precio:95,estado:"disponible",notas:""},
+    {id:"V_B5_103",ref:"B5-103",tipologia:"Parcela",planta:"-",superficie:0,precio:195,estado:"disponible",notas:"Bernardo García Herrero"},
+    {id:"V_B5_104",ref:"B5-104",tipologia:"Parcela",planta:"-",superficie:0,precio:191,estado:"vendida",notas:"Juan Bermúdez Heredia"},
+    {id:"V_B5_105",ref:"B5-105",tipologia:"Parcela",planta:"-",superficie:119,precio:181,estado:"vendida",notas:"Ana Fernández García"},
+    {id:"V_B5_106",ref:"B5-106",tipologia:"Parcela",planta:"-",superficie:113,precio:183,estado:"vendida",notas:"Rubén Cofiño Arguijo"},
+    {id:"V_B5_107",ref:"B5-107",tipologia:"Parcela",planta:"-",superficie:116,precio:248,estado:"disponible",notas:"Enrique Millán Rodríguez"},
+    {id:"V_B5_108",ref:"B5-108",tipologia:"Parcela",planta:"-",superficie:114,precio:203,estado:"vendida",notas:"Roberto Delgado de Torres Álvarez"},
+    {id:"V_B5_110",ref:"B5-110",tipologia:"Parcela",planta:"-",superficie:0,precio:185,estado:"vendida",notas:"Aaron Duran Serrano"},
+    {id:"V_B5_214",ref:"B5-214",tipologia:"Parcela",planta:"-",superficie:107,precio:178,estado:"vendida",notas:"Juan Carlos Nieves Gallego"},
+    {id:"V_B5_220",ref:"B5-220",tipologia:"Parcela",planta:"-",superficie:125,precio:207,estado:"vendida",notas:"José Javier Alcalde Martínez"},
+    {id:"V_B5_315",ref:"B5-315",tipologia:"Parcela",planta:"-",superficie:138,precio:281,estado:"vendida",notas:"Jorge Manuel Gaitán Fukushima"},
+    {id:"V_B5_317",ref:"B5-317",tipologia:"Parcela",planta:"-",superficie:168,precio:279,estado:"vendida",notas:"NAZLY LEUDO VELASCO"},
+    {id:"V_B5_404",ref:"B5-404",tipologia:"Parcela",planta:"-",superficie:150,precio:156,estado:"vendida",notas:"SIMONA KONIAROVA - Sol and sea homes - CPCV: 2024-11-14"},
+    {id:"V_B5_407",ref:"B5-407",tipologia:"Parcela",planta:"-",superficie:134,precio:250,estado:"vendida",notas:"MARIA LORETO BERMEJO BARBAZÁN - Invest Casa"},
+    {id:"V_B5_414",ref:"B5-414",tipologia:"Parcela",planta:"-",superficie:169,precio:282,estado:"disponible",notas:"Sonia Vaño Salvador - INVESTCASA"},
+    {id:"V_B5_415",ref:"B5-415",tipologia:"Parcela",planta:"-",superficie:163,precio:256,estado:"vendida",notas:"Francisco Eduardo Gómez Palazón"},
+    {id:"V_B5_416",ref:"B5-416",tipologia:"Parcela",planta:"-",superficie:151,precio:247,estado:"vendida",notas:"Álvaro Jiménez González"},
+    {id:"V_B5_520",ref:"B5-520",tipologia:"Parcela",planta:"-",superficie:0,precio:188,estado:"disponible",notas:"Juan Antonio Cruz López"},
+    {id:"V_B5_603",ref:"B5-603",tipologia:"Parcela",planta:"-",superficie:100,precio:167,estado:"disponible",notas:""},
+    {id:"V_B5_611",ref:"B5-611",tipologia:"Parcela",planta:"-",superficie:200,precio:372,estado:"disponible",notas:""},
+    {id:"V_B6_302",ref:"B6-302",tipologia:"Parcela",planta:"-",superficie:0,precio:322,estado:"vendida",notas:"Carlos María Gaitán Cáceres"},
+    {id:"V_B6_304",ref:"B6-304",tipologia:"Parcela",planta:"-",superficie:0,precio:317,estado:"vendida",notas:"Carlos Javier Ortiz Arrocha"},
+    {id:"V_B6_306",ref:"B6-306",tipologia:"Parcela",planta:"-",superficie:178,precio:320,estado:"vendida",notas:"Kevin Van Krimpen Barredo"},
+    {id:"V_B6_401",ref:"B6-401",tipologia:"Parcela",planta:"-",superficie:179,precio:332,estado:"disponible",notas:"Arsenio José Martín Sánchez"},
+    {id:"V_B6_405",ref:"B6-405",tipologia:"Parcela",planta:"-",superficie:181,precio:399,estado:"vendida",notas:"Ana Isabel Bernal Cruz"},
+    {id:"V_B6_506",ref:"B6-506",tipologia:"Parcela",planta:"-",superficie:175,precio:306,estado:"vendida",notas:"ALEJANDRO VALENZUELA MEJÍAS"},
+    {id:"V_B6_507",ref:"B6-507",tipologia:"Parcela",planta:"-",superficie:158,precio:347,estado:"vendida",notas:"Pablo Jiménez González"},
+    {id:"V_B6_607",ref:"B6-607",tipologia:"Parcela",planta:"-",superficie:159,precio:349,estado:"vendida",notas:"Jonatan Aguilar Cruz"},
+    {id:"V_B6_702",ref:"B6-702",tipologia:"Parcela",planta:"-",superficie:173,precio:301,estado:"vendida",notas:"David García Jordan"},
+    {id:"V_B6_704",ref:"B6-704",tipologia:"Parcela",planta:"-",superficie:170,precio:293,estado:"vendida",notas:"Oscar Moro Delgado"},
+    {id:"V_B6_705",ref:"B6-705",tipologia:"Parcela",planta:"-",superficie:176,precio:297,estado:"disponible",notas:"Eduard Henricus Deckers/Elsje Kristine Marianne Baken - Your Destinations"},
+    {id:"V_B6_706",ref:"B6-706",tipologia:"Parcela",planta:"-",superficie:157,precio:258,estado:"vendida",notas:"ROCIO SANCHEZ CANO - TERRA NEGOCIOS INMOBILIARIOS"},
+    {id:"V_B6_708",ref:"B6-708",tipologia:"Parcela",planta:"-",superficie:214,precio:304,estado:"vendida",notas:"Alberto Varas Pérez"},
+    {id:"V_B7_403",ref:"B7-403",tipologia:"Parcela",planta:"-",superficie:231,precio:389,estado:"vendida",notas:"David Muñoz Soto"},
+    {id:"V_B7_407",ref:"B7-407",tipologia:"Parcela",planta:"-",superficie:224,precio:387,estado:"vendida",notas:"Ainoa García Molina"},
+    {id:"V_B7_501",ref:"B7-501",tipologia:"Parcela",planta:"-",superficie:183,precio:357,estado:"vendida",notas:"Juan José González Arias"},
+  ],
+  bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2025-06-01"},
+  {id:1784011765780,name:"MARLOW",zona:"Sur",estado:"planificacion",projectOwner:"Alberto",pmTecnico:"Inma (BSA)",responsableComercial:"Alberto",comercializadora:"NVOGA",ubicacion:"Marbella, Málaga",presupuesto:"EUR308.91M",costeActual:"",fechaEntrega:"2028-10-16",
+  hitos:[
+    {nombre:"Demolicion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licencia parcelacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licencia de obra",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Proyecto ejecucion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licitacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Construccion excavacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Construccion civil",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Construccion edificacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+    {nombre:"Licencia 1a ocupacion",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""},
+  ],
+  blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:"2026-09-28"},
 ];
 
 const fmt = d => { if(!d) return "-"; try { return new Date(d+"T00:00:00").toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"}); } catch { return d; } };
@@ -273,78 +618,22 @@ const parseBP = wb => {
   return result;
 };
 
-const MESES_ES = {enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12};
-const mesAnoToISO = s => {
-  if(!s) return "";
-  const m = String(s).match(/([a-záéíóúA-ZÁÉÍÓÚ]+)\s+(\d{4})/);
-  if(!m) return "";
-  const mes = MESES_ES[m[1].toLowerCase()];
-  if(!mes) return "";
-  return m[2]+"-"+String(mes).padStart(2,"0")+"-01";
-};
-
-// Parses raw text extracted from a kick off .docx (formato interno Overview RE):
-// campos "Etiqueta: valor" y roles de equipo en formato "Rol // Nombre"
-const parseKickOffText = text => {
-  const lines = String(text||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const getAfter = (line,marker) => { const i=line.toLowerCase().indexOf(marker.toLowerCase()); return i>=0?line.slice(i+marker.length).trim():null; };
-  const out = {roles:{},documentos:[]};
-  for(const line of lines){
-    if(!out.name){ const v=getAfter(line,"Nombre comercial:"); if(v) out.name=v; }
-    if(!out.nombreTecnico){ const v=getAfter(line,"Nombre técnico:")||getAfter(line,"Nombre tecnico:"); if(v) out.nombreTecnico=v; }
-    if(!out.ubicacion){ const v=getAfter(line,"Ubicación exacta:")||getAfter(line,"Ubicacion exacta:"); if(v&&!v.startsWith("http")) out.ubicacion=v; }
-    if(!out.inicioComercializacion){ const v=getAfter(line,"Inicio de comercialización previsto:")||getAfter(line,"Inicio de comercializacion previsto:"); if(v) out.inicioComercializacion=v; }
-    if(!out.fechasConstruccionRaw && /fechas previstas construcci/i.test(line)){ out.fechasConstruccionRaw=line.slice(line.indexOf(":")+1).trim(); }
-    if(!out.estadoUrbanisticoRaw && /^estado urban/i.test(line)){ out.estadoUrbanisticoRaw=line.slice(line.indexOf(":")+1).trim(); }
-    if(line.includes("//")&&!/^responsabilidad/i.test(line)){
-      const idx=line.indexOf("//");
-      const label=line.slice(0,idx).toLowerCase();
-      const name=line.slice(idx+2).trim();
-      if(name && !/^(pdte|pendiente)/i.test(name)){
-        if(!out.roles.pmTecnico&&(label.includes("project manager")||label.includes("(pm)"))) out.roles.pmTecnico=name;
-        else if(!out.roles.responsableComercial&&label.includes("comercial")&&!label.includes("administra")) out.roles.responsableComercial=name;
-        else if(!out.roles.arquitectura&&label.includes("arquitectura")) out.roles.arquitectura=name;
-        else if(!out.roles.financiero&&label.includes("financiero")) out.roles.financiero=name;
-        else if(!out.roles.contableFiscal&&label.includes("contabilidad")) out.roles.contableFiscal=name;
-        else if(!out.roles.marketingResp&&label.includes("marketing")) out.roles.marketingResp=name;
-        else if(!out.roles.juridico&&(label.includes("jurídico")||label.includes("juridico"))) out.roles.juridico=name;
-      }
-    }
-  }
-  if(out.fechasConstruccionRaw){
-    out.fechasConstruccionRaw.split("/").forEach(part=>{
-      const p=part.trim();
-      const iso=mesAnoToISO(p);
-      if(iso&&/demolici/i.test(p)) out.demolicionFecha=iso;
-      if(iso&&/entrega/i.test(p)) out.fechaEntrega=iso;
-    });
-  }
-  if(out.estadoUrbanisticoRaw){
-    out.estadoUrbanisticoRaw.split(".").map(s=>s.trim()).filter(Boolean).forEach(frase=>{
-      const solicitada=/solicitad/i.test(frase);
-      const aprobada=/concedid|aprobad/i.test(frase);
-      out.documentos.push({nombre:frase,estado:aprobada?"aprobado":solicitada?"solicitada":"pendiente",responsable:out.roles.arquitectura||"",notas:""});
-    });
-  }
-  return out;
-};
-
 const Btn = ({onClick,children,v="ghost",sm}) => {
-  const S={primary:{background:"#4f8ef7",color:"#fff",border:"none"},danger:{background:"transparent",color:"#f05a5a",border:"1px solid rgba(240,90,90,0.3)"},ghost:{background:"transparent",color:"#6b7394",border:"1px solid #252a3a"}};
+  const S={primary:{background:"#c9a86c",color:"#fff",border:"none"},danger:{background:"transparent",color:"#e05a5a",border:"1px solid rgba(224,90,90,0.3)"},ghost:{background:"transparent",color:"#6B7A8A",border:"1px solid #DDD8CF"}};
   return <button onClick={onClick} style={{...S[v],borderRadius:8,padding:sm?"4px 10px":"7px 16px",cursor:"pointer",fontSize:sm?"0.73rem":"0.84rem",fontWeight:600,fontFamily:"inherit",whiteSpace:"nowrap"}}>{children}</button>;
 };
 const FL = ({label,children}) => (
   <div style={{marginBottom:12}}>
-    <div style={{fontSize:"0.7rem",color:"#6b7394",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
+    <div style={{fontSize:"0.7rem",color:"#6B7A8A",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
     {children}
   </div>
 );
 const Modal = ({title,onClose,children,wide}) => (
   <div onMouseDown={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-    <div style={{background:"#141720",border:"1px solid #252a3a",borderRadius:16,padding:28,width:wide?700:500,maxWidth:"100%",maxHeight:"92vh",overflowY:"auto"}}>
+    <div style={{background:"#FFFFFF",border:"1px solid #DDD8CF",borderRadius:16,padding:28,width:wide?700:500,maxWidth:"100%",maxHeight:"92vh",overflowY:"auto"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <div style={{fontWeight:800,fontSize:"1rem"}}>{title}</div>
-        <button onClick={onClose} style={{background:"none",border:"none",color:"#6b7394",fontSize:"1.3rem",cursor:"pointer",lineHeight:1}}>x</button>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#6B7A8A",fontSize:"1.3rem",cursor:"pointer",lineHeight:1}}>x</button>
       </div>
       {children}
     </div>
@@ -363,11 +652,6 @@ const ModalProj = memo(function ModalProj({pF,onChange,onSave,onClose,isEdit}){
       <FL label="PM Tecnico (BSA)"><select style={CSS.inp} value={pF.pmTecnico} onChange={e=>onChange("pmTecnico",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
       <FL label="Responsable Comercial"><select style={CSS.inp} value={pF.responsableComercial} onChange={e=>onChange("responsableComercial",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
       <FL label="Comercializadora"><input style={CSS.inp} value={pF.comercializadora} onChange={e=>onChange("comercializadora",e.target.value)}/></FL>
-      <FL label="Responsable Arquitectura"><select style={CSS.inp} value={pF.arquitectura||""} onChange={e=>onChange("arquitectura",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
-      <FL label="Responsable Financiero"><select style={CSS.inp} value={pF.financiero||""} onChange={e=>onChange("financiero",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
-      <FL label="Responsable Contabilidad/Fiscal"><select style={CSS.inp} value={pF.contableFiscal||""} onChange={e=>onChange("contableFiscal",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
-      <FL label="Responsable Marketing"><select style={CSS.inp} value={pF.marketingResp||""} onChange={e=>onChange("marketingResp",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
-      <FL label="Responsable Juridico"><select style={CSS.inp} value={pF.juridico||""} onChange={e=>onChange("juridico",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
       <FL label="Presupuesto"><input style={CSS.inp} value={pF.presupuesto} onChange={e=>onChange("presupuesto",e.target.value)}/></FL>
       <FL label="Coste actual"><input style={CSS.inp} value={pF.costeActual} onChange={e=>onChange("costeActual",e.target.value)}/></FL>
     </div>
@@ -379,10 +663,9 @@ const ModalHito = memo(function ModalHito({hF,onChange,onSave,onClose}){
     <FL label="Nombre"><input style={CSS.inp} value={hF.nombre} onChange={e=>onChange("nombre",e.target.value)} autoFocus/></FL>
     <FL label="Estado"><select style={CSS.inp} value={hF.estado} onChange={e=>onChange("estado",e.target.value)}><option value="pendiente">Pendiente</option><option value="en-curso">En curso</option><option value="completado">Completado</option><option value="retrasado">Retrasado</option></select></FL>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-      <FL label="Fecha inicio / prevista"><input type="date" style={CSS.inp} value={hF.fechaPrevista} onChange={e=>onChange("fechaPrevista",e.target.value)}/></FL>
-      <FL label="Fecha fin (periodo, opcional)"><input type="date" style={CSS.inp} value={hF.fechaFin||""} onChange={e=>onChange("fechaFin",e.target.value)}/></FL>
+      <FL label="Fecha prevista"><input type="date" style={CSS.inp} value={hF.fechaPrevista} onChange={e=>onChange("fechaPrevista",e.target.value)}/></FL>
+      <FL label="Fecha real"><input type="date" style={CSS.inp} value={hF.fechaReal} onChange={e=>onChange("fechaReal",e.target.value)}/></FL>
     </div>
-    <FL label="Fecha real de finalizacion"><input type="date" style={CSS.inp} value={hF.fechaReal} onChange={e=>onChange("fechaReal",e.target.value)}/></FL>
     <FL label="Notas"><textarea style={{...CSS.inp,minHeight:70,resize:"vertical"}} value={hF.notas} onChange={e=>onChange("notas",e.target.value)}/></FL>
     <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">Guardar</Btn></div>
   </Modal>);
@@ -423,35 +706,24 @@ const ModalVivienda = memo(function ModalVivienda({vF,onChange,onSave,onClose,is
     <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">{isEdit?"Guardar":"Anadir"}</Btn></div>
   </Modal>);
 });
-const ModalDocumento = memo(function ModalDocumento({dF,onChange,onSave,onClose,isEdit}){
-  return (<Modal title={isEdit?"Editar documento":"Nuevo documento"} onClose={onClose}>
-    <FL label="Nombre / tramite"><input style={CSS.inp} value={dF.nombre} onChange={e=>onChange("nombre",e.target.value)} autoFocus/></FL>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-      <FL label="Estado"><select style={CSS.inp} value={dF.estado} onChange={e=>onChange("estado",e.target.value)}>{Object.entries(DOC_ESTADOS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></FL>
-      <FL label="Responsable"><select style={CSS.inp} value={dF.responsable} onChange={e=>onChange("responsable",e.target.value)}><option value="">-</option>{TEAM.map(t=><option key={t}>{t}</option>)}</select></FL>
-    </div>
-    <FL label="Notas"><textarea style={{...CSS.inp,minHeight:70,resize:"vertical"}} value={dF.notas} onChange={e=>onChange("notas",e.target.value)}/></FL>
-    <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">{isEdit?"Guardar":"Anadir"}</Btn></div>
-  </Modal>);
-});
 
 const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,isOver,onDragStart,onDragEnter,onDragEnd}){
   const hs=HITO_EST[h.estado]||HITO_EST.pendiente;
-  const borderColor=isOver?"2px solid #4f8ef7":(h.estado==="retrasado"?"1px solid rgba(240,90,90,0.4)":h.estado==="en-curso"?"1px solid rgba(79,142,247,0.25)":"1px solid #252a3a");
+  const borderColor=isOver?"2px solid #4f8ef7":(h.estado==="retrasado"?"1px solid rgba(224,90,90,0.4)":h.estado==="en-curso"?"1px solid rgba(201,168,108,0.25)":"1px solid #DDD8CF");
   return (
     <div draggable="true" onDragStart={()=>onDragStart(idx)} onDragEnter={()=>onDragEnter(idx)} onDragOver={e=>e.preventDefault()} onDragEnd={onDragEnd}
-      style={{display:"flex",alignItems:"center",gap:12,background:isDragging?"#252a3a":"#141720",borderRadius:11,border:borderColor,padding:"12px 15px",marginBottom:7,opacity:isDragging?0.5:1,cursor:"grab",userSelect:"none"}}>
-      <div style={{color:"#444",fontSize:"1.1rem",flexShrink:0}}>::::</div>
+      style={{display:"flex",alignItems:"center",gap:12,background:isDragging?"#DDD8CF":"#FFFFFF",borderRadius:11,border:borderColor,padding:"12px 15px",marginBottom:7,opacity:isDragging?0.5:1,cursor:"grab",userSelect:"none"}}>
+      <div style={{color:"#B0BBC6",fontSize:"1.1rem",flexShrink:0}}>::::</div>
       <div onClick={()=>onCycle(idx)} style={{width:32,height:32,borderRadius:"50%",background:hs.bg,border:"2px solid "+hs.color,display:"flex",alignItems:"center",justifyContent:"center",color:hs.color,fontWeight:800,fontSize:"0.9rem",flexShrink:0,cursor:"pointer"}}>
         {hs.icon}
       </div>
       <div style={{flex:1}}>
         <div style={{fontWeight:600,fontSize:"0.88rem"}}>{h.nombre}</div>
-        {h.notas&&<div style={{fontSize:"0.72rem",color:"#6b7394",marginTop:2}}>{h.notas}</div>}
+        {h.notas&&<div style={{fontSize:"0.72rem",color:"#6B7A8A",marginTop:2}}>{h.notas}</div>}
       </div>
       <div style={{display:"flex",gap:14,alignItems:"center"}}>
-        {h.fechaPrevista&&<span style={{fontSize:"0.71rem",color:"#6b7394"}}>Prev: {fmt(h.fechaPrevista)}</span>}
-        {h.fechaReal&&<span style={{fontSize:"0.71rem",color:"#22d3a0"}}>Real: {fmt(h.fechaReal)}</span>}
+        {h.fechaPrevista&&<span style={{fontSize:"0.71rem",color:"#6B7A8A"}}>Prev: {fmt(h.fechaPrevista)}</span>}
+        {h.fechaReal&&<span style={{fontSize:"0.71rem",color:"#4ca99a"}}>Real: {fmt(h.fechaReal)}</span>}
         <span style={{fontSize:"0.64rem",fontWeight:700,padding:"2px 8px",borderRadius:6,background:hs.bg,color:hs.color,textTransform:"uppercase"}}>{h.estado}</span>
       </div>
       <div style={{display:"flex",gap:5}}><Btn onClick={()=>onEdit(idx)} sm>edit</Btn><Btn onClick={()=>onDelete(idx)} v="danger" sm>x</Btn></div>
@@ -459,91 +731,12 @@ const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,
   );
 });
 
-const HitosGantt = ({hitos,onCycle,onEdit,onDelete}) => {
-  const MS_DAY=86400000;
-  const toDate=s=>{ if(!s) return null; const d=new Date(s+"T00:00:00"); return isNaN(d.getTime())?null:d; };
-  const rows=(hitos||[]).map((h,idx)=>{
-    const start=toDate(h.fechaPrevista)||toDate(h.fechaReal);
-    const end=toDate(h.fechaFin)||start;
-    return {h,idx,start,end};
-  });
-  const withDates=rows.filter(r=>r.start);
-  const today=new Date(new Date().toISOString().split("T")[0]+"T00:00:00");
-  let minD,maxD;
-  if(withDates.length>0){
-    minD=new Date(Math.min(...withDates.map(r=>r.start.getTime()),today.getTime()));
-    maxD=new Date(Math.max(...withDates.map(r=>(r.end||r.start).getTime()),today.getTime()));
-  } else {
-    minD=new Date(today.getTime()-30*MS_DAY);
-    maxD=new Date(today.getTime()+180*MS_DAY);
-  }
-  const pad=Math.max(Math.round((maxD-minD)/MS_DAY*0.05),7)*MS_DAY;
-  minD=new Date(minD.getTime()-pad);
-  maxD=new Date(maxD.getTime()+pad);
-  const totalMs=Math.max(maxD-minD,MS_DAY);
-  const pctOf=d=>((d.getTime()-minD.getTime())/totalMs)*100;
-  // Month ticks
-  const ticks=[];
-  const cur=new Date(minD.getFullYear(),minD.getMonth(),1);
-  while(cur<=maxD){ ticks.push(new Date(cur)); cur.setMonth(cur.getMonth()+1); }
-  const todayPct=today>=minD&&today<=maxD?pctOf(today):null;
-  return (
-    <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",overflowX:"auto"}}>
-      <div style={{minWidth:640}}>
-        <div style={{position:"relative",height:26,marginBottom:8,borderBottom:"1px solid #252a3a"}}>
-          {ticks.map((t,i)=>(
-            <div key={i} style={{position:"absolute",left:pctOf(t)+"%",top:0,fontSize:"0.66rem",color:"#6b7394",whiteSpace:"nowrap",transform:"translateX(-2px)"}}>
-              {t.toLocaleDateString("es-ES",{month:"short",year:"2-digit"})}
-            </div>
-          ))}
-        </div>
-        <div style={{position:"relative"}}>
-          {ticks.map((t,i)=>(
-            <div key={i} style={{position:"absolute",left:pctOf(t)+"%",top:0,bottom:0,width:1,background:"#1c2030"}}/>
-          ))}
-          {todayPct!==null&&(
-            <div style={{position:"absolute",left:todayPct+"%",top:0,bottom:0,width:2,background:"#f5924e",zIndex:2}} title="Hoy"/>
-          )}
-          {rows.map(({h,idx,start,end})=>{
-            const hs=HITO_EST[h.estado]||HITO_EST.pendiente;
-            const left=start?pctOf(start):0;
-            const right=end?pctOf(end):left;
-            const width=Math.max(right-left,1.2);
-            return (
-              <div key={idx} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid #1c2030"}}>
-                <div style={{width:150,flexShrink:0,fontSize:"0.78rem",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={h.nombre}>{h.nombre}</div>
-                <div style={{position:"relative",flex:1,height:22}}>
-                  {start?(
-                    <div onClick={()=>onCycle(idx)} title={fmt(h.fechaPrevista)+(h.fechaFin?" - "+fmt(h.fechaFin):"")+" ("+h.estado+")"}
-                      style={{position:"absolute",left:left+"%",width:width+"%",top:2,bottom:2,minWidth:10,background:hs.bg,border:"1px solid "+hs.color,borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",paddingLeft:6,overflow:"hidden"}}>
-                      <span style={{fontSize:"0.64rem",color:hs.color,fontWeight:700,whiteSpace:"nowrap"}}>{hs.icon}</span>
-                    </div>
-                  ):(
-                    <div style={{fontSize:"0.7rem",color:"#4a5070",lineHeight:"22px"}}>Sin fecha</div>
-                  )}
-                </div>
-                <div style={{display:"flex",gap:5,flexShrink:0}}><Btn onClick={()=>onEdit(idx)} sm>edit</Btn><Btn onClick={()=>onDelete(idx)} v="danger" sm>x</Btn></div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
-        {Object.entries(HITO_EST).map(([k,v])=>(
-          <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:v.color}}><div style={{width:7,height:7,borderRadius:"50%",background:v.color}}/>{k}</div>
-        ))}
-        <div style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:"#f5924e"}}><div style={{width:2,height:10,background:"#f5924e"}}/>hoy</div>
-      </div>
-    </div>
-  );
-};
-
 const KpiCard = ({label,val,sub,color,prev}) => (
-  <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
-    <div style={{fontSize:"0.63rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{label}</div>
-    <div style={{fontSize:"1.3rem",fontWeight:800,color:color||"#e8eaf2",marginBottom:3}}>{val}</div>
-    {sub&&<div style={{fontSize:"0.72rem",color:"#6b7394"}}>{sub}</div>}
-    {prev&&<div style={{fontSize:"0.7rem",color:"#4a5070",marginTop:2}}>BP base: {prev}</div>}
+  <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"14px 16px"}}>
+    <div style={{fontSize:"0.63rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{label}</div>
+    <div style={{fontSize:"1.3rem",fontWeight:800,color:color||"#1E2D4E",marginBottom:3}}>{val}</div>
+    {sub&&<div style={{fontSize:"0.72rem",color:"#6B7A8A"}}>{sub}</div>}
+    {prev&&<div style={{fontSize:"0.7rem",color:"#B0BBC6",marginTop:2}}>BP base: {prev}</div>}
   </div>
 );
 
@@ -559,26 +752,46 @@ function LoginScreen({onLogin}){
     else{setErr(true);setTimeout(()=>setErr(false),2500);}
   };
   return (
-    <div style={{height:"100vh",background:"#0d0f14",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
-      <div style={{width:380,padding:"40px 36px",background:"#141720",borderRadius:20,border:"1px solid #252a3a",boxShadow:"0 24px 60px rgba(0,0,0,0.5)"}}>
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontWeight:800,fontSize:"1.6rem",letterSpacing:"-0.03em",marginBottom:6,color:"#4f8ef7"}}>Overview</div>
-          <div style={{fontSize:"0.78rem",color:"#6b7394"}}>Gestion de promociones inmobiliarias</div>
+    <div style={{height:"100vh",background:"#F7F6F3",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Outfit',system-ui,sans-serif"}}>
+      <div style={{width:380,padding:"40px 36px",background:"#FFFFFF",borderRadius:20,border:"1px solid #DDD8CF",boxShadow:"0 24px 60px rgba(0,0,0,0.12)"}}>
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:4}}>
+            <svg width="260" height="42" viewBox="0 0 1197.3 192.51" xmlns="http://www.w3.org/2000/svg">
+              <g fill="#1E2D4E">
+                <polygon points="39.02 21.24 163.44 135.19 124.42 170.95 0 57 39.02 21.24"/>
+                <rect x="167" y="21.33" width="54.02" height="148.48"/>
+                <rect x="6.52" y="121.78" width="54.02" height="49.49"/>
+              </g>
+              <rect x="290.44" y="0" width="6.01" height="192.51" fill="#1E2D4E"/>
+              <g fill="#1E2D4E">
+                <path d="M424.19,124.52c-34.3,0-54.97-22.16-54.97-54.19s20.67-54.19,54.97-54.19,54.75,22.16,54.75,54.19-20.67,54.19-54.75,54.19ZM424.19,110.42c25.07,0,37.16-18.13,37.16-40.09s-12.09-40.09-37.16-40.09-37.38,18.13-37.38,40.09,12.09,40.09,37.38,40.09Z"/>
+                <path d="M502.03,18.96l31,86.63h.22l31-86.63h19.13l-40.24,102.74h-20.01l-40.24-102.74h19.13Z"/>
+                <path d="M674.2,90.07h17.59c-5.72,19.14-21.77,34.45-49.69,34.45-34.08,0-54.75-21.96-54.75-54.19,0-34.25,21.11-54.19,53.87-54.19,35.18,0,52.33,21.96,52.33,58.42h-88.61c0,18.53,12.09,35.86,36.5,35.86,22.43,0,30.78-13.3,32.76-20.35ZM604.94,60.46h71.02c0-16.52-13.63-30.22-34.74-30.22s-36.28,13.7-36.28,30.22Z"/>
+                <path d="M770.29,16.74v16.12h-.44c-24.41-3.63-41.34,12.09-41.34,34.05v54.8h-17.59V18.96h17.59v20.35h.44c5.94-13.5,14.95-23.17,31-23.17,4.18,0,7.26.2,10.34.6Z"/>
+                <path d="M793.82,18.96l31,86.63h.22l31-86.63h19.13l-40.24,102.74h-20.01l-40.24-102.74h19.13Z"/>
+                <path d="M907.5,18.96v102.74h-17.59V18.96h17.59Z"/>
+                <path d="M1014.36,90.07h17.59c-5.72,19.14-21.77,34.45-49.69,34.45-34.08,0-54.75-21.96-54.75-54.19,0-34.25,21.11-54.19,53.87-54.19,35.18,0,52.33,21.96,52.33,58.42h-88.61c0,18.53,12.09,35.86,36.5,35.86,22.43,0,30.78-13.3,32.76-20.35ZM945.1,60.46h71.02c0-16.52-13.63-30.22-34.74-30.22s-36.28,13.7-36.28,30.22Z"/>
+                <path d="M1057.02,18.96l25.51,85.21h.44l25.07-85.21h18.69l25.29,85.21h.44l25.51-85.21h19.35l-35.84,102.74h-18.69l-25.29-84.81h-.44l-24.85,84.81h-18.69l-35.84-102.74h19.35Z"/>
+              </g>
+            </svg>
+          </div>
+          <div style={{fontSize:"0.73rem",color:"#8A9BAA",letterSpacing:"0.12em",textTransform:"uppercase"}}>Estrategia inmobiliaria con vision</div>
+          <div style={{width:40,height:1,background:"#c9a86c",margin:"16px auto 0"}}/>
         </div>
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Usuario</div>
-          <input value={user} onChange={e=>{setUser(e.target.value);setErr(false);}} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Usuario" autoFocus style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:err?"1px solid #f05a5a":"1px solid #252a3a"}}/>
+          <div style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Usuario</div>
+          <input value={user} onChange={e=>{setUser(e.target.value);setErr(false);}} onKeyDown={e=>e.key==="Enter"&&doLogin()} placeholder="Usuario" autoFocus style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:err?"1px solid #f05a5a":"1px solid #DDD8CF"}}/>
         </div>
         <div style={{marginBottom:24}}>
-          <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Contrasena</div>
+          <div style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.06em"}}>Contrasena</div>
           <div style={{position:"relative"}}>
-            <input value={pass} onChange={e=>{setPass(e.target.value);setErr(false);}} onKeyDown={e=>e.key==="Enter"&&doLogin()} type={show?"text":"password"} placeholder="Contrasena" style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:err?"1px solid #f05a5a":"1px solid #252a3a",paddingRight:40}}/>
-            <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#6b7394",cursor:"pointer",fontSize:"0.85rem",padding:0}}>{show?"[H]":"[V]"}</button>
+            <input value={pass} onChange={e=>{setPass(e.target.value);setErr(false);}} onKeyDown={e=>e.key==="Enter"&&doLogin()} type={show?"text":"password"} placeholder="Contrasena" style={{...CSS.inp,padding:"10px 14px",fontSize:"0.9rem",border:err?"1px solid #f05a5a":"1px solid #DDD8CF",paddingRight:40}}/>
+            <button onClick={()=>setShow(s=>!s)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"#6B7A8A",cursor:"pointer",fontSize:"0.85rem",padding:0}}>{show?"[H]":"[V]"}</button>
           </div>
         </div>
-        {err&&<div style={{background:"rgba(240,90,90,0.1)",border:"1px solid rgba(240,90,90,0.3)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.82rem",color:"#f05a5a",textAlign:"center"}}>Usuario o contrasena incorrectos</div>}
-        <button onClick={doLogin} style={{width:"100%",background:"#4f8ef7",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:"0.95rem",cursor:"pointer",fontFamily:"inherit"}}>Entrar</button>
-        <div style={{textAlign:"center",marginTop:20,fontSize:"0.72rem",color:"#3a4060"}}>Overview Real Estate 2026</div>
+        {err&&<div style={{background:"rgba(224,90,90,0.1)",border:"1px solid rgba(224,90,90,0.3)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.82rem",color:"#e05a5a",textAlign:"center"}}>Usuario o contrasena incorrectos</div>}
+        <button onClick={doLogin} style={{width:"100%",background:"#c9a86c",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontWeight:700,fontSize:"0.95rem",cursor:"pointer",fontFamily:"inherit"}}>Entrar</button>
+        <div style={{textAlign:"center",marginTop:20,fontSize:"0.72rem",color:"#4a6080"}}>Overview Real Estate 2026</div>
       </div>
     </div>
   );
@@ -587,11 +800,11 @@ function LoginScreen({onLogin}){
 
 const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTADOS}) => {
   if(!proj.master) return (
-    <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+    <div style={{textAlign:"center",padding:"50px 20px",color:"#6B7A8A",background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF"}}>
       <div style={{fontSize:"2rem",marginBottom:10}}>MC</div>
-      <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Master Comercial no cargado</div>
+      <div style={{fontWeight:700,fontSize:"1rem",color:"#1E2D4E",marginBottom:6}}>Master Comercial no cargado</div>
       <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa el master comercial para ver ventas, repricings y rescisiones</div>
-      <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
+      <label style={{background:"#c9a86c",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
         Importar Master Comercial (.xlsx)
         <input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
       </label>
@@ -615,41 +828,41 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <div>
           <div style={{fontWeight:800,fontSize:"0.95rem"}}>Master Comercial - {proj.name}</div>
-          <div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Importado: {fmt(m.importado||"")} - {ventas.length} unidades</div>
+          <div style={{fontSize:"0.73rem",color:"#6B7A8A",marginTop:2}}>Importado: {fmt(m.importado||"")} - {ventas.length} unidades</div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
+          <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#c9a86c",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
             Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMasterFile} style={{display:"none"}}/>
           </label>
-          <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
+          <button onClick={()=>upd(activeId,p=>({...p,master:null}))} style={{background:"transparent",border:"1px solid rgba(224,90,90,0.3)",color:"#e05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
         {[
-          {l:"Total unidades",v:ventas.length,c:"#e8eaf2"},
-          {l:"Vendidas/Reservadas",v:vendidas.length,c:"#22d3a0"},
-          {l:"Disponibles",v:libres.length,c:"#4f8ef7"},
-          {l:"Rescisiones",v:rescisiones.length,c:"#f05a5a"},
-          {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#22d3a0"},
+          {l:"Total unidades",v:ventas.length,c:"#1E2D4E"},
+          {l:"Vendidas/Reservadas",v:vendidas.length,c:"#4ca99a"},
+          {l:"Disponibles",v:libres.length,c:"#c9a86c"},
+          {l:"Rescisiones",v:rescisiones.length,c:"#e05a5a"},
+          {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#4ca99a"},
           {l:"Precio medio VIV",v:fmtEur(precioMedioViv)},
           {l:"Precio medio PARC",v:fmtEur(precioMedioParc)},
-          {l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#f5c842"},
+          {l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#ddb96a"},
           {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
         ].map(k=>(
-          <div key={k.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
-            <div style={{fontSize:"0.61rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
-            <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#e8eaf2"}}>{k.v}</div>
+          <div key={k.l} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"12px 14px"}}>
+            <div style={{fontSize:"0.61rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.l}</div>
+            <div style={{fontSize:"1rem",fontWeight:800,color:k.c||"#1E2D4E"}}>{k.v}</div>
           </div>
         ))}
       </div>
-      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:14}}>
-        <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
+      <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:14}}>
+        <div style={{padding:"12px 18px",borderBottom:"1px solid #DDD8CF",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
           <span>Tabla de ventas</span>
-          <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{vendidas.length} comprometidas</span>
+          <span style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:400}}>{vendidas.length} comprometidas</span>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"8px 16px",borderBottom:"1px solid #DDD8CF"}}>
           {["Ref","Tipo","Status","Precio origen","Precio actual","Incremento","m2","F. Reserva"].map(h=>(
-            <div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>
+            <div key={h} style={{fontSize:"0.61rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>
           ))}
         </div>
         <div style={{maxHeight:400,overflowY:"auto"}}>
@@ -658,33 +871,33 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
             const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
             const inc=Number(v.incremento)||0;
             return (
-              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
-                onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #E8E2D8":"none",alignItems:"center"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#EDE8DF"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref||"-"}</div>
-                <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
+                <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
                 <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
-                <div style={{fontSize:"0.82rem",color:"#6b7394"}}>{fmtEur(v.precioOrigen)}</div>
+                <div style={{fontSize:"0.82rem",color:"#6B7A8A"}}>{fmtEur(v.precioOrigen)}</div>
                 <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
-                <div style={{fontSize:"0.82rem",color:inc>0?"#22d3a0":"#6b7394",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
-                <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.m2?v.m2+" m2":"-"}</div>
-                <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{v.fReserva?fmt(v.fReserva):"-"}</div>
+                <div style={{fontSize:"0.82rem",color:inc>0?"#4ca99a":"#6B7A8A",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
+                <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{v.m2?v.m2+" m2":"-"}</div>
+                <div style={{fontSize:"0.75rem",color:"#6B7A8A"}}>{v.fReserva?fmt(v.fReserva):"-"}</div>
               </div>
             );
           })}
         </div>
       </div>
       {rescisiones.length>0&&(
-        <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:12,overflow:"hidden"}}>
-          <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(240,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#f05a5a"}}>Rescisiones ({rescisiones.length})</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(240,90,90,0.1)"}}>
-            {["Ref","Fecha","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
+        <div style={{background:"rgba(224,90,90,0.06)",border:"1px solid rgba(224,90,90,0.2)",borderRadius:12,overflow:"hidden"}}>
+          <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(224,90,90,0.15)",fontWeight:700,fontSize:"0.86rem",color:"#e05a5a"}}>Rescisiones ({rescisiones.length})</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"8px 16px",borderBottom:"1px solid rgba(224,90,90,0.1)"}}>
+            {["Ref","Fecha","Precio","Comprador"].map(h=><div key={h} style={{fontSize:"0.61rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
           </div>
           {rescisiones.map((r,i)=>(
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<rescisiones.length-1?"1px solid rgba(240,90,90,0.08)":"none",alignItems:"center"}}>
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",padding:"9px 16px",borderBottom:i<rescisiones.length-1?"1px solid rgba(224,90,90,0.08)":"none",alignItems:"center"}}>
               <div style={{fontWeight:600,fontSize:"0.82rem"}}>{r.ref||"-"}</div>
-              <div style={{fontSize:"0.78rem",color:"#f05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
+              <div style={{fontSize:"0.78rem",color:"#e05a5a"}}>{r.fecha?fmt(r.fecha):"-"}</div>
               <div style={{fontSize:"0.82rem"}}>{fmtEur(r.precio)}</div>
-              <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{r.nombre||"-"}</div>
+              <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{r.nombre||"-"}</div>
             </div>
           ))}
         </div>
@@ -698,12 +911,12 @@ class ErrorBoundary extends React.Component {
   static getDerivedStateFromError(error){return {hasError:true,error};}
   render(){
     if(this.state.hasError){
-      return <div style={{padding:40,fontFamily:"sans-serif",background:"#0d0f14",color:"#e8eaf2",minHeight:"100vh"}}>
+      return <div style={{padding:40,fontFamily:"sans-serif",background:"#F7F6F3",color:"#1E2D4E",minHeight:"100vh"}}>
         <div style={{maxWidth:600,margin:"0 auto",paddingTop:80}}>
-          <div style={{fontSize:"1.2rem",fontWeight:700,color:"#f05a5a",marginBottom:16}}>Error al cargar la aplicacion</div>
-          <div style={{fontSize:"0.85rem",color:"#6b7394",fontFamily:"monospace",background:"#141720",padding:16,borderRadius:8,marginBottom:20}}>{String(this.state.error)}</div>
-          <div style={{fontSize:"0.82rem",color:"#6b7394",marginBottom:16}}>Puede que haya datos incompatibles guardados. Prueba a limpiar el cache:</div>
-          <button onClick={()=>{localStorage.clear();sessionStorage.clear();window.location.reload();}} style={{background:"#4f8ef7",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.88rem",fontWeight:600}}>Limpiar cache y recargar</button>
+          <div style={{fontSize:"1.2rem",fontWeight:700,color:"#e05a5a",marginBottom:16}}>Error al cargar la aplicacion</div>
+          <div style={{fontSize:"0.85rem",color:"#6B7A8A",fontFamily:"monospace",background:"#FFFFFF",padding:16,borderRadius:8,marginBottom:20}}>{String(this.state.error)}</div>
+          <div style={{fontSize:"0.82rem",color:"#6B7A8A",marginBottom:16}}>Puede que haya datos incompatibles guardados. Prueba a limpiar el cache:</div>
+          <button onClick={()=>{localStorage.clear();sessionStorage.clear();window.location.reload();}} style={{background:"#c9a86c",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.88rem",fontWeight:600}}>Limpiar cache y recargar</button>
         </div>
       </div>;
     }
@@ -739,27 +952,23 @@ export default function Overview(){
   const [modal,setModal]=useState(null);
   const dragItem=useRef(null),dragOverItem=useRef(null);
   const [dragIdx,setDragIdx]=useState(null),[overIdx,setOverIdx]=useState(null);
-  const [pF,setPF]=useState({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",arquitectura:"",financiero:"",contableFiscal:"",marketingResp:"",juridico:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});
-  const [hF,setHF]=useState({nombre:"",estado:"pendiente",fechaPrevista:"",fechaFin:"",fechaReal:"",notas:""});
+  const [pF,setPF]=useState({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});
+  const [hF,setHF]=useState({nombre:"",estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""});
   const [tF,setTF]=useState({texto:"",responsable:"",prioridad:"media",vencimiento:""});
   const [bF,setBF]=useState({tipo:"aviso",titulo:"",desc:"",responsable:""});
   const [vF,setVF]=useState({ref:"",tipologia:"",planta:"",superficie:"",precio:"",estado:"disponible",notas:""});
-  const [dF,setDF]=useState({nombre:"",estado:"pendiente",responsable:"",notas:""});
   const [newHName,setNewHName]=useState("");
-  const [hitosView,setHitosView]=useState("lista");
   const [resumenLocal,setResumenLocal]=useState("");
   const [bpImporting,setBpImporting]=useState(false);
   const [bpPreview,setBpPreview]=useState(null);
-  const [kickoffImporting,setKickoffImporting]=useState(false);
-  const [kickoffPreview,setKickoffPreview]=useState(null);
-  const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false),docIsEdit=useRef(false);
+  const editId=useRef(null),hitoIdx=useRef(null),projIsEdit=useRef(false),blockerIsEdit=useRef(false);
 
   const proj=projects.find(p=>p.id===activeId);
   useEffect(()=>{
     // Load from cloud FIRST - block saves until done
     cloudLoad().then(data=>{
       if(data&&Array.isArray(data)&&data.length>0){
-        const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,documentos:x.documentos||[],hitos:(x.hitos||[]).map(h=>({...h,fechaFin:h.fechaFin||""}))}));
+        const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
         setProjects(migrated);
         try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
       }
@@ -780,11 +989,10 @@ export default function Overview(){
   const chTF=useCallback((k,v)=>setTF(p=>({...p,[k]:v})),[]);
   const chBF=useCallback((k,v)=>setBF(p=>({...p,[k]:v})),[]);
   const chVF=useCallback((k,v)=>setVF(p=>({...p,[k]:v})),[]);
-  const chDF=useCallback((k,v)=>setDF(p=>({...p,[k]:v})),[]);
 
-  const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",arquitectura:"",financiero:"",contableFiscal:"",marketingResp:"",juridico:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
-  const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",arquitectura:proj.arquitectura||"",financiero:proj.financiero||"",contableFiscal:proj.contableFiscal||"",marketingResp:proj.marketingResp||"",juridico:proj.juridico||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
-  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaFin:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],documentos:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
+  const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
+  const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
+  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
   const delP=useCallback(id=>{if(!confirm("Eliminar esta promocion?")) return;save(prev=>prev.filter(p=>p.id!==id));setView("dashboard");setActiveId(null);},[]);
 
   const cycleHito=useCallback(idx=>{upd(activeId,p=>{const h=[...p.hitos];const cur=h[idx].estado;const next=HITO_CYCLE[(HITO_CYCLE.indexOf(cur)+1)%HITO_CYCLE.length];h[idx]={...h[idx],estado:next,fechaReal:next==="completado"?new Date().toISOString().split("T")[0]:h[idx].fechaReal};return {...p,hitos:h};});},[activeId,upd]);
@@ -793,7 +1001,7 @@ export default function Overview(){
   const handleDragEnd=useCallback(()=>{const from=dragItem.current,to=dragOverItem.current;if(from!==null&&to!==null&&from!==to){upd(activeId,p=>{const h=[...p.hitos];const el=h.splice(from,1)[0];h.splice(to,0,el);return {...p,hitos:h};});}dragItem.current=null;dragOverItem.current=null;setDragIdx(null);setOverIdx(null);},[activeId,upd]);
   const openEditH=useCallback(idx=>{hitoIdx.current=idx;const h=proj&&proj.hitos[idx];if(h) setHF({...h});setModal("hito");},[proj]);
   const saveH=useCallback(()=>{upd(activeId,p=>({...p,hitos:p.hitos.map((h,i)=>i!==hitoIdx.current?h:{...hF})}));setModal(null);},[activeId,hF,upd]);
-  const addH=useCallback(()=>{if(!newHName.trim()) return;upd(activeId,p=>({...p,hitos:[...p.hitos,{nombre:newHName,estado:"pendiente",fechaPrevista:"",fechaFin:"",fechaReal:"",notas:""}]}));setNewHName("");},[activeId,newHName,upd]);
+  const addH=useCallback(()=>{if(!newHName.trim()) return;upd(activeId,p=>({...p,hitos:[...p.hitos,{nombre:newHName,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""}]}));setNewHName("");},[activeId,newHName,upd]);
   const delH=useCallback(idx=>upd(activeId,p=>({...p,hitos:p.hitos.filter((_,i)=>i!==idx)})),[activeId,upd]);
 
   const openNewT=useCallback(()=>{editId.current=null;setTF({texto:"",responsable:(proj&&proj.projectOwner)||"",prioridad:"media",vencimiento:""});setModal("tarea");},[proj]);
@@ -830,14 +1038,8 @@ export default function Overview(){
   },[activeId,upd]);
   const clearViv=useCallback(()=>{if(!confirm("Eliminar todas las viviendas?")) return;upd(activeId,p=>({...p,viviendas:[]}));},[activeId,upd]);
 
-  const openNewDoc=useCallback(()=>{docIsEdit.current=false;editId.current=null;setDF({nombre:"",estado:"pendiente",responsable:(proj&&proj.pmTecnico)||"",notas:""});setModal("doc");},[proj]);
-  const openEditDoc=useCallback((d,idx)=>{docIsEdit.current=true;editId.current=idx;setDF({...d});setModal("doc");},[]);
-  const saveDoc=useCallback(()=>{if(!dF.nombre.trim()) return;upd(activeId,p=>{const docs=p.documentos||[];if(docIsEdit.current){return {...p,documentos:docs.map((d,i)=>i!==editId.current?d:{...dF})};}return {...p,documentos:[...docs,{...dF}]};});setModal(null);},[activeId,dF,upd]);
-  const delDoc=useCallback(idx=>upd(activeId,p=>({...p,documentos:(p.documentos||[]).filter((_,i)=>i!==idx)})),[activeId,upd]);
-  const cycleDoc=useCallback(idx=>{upd(activeId,p=>{const docs=[...(p.documentos||[])];const cur=docs[idx].estado;const next=DOC_CYCLE[(DOC_CYCLE.indexOf(cur)+1)%DOC_CYCLE.length];docs[idx]={...docs[idx],estado:next};return {...p,documentos:docs};});},[activeId,upd]);
-
   useEffect(()=>{if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);}},[]);
-  useEffect(()=>{if(!document.getElementById("mammothjs")){const sc=document.createElement("script");sc.id="mammothjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";document.head.appendChild(sc);}},[]);
+  useEffect(()=>{if(!document.getElementById("outfit-font")){const lk=document.createElement("link");lk.id="outfit-font";lk.rel="stylesheet";lk.href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap";document.head.appendChild(lk);}},[]);
 
   const handleVivFile=useCallback(e=>{
     const file=e.target.files[0];if(!file) return;
@@ -990,9 +1192,9 @@ export default function Overview(){
         if(ws){
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,10);i++){
+          for(let i=0;i<Math.min(rows.length,12);i++){
             const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().trim());
-            if(r.some(c=>c==="VVDA"||c==="VIVIENDA")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO"))){hdrIdx=i;break;}
+            if(r.some(c=>c==="VVDA"||c==="VIVIENDA"||c==="INMUEBLE")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO")||c==="ACCIONES")){hdrIdx=i;break;}
           }
           if(hdrIdx>=0){
             const hdr=(rows[hdrIdx]||[]).map(c=>String(c||"").toUpperCase().trim());
@@ -1024,7 +1226,12 @@ export default function Overview(){
                 ref="B"+blqVal+"-"+ref;
               }
               if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase()==="VVDA"||ref.toUpperCase()==="INMUEBLE") continue;
-              const precio=toN(r[iPrecio>=0?iPrecio:12]);
+              // Try price cols in order, skip False/null
+              let precio=0;
+              for(const pc of [iPrecio>=0?iPrecio:-1,65,66,67,47,12].filter(x=>x>=0)){
+                const v=r[pc];
+                if(v&&v!==false&&String(v).toUpperCase()!=="FALSE"){const n=toN(v);if(n>1000){precio=n;break;}}
+              }
               if(!precio) continue;
               const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
               const statusMap={"RESERVA":"reservada","RESERVADO":"reservada","CV":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida","BLOQUEADO":"no-venta","BLOQUEADO PROMOTOR":"no-venta"};
@@ -1255,45 +1462,6 @@ export default function Overview(){
     setBpPreview(null);setModal(null);
   },[activeId,bpPreview,upd]);
 
-  const handleKickoffFile=useCallback(e=>{
-    const file=e.target.files[0];if(!file) return;setKickoffImporting(true);
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      if(!window.mammoth){alert("Cargando lector de Word, espera 2s e intenta de nuevo.");setKickoffImporting(false);e.target.value="";return;}
-      window.mammoth.extractRawText({arrayBuffer:ev.target.result}).then(result=>{
-        const parsed=parseKickOffText(result.value);
-        setKickoffPreview(parsed);
-        setModal("kickoffPreview");
-        setKickoffImporting(false);
-      }).catch(err=>{alert("Error al leer el documento: "+err.message);setKickoffImporting(false);});
-      e.target.value="";
-    };
-    reader.readAsArrayBuffer(file);
-  },[]);
-
-  const confirmKickoff=useCallback(()=>{
-    if(!kickoffPreview) return;
-    const d=kickoffPreview;
-    upd(activeId,p=>{
-      const updated={...p};
-      if(d.name&&!p.name) updated.name=d.name;
-      if(d.ubicacion) updated.ubicacion=d.ubicacion;
-      if(d.fechaEntrega) updated.fechaEntrega=d.fechaEntrega;
-      Object.entries(d.roles||{}).forEach(([k,v])=>{ if(v) updated[k]=v; });
-      if(d.documentos&&d.documentos.length>0){
-        const existing=(p.documentos||[]).map(x=>x.nombre);
-        const nuevos=d.documentos.filter(x=>!existing.includes(x.nombre));
-        updated.documentos=[...(p.documentos||[]),...nuevos];
-      }
-      if(d.demolicionFecha){
-        updated.hitos=p.hitos.map(h=>h.nombre==="Demolicion"&&!h.fechaPrevista?{...h,fechaPrevista:d.demolicionFecha}:h);
-      }
-      updated.ultimaActualizacion=new Date().toISOString().split("T")[0];
-      return updated;
-    });
-    setKickoffPreview(null);setModal(null);
-  },[activeId,kickoffPreview,upd]);
-
   const saveResumen=useCallback(()=>{upd(activeId,p=>({...p,resumenSemanal:resumenLocal,ultimaActualizacion:new Date().toISOString().split("T")[0]}));},[activeId,resumenLocal,upd]);
 
   const today=new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
@@ -1306,89 +1474,22 @@ export default function Overview(){
   const pct=st.total?Math.round(st.vendidas/st.total*100):0;
   const projEst=proj?(ESTADOS[proj.estado]||ESTADOS.planificacion):null;
 
-  const exportExcel=()=>{
-    if(!proj) return;
-    if(!window.XLSX){alert("SheetJS cargando, espera 2s e intenta de nuevo.");return;}
-    const X=window.XLSX;
-    const wb=X.utils.book_new();
-
-    const resumenAoa=[
-      ["Reporte de estado - "+proj.name],
-      ["Generado",new Date().toLocaleString("es-ES")],
-      [],
-      ["Campo","Valor"],
-      ["Nombre",proj.name],
-      ["Ubicacion",proj.ubicacion||"-"],
-      ["Zona",proj.zona||"-"],
-      ["Estado",(ESTADOS[proj.estado]||{}).label||proj.estado||"-"],
-      ["Fecha entrega prevista",proj.fechaEntrega?fmt(proj.fechaEntrega):"-"],
-      ["Presupuesto",proj.presupuesto||"-"],
-      ["Coste actual",proj.costeActual||"-"],
-      ["Ultima actualizacion",proj.ultimaActualizacion?fmt(proj.ultimaActualizacion):"-"],
-      [],
-      ["Unidades totales",st.total],
-      ["Vendidas / escrituradas",st.vendidas],
-      ["Reservadas",st.reservadas],
-      ["Disponibles",st.disponibles],
-      ["Precio medio vivienda",st.precioMedio||0],
-      ["Ingresos comprometidos",st.ingresosVR||0],
-      [],
-      ["Resumen semanal",proj.resumenSemanal||"-"],
-    ];
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(resumenAoa),"Resumen");
-
-    const equipoAoa=[
-      ["Rol","Responsable"],
-      ["Project Owner (Overview)",proj.projectOwner||"-"],
-      ["PM Tecnico (BSA)",proj.pmTecnico||"-"],
-      ["Responsable Comercial",proj.responsableComercial||"-"],
-      ["Comercializadora",proj.comercializadora||"-"],
-      ["Arquitectura",proj.arquitectura||"-"],
-      ["Financiero",proj.financiero||"-"],
-      ["Contabilidad / Fiscal",proj.contableFiscal||"-"],
-      ["Marketing",proj.marketingResp||"-"],
-      ["Juridico",proj.juridico||"-"],
-    ];
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(equipoAoa),"Equipo");
-
-    const hitosAoa=[["Hito","Estado","Fecha inicio/prevista","Fecha fin","Fecha real","Notas"]];
-    (proj.hitos||[]).forEach(h=>hitosAoa.push([h.nombre,h.estado,h.fechaPrevista?fmt(h.fechaPrevista):"-",h.fechaFin?fmt(h.fechaFin):"-",h.fechaReal?fmt(h.fechaReal):"-",h.notas||""]));
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(hitosAoa),"Hitos");
-
-    const docsAoa=[["Documento / tramite","Estado","Responsable","Notas"]];
-    (proj.documentos||[]).forEach(d=>docsAoa.push([d.nombre,(DOC_ESTADOS[d.estado]||{}).label||d.estado,d.responsable||"-",d.notas||""]));
-    if(docsAoa.length===1) docsAoa.push(["Sin documentos registrados","","",""]);
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(docsAoa),"Documentacion");
-
-    const tareasAoa=[["Tarea","Responsable","Prioridad","Vencimiento","Completada"]];
-    (proj.tareas||[]).forEach(t=>tareasAoa.push([t.texto,t.responsable||"-",t.prioridad,t.vencimiento?fmt(t.vencimiento):"-",t.done?"Si":"No"]));
-    if(tareasAoa.length===1) tareasAoa.push(["Sin tareas","","","",""]);
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(tareasAoa),"Tareas");
-
-    const alertasAoa=[["Tipo","Titulo","Descripcion","Responsable"]];
-    (proj.blockers||[]).forEach(b=>alertasAoa.push([b.tipo,b.titulo,b.desc||"",b.responsable||"-"]));
-    if(alertasAoa.length===1) alertasAoa.push(["Sin alertas activas","","",""]);
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(alertasAoa),"Alertas");
-
-    const vivAoa=[["Referencia","Tipologia","Planta","Superficie m2","Precio","Estado","Notas"]];
-    activeVivs.forEach(v=>vivAoa.push([v.ref,v.tipologia||"-",v.planta||"-",v.superficie||0,v.precio||0,v.estado,v.notas||""]));
-    if(vivAoa.length===1) vivAoa.push(["Sin viviendas cargadas","","","","","",""]);
-    X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet(vivAoa),"Viviendas");
-
-    const safeName=proj.name.replace(/[^a-z0-9]+/gi,"_");
-    X.writeFile(wb,"Reporte_"+safeName+"_"+new Date().toISOString().split("T")[0]+".xlsx");
-  };
+  const seguimientoItems=proj?proj.tareas.filter(t=>t.id&&t.id.toString().startsWith("t_atl")):[];
+  const tareasLibres=proj?proj.tareas.filter(t=>!(t.id&&t.id.toString().startsWith("t_atl"))):[];
+  const segPendientes=seguimientoItems.filter(t=>!t.done).length;
+  const tarPendientes=tareasLibres.filter(t=>!t.done).length;
 
   const TABS=[
     {id:"hitos",l:"Hitos"},
-    {id:"equipo",l:"Datos del proyecto"},
     {id:"bp",l:"Business Plan"+(proj&&proj.bp?" OK":"")},
     {id:"viviendas",l:"Viviendas"+(st.total>0?" ("+st.total+")":"")},
     {id:"master",l:"Master Comercial"+(proj&&proj.master?" OK":"")},
     {id:"marketing",l:"Marketing"+(proj&&proj.marketing?" OK":"")},
     {id:"comercial",l:"Comercial"},
+    {id:"equipo",l:"Equipo"},
     {id:"blockers",l:"Alertas"+(proj&&proj.blockers.length>0?" ("+proj.blockers.length+")":"")},
-    {id:"tareas",l:"Tareas"+(proj&&proj.tareas.filter(t=>!t.done).length>0?" ("+proj.tareas.filter(t=>!t.done).length+")":"")},
+    {id:"seguimiento",l:"Seguimiento"+(segPendientes>0?" ("+segPendientes+")":"")},
+    {id:"tareas",l:"Tareas"+(tarPendientes>0?" ("+tarPendientes+")":"")},
     {id:"reporte",l:"Reporte"},
   ];
 
@@ -1396,12 +1497,32 @@ export default function Overview(){
 
   return (
     <ErrorBoundary>
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:"#0d0f14",color:"#e8eaf2",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 32px",borderBottom:"1px solid #252a3a",background:"#141720",flexShrink:0}}>
+    <div style={{fontFamily:"'Outfit',system-ui,sans-serif",background:"#F7F6F3",color:"#1E2D4E",height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 32px",borderBottom:"1px solid #EAE6DF",background:"#FFFFFF",flexShrink:0,boxShadow:"0 1px 8px rgba(30,45,78,0.06)"}}>
+
         <div style={{display:"flex",alignItems:"center",gap:14,cursor:"pointer"}} onClick={()=>setView("dashboard")}>
-          <span style={{fontWeight:800,fontSize:"1.05rem",color:"#4f8ef7"}}>Overview</span>
-          <div style={{width:1,height:16,background:"#252a3a"}}/>
-          <span style={{fontSize:"0.73rem",color:"#6b7394"}}>Gestion de promociones inmobiliarias</span>
+          <div style={{display:"flex",alignItems:"center"}}>
+            <svg width="130" height="22" viewBox="0 0 1197.3 192.51" xmlns="http://www.w3.org/2000/svg">
+              <g fill="#1E2D4E">
+                <polygon points="39.02 21.24 163.44 135.19 124.42 170.95 0 57 39.02 21.24"/>
+                <rect x="167" y="21.33" width="54.02" height="148.48"/>
+                <rect x="6.52" y="121.78" width="54.02" height="49.49"/>
+              </g>
+              <rect x="290.44" y="0" width="6.01" height="192.51" fill="#1E2D4E"/>
+              <g fill="#1E2D4E">
+                <path d="M424.19,124.52c-34.3,0-54.97-22.16-54.97-54.19s20.67-54.19,54.97-54.19,54.75,22.16,54.75,54.19-20.67,54.19-54.75,54.19ZM424.19,110.42c25.07,0,37.16-18.13,37.16-40.09s-12.09-40.09-37.16-40.09-37.38,18.13-37.38,40.09,12.09,40.09,37.38,40.09Z"/>
+                <path d="M502.03,18.96l31,86.63h.22l31-86.63h19.13l-40.24,102.74h-20.01l-40.24-102.74h19.13Z"/>
+                <path d="M674.2,90.07h17.59c-5.72,19.14-21.77,34.45-49.69,34.45-34.08,0-54.75-21.96-54.75-54.19,0-34.25,21.11-54.19,53.87-54.19,35.18,0,52.33,21.96,52.33,58.42h-88.61c0,18.53,12.09,35.86,36.5,35.86,22.43,0,30.78-13.3,32.76-20.35ZM604.94,60.46h71.02c0-16.52-13.63-30.22-34.74-30.22s-36.28,13.7-36.28,30.22Z"/>
+                <path d="M770.29,16.74v16.12h-.44c-24.41-3.63-41.34,12.09-41.34,34.05v54.8h-17.59V18.96h17.59v20.35h.44c5.94-13.5,14.95-23.17,31-23.17,4.18,0,7.26.2,10.34.6Z"/>
+                <path d="M793.82,18.96l31,86.63h.22l31-86.63h19.13l-40.24,102.74h-20.01l-40.24-102.74h19.13Z"/>
+                <path d="M907.5,18.96v102.74h-17.59V18.96h17.59Z"/>
+                <path d="M1014.36,90.07h17.59c-5.72,19.14-21.77,34.45-49.69,34.45-34.08,0-54.75-21.96-54.75-54.19,0-34.25,21.11-54.19,53.87-54.19,35.18,0,52.33,21.96,52.33,58.42h-88.61c0,18.53,12.09,35.86,36.5,35.86,22.43,0,30.78-13.3,32.76-20.35ZM945.1,60.46h71.02c0-16.52-13.63-30.22-34.74-30.22s-36.28,13.7-36.28,30.22Z"/>
+                <path d="M1057.02,18.96l25.51,85.21h.44l25.07-85.21h18.69l25.29,85.21h.44l25.51-85.21h19.35l-35.84,102.74h-18.69l-25.29-84.81h-.44l-24.85,84.81h-18.69l-35.84-102.74h19.35Z"/>
+              </g>
+            </svg>
+          </div>
+          <div style={{width:1,height:16,background:"#DDD8CF"}}/>
+          <span style={{fontSize:"0.68rem",color:"#8A9BAA",letterSpacing:"0.08em",textTransform:"uppercase"}}>Gestion de promociones</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <button onClick={()=>{
@@ -1411,10 +1532,10 @@ export default function Overview(){
             const a=document.createElement("a");
             a.href=url;a.download="overview-backup-"+new Date().toISOString().split("T")[0]+".json";
             a.click();URL.revokeObjectURL(url);
-          }} style={{background:"transparent",border:"1px solid #252a3a",color:"#6b7394",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}} title="Exportar backup de datos">
+          }} style={{background:"transparent",border:"1px solid #DDD8CF",color:"#6B7A8A",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}} title="Exportar backup de datos">
             Backup
           </button>
-          <label style={{background:"transparent",border:"1px solid #252a3a",color:"#6b7394",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,display:"inline-flex",alignItems:"center"}} title="Restaurar desde backup">
+          <label style={{background:"transparent",border:"1px solid #DDD8CF",color:"#6B7A8A",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,display:"inline-flex",alignItems:"center"}} title="Restaurar desde backup">
             Restaurar
             <input type="file" accept=".json" style={{display:"none"}} onChange={e=>{
               const file=e.target.files[0];if(!file) return;
@@ -1424,7 +1545,7 @@ export default function Overview(){
                 try{
                   const data=JSON.parse(ev.target.result);
                   if(Array.isArray(data)&&data.length>0){
-                    const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,documentos:x.documentos||[],hitos:(x.hitos||[]).map(h=>({...h,fechaFin:h.fechaFin||""}))}));
+                    const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
                     setProjects(migrated);
                     try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
                     alert("Datos restaurados correctamente");
@@ -1435,11 +1556,11 @@ export default function Overview(){
               e.target.value="";
             }}/>
           </label>
-          <div style={{width:1,height:16,background:"#252a3a"}}/>
-          <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(34,211,160,0.08)",border:"1px solid rgba(34,211,160,0.25)",color:"#22d3a0",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
-            <div style={{width:5,height:5,background:"#22d3a0",borderRadius:"50%"}}/>En vivo
+          <div style={{width:1,height:16,background:"#DDD8CF"}}/>
+          <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(76,169,154,0.08)",border:"1px solid rgba(76,169,154,0.25)",color:"#4ca99a",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
+            <div style={{width:5,height:5,background:"#4ca99a",borderRadius:"50%"}}/>En vivo
           </div>
-          <div style={{fontSize:"0.76rem",color:"#6b7394",textTransform:"capitalize"}}>{today}</div>
+          <div style={{fontSize:"0.76rem",color:"#6B7A8A",textTransform:"capitalize"}}>{today}</div>
         </div>
       </div>
 
@@ -1447,68 +1568,139 @@ export default function Overview(){
         {view==="dashboard"&&(
           <div style={{padding:"24px 32px",overflowY:"auto",flex:1}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-              <div><div style={{fontWeight:800,fontSize:"1.3rem",letterSpacing:"-0.03em",marginBottom:3}}>Panel de promociones</div><div style={{fontSize:"0.78rem",color:"#6b7394"}}>Vista consolidada</div></div>
+              <div><div style={{fontWeight:800,fontSize:"1.3rem",letterSpacing:"-0.03em",marginBottom:3}}>Panel de promociones</div><div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>Vista consolidada</div></div>
               <Btn onClick={openNewP} v="primary">+ Nueva promocion</Btn>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:26}}>
-              {[{label:"Promociones",val:projects.length,color:"#4f8ef7",sub:"activas"},{label:"Unidades en cartera",val:fmtNum(totalU),color:"#e8eaf2",sub:"total registradas"},{label:"Vendidas",val:fmtNum(totalV)+" / "+fmtNum(totalU),color:"#22d3a0",sub:totalU?Math.round(totalV/totalU*100)+"% absorcion":"-"},{label:"Alertas",val:bloq+risk,color:bloq>0?"#f05a5a":risk>0?"#f5c842":"#22d3a0",sub:bloq+" bloqueados / "+risk+" en riesgo"}].map(k=>(
-                <div key={k.label} style={{background:"#141720",borderRadius:14,border:"1px solid #252a3a",padding:"18px 22px"}}>
-                  <div style={{fontSize:"0.65rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700,marginBottom:8}}>{k.label}</div>
+              {[{label:"Promociones",val:projects.length,color:"#c9a86c",sub:"activas"},{label:"Unidades en cartera",val:fmtNum(totalU),color:"#1E2D4E",sub:"total registradas"},{label:"Vendidas",val:fmtNum(totalV)+" / "+fmtNum(totalU),color:"#4ca99a",sub:totalU?Math.round(totalV/totalU*100)+"% absorcion":"-"},{label:"Alertas",val:bloq+risk,color:bloq>0?"#e05a5a":risk>0?"#ddb96a":"#4ca99a",sub:bloq+" bloqueados / "+risk+" en riesgo"}].map(k=>(
+                <div key={k.label} style={{background:"#FFFFFF",borderRadius:14,border:"1px solid #DDD8CF",padding:"18px 22px"}}>
+                  <div style={{fontSize:"0.65rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700,marginBottom:8}}>{k.label}</div>
                   <div style={{fontSize:"1.7rem",fontWeight:800,color:k.color,letterSpacing:"-0.03em",marginBottom:3}}>{k.val}</div>
-                  <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{k.sub}</div>
+                  <div style={{fontSize:"0.72rem",color:"#6B7A8A"}}>{k.sub}</div>
                 </div>
               ))}
             </div>
-            <div style={{background:"#141720",borderRadius:14,border:"1px solid #252a3a",overflow:"hidden"}}>
-              <div style={{padding:"15px 22px",borderBottom:"1px solid #252a3a",fontWeight:800,fontSize:"0.92rem"}}>Todas las promociones</div>
-              <div style={{display:"grid",gridTemplateColumns:"2fr 0.8fr 1fr 0.9fr 1.1fr 1.3fr 1fr 50px",padding:"9px 22px",borderBottom:"1px solid #1c2030"}}>
-                {["Promocion","Zona","Estado","Hitos","Ventas","Project Owner","Ultima act.",""].map(h=><div key={h} style={{fontSize:"0.62rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>{h}</div>)}
-              </div>
-              {projects.map((p,idx)=>{
+            <div>
+              <div style={{fontWeight:800,fontSize:"0.92rem",marginBottom:14}}>Todas las promociones</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
+              {projects.map((p)=>{
                 const est=ESTADOS[p.estado]||ESTADOS.planificacion;
-                const s=calcStats(p.viviendas||[]);
+                const s=calcStats(p.master?masterToVivs(p.master):(p.viviendas||[]));
                 const hOk=p.hitos.filter(h=>h.estado==="completado").length;
-                const pct2=s.total?Math.round(s.vendidas/s.total*100):0;
-                const pctW=(p.hitos.length?hOk/p.hitos.length*100:0)+"%";
+                const hCurso=p.hitos.filter(h=>h.estado==="en-curso").length;
+                const hPend=p.hitos.filter(h=>h.estado==="pendiente"||h.estado==="retrasado").length;
+                const hTotal=p.hitos.length||1;
+                const pctVenta=s.total?Math.round((s.vendidas+s.reservadas)/s.total*100):0;
+                const pctVendidas=s.total?Math.round(s.vendidas/s.total*100):0;
+                const segItems=(p.tareas||[]).filter(t=>t.id&&t.id.toString().startsWith("t_atl"));
+                const segDone=segItems.filter(t=>t.done).length;
+                const segTotal=segItems.length||1;
+                const tareasP=(p.tareas||[]).filter(t=>!(t.id&&t.id.toString().startsWith("t_atl"))&&!t.done).length;
+                // mini donut SVG — hitos
+                const r=28,cx=34,cy=34,circ=2*Math.PI*r;
+                const segHOk=(hOk/hTotal)*circ;
+                const segHCurso=(hCurso/hTotal)*circ;
+                const segHPend=circ-segHOk-segHCurso;
                 return (
-                  <div key={p.id} onClick={()=>{setActiveId(p.id);setView("proyecto");setTab("hitos");}} style={{display:"grid",gridTemplateColumns:"2fr 0.8fr 1fr 0.9fr 1.1fr 1.3fr 1fr 50px",padding:"13px 22px",borderBottom:idx<projects.length-1?"1px solid #1c2030":"none",cursor:"pointer"}}
-                    onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <div><div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:2}}>{p.name}</div><div style={{fontSize:"0.71rem",color:"#6b7394"}}>{p.ubicacion}</div></div>
-                    <div style={{fontSize:"0.8rem",color:"#6b7394",alignSelf:"center"}}>{p.zona}</div>
-                    <div style={{alignSelf:"center"}}><span style={{fontSize:"0.65rem",fontWeight:700,padding:"3px 8px",borderRadius:8,background:est.bg,color:est.color,textTransform:"uppercase"}}>{est.label}</span></div>
-                    <div style={{alignSelf:"center"}}>
-                      <div style={{fontSize:"0.82rem",fontWeight:600,marginBottom:4}}>{hOk}/{p.hitos.length}</div>
-                      <div style={{height:3,background:"#252a3a",borderRadius:2,width:50,overflow:"hidden"}}><div style={{height:"100%",width:pctW,background:"#4f8ef7",borderRadius:2}}/></div>
+                  <div key={p.id} onClick={()=>{setActiveId(p.id);setView("proyecto");setTab("hitos");}}
+                    style={{background:"#FFFFFF",borderRadius:16,border:"1px solid #DDD8CF",padding:"20px",cursor:"pointer",transition:"box-shadow 0.15s,transform 0.15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 6px 24px rgba(30,45,78,0.10)";e.currentTarget.style.transform="translateY(-2px)";}}
+                    onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";e.currentTarget.style.transform="none";}}>
+                    {/* Header */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                      <div>
+                        <div style={{fontWeight:800,fontSize:"1rem",letterSpacing:"-0.02em",marginBottom:3}}>{p.name}</div>
+                        <div style={{fontSize:"0.71rem",color:"#6B7A8A"}}>{p.ubicacion} · PO: {p.projectOwner||"-"}</div>
+                      </div>
+                      <span style={{fontSize:"0.62rem",fontWeight:700,padding:"3px 9px",borderRadius:20,background:est.bg,color:est.color,textTransform:"uppercase",whiteSpace:"nowrap",marginLeft:8}}>{est.label}</span>
                     </div>
-                    <div style={{alignSelf:"center"}}><div style={{fontSize:"0.82rem",fontWeight:600,color:pct2>70?"#22d3a0":pct2>40?"#f5c842":"#e8eaf2"}}>{pct2}%</div><div style={{fontSize:"0.7rem",color:"#6b7394"}}>{s.vendidas}/{s.total} uds</div></div>
-                    <div style={{alignSelf:"center"}}><div style={{fontWeight:500,fontSize:"0.82rem"}}>{p.projectOwner||"-"}</div><div style={{fontSize:"0.7rem",color:"#6b7394"}}>{p.pmTecnico||"-"}</div></div>
-                    <div style={{fontSize:"0.73rem",color:"#6b7394",alignSelf:"center"}}>{p.ultimaActualizacion?fmt(p.ultimaActualizacion):"-"}{p.blockers.length>0&&<div style={{color:"#f05a5a",fontSize:"0.67rem",marginTop:2}}>! {p.blockers.length} alerta</div>}</div>
-                    <div style={{alignSelf:"center",textAlign:"right",color:"#6b7394"}}>-&gt;</div>
+
+                    {/* Gráfico donut hitos + métricas */}
+                    <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:16}}>
+                      <div style={{flexShrink:0}}>
+                        <svg width="68" height="68" viewBox="0 0 68 68">
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#EAE6DF" strokeWidth="7"/>
+                          {/* completados */}
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ca99a" strokeWidth="7"
+                            strokeDasharray={segHOk+" "+(circ-segHOk)}
+                            strokeDashoffset={circ*0.25}
+                            style={{transition:"stroke-dasharray 0.4s"}}/>
+                          {/* en curso */}
+                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#c9a86c" strokeWidth="7"
+                            strokeDasharray={segHCurso+" "+(circ-segHCurso)}
+                            strokeDashoffset={circ*0.25-segHOk}
+                            style={{transition:"stroke-dasharray 0.4s"}}/>
+                          <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="800" fill="#1E2D4E">{hOk}/{hTotal}</text>
+                          <text x={cx} y={cy+13} textAnchor="middle" dominantBaseline="middle" fontSize="6.5" fill="#6B7A8A">hitos</text>
+                        </svg>
+                      </div>
+                      <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        {[
+                          {l:"Vendidas",v:s.vendidas,sub:s.total+"uds",c:"#4ca99a"},
+                          {l:"Reservadas",v:s.reservadas,sub:"",c:"#ddb96a"},
+                          {l:"Seguimiento",v:segDone+"/"+segItems.length,sub:"completado",c:"#7c5cfc"},
+                          {l:"Tareas",v:tareasP,sub:"pendientes",c:tareasP>0?"#e05a5a":"#4ca99a"},
+                        ].map(m=>(
+                          <div key={m.l} style={{background:"#F7F6F3",borderRadius:8,padding:"7px 9px"}}>
+                            <div style={{fontSize:"0.58rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:2}}>{m.l}</div>
+                            <div style={{fontWeight:800,fontSize:"0.95rem",color:m.c,letterSpacing:"-0.02em"}}>{m.v}</div>
+                            {m.sub&&<div style={{fontSize:"0.61rem",color:"#6B7A8A"}}>{m.sub}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Barra de ventas */}
+                    {s.total>0&&(
+                      <div style={{marginBottom:12}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.66rem",color:"#6B7A8A",marginBottom:4}}>
+                          <span>Absorción comercial</span>
+                          <span style={{fontWeight:700,color:pctVenta>70?"#4ca99a":pctVenta>40?"#c9a86c":"#1E2D4E"}}>{pctVenta}%</span>
+                        </div>
+                        <div style={{height:5,background:"#EAE6DF",borderRadius:3,overflow:"hidden",display:"flex"}}>
+                          <div style={{width:pctVendidas+"%",background:"#4ca99a",transition:"width 0.4s"}}/>
+                          <div style={{width:(pctVenta-pctVendidas)+"%",background:"#ddb96a",transition:"width 0.4s"}}/>
+                        </div>
+                        <div style={{display:"flex",gap:10,marginTop:4}}>
+                          <div style={{fontSize:"0.59rem",color:"#4ca99a"}}>■ Vendidas {pctVendidas}%</div>
+                          <div style={{fontSize:"0.59rem",color:"#ddb96a"}}>■ Reservadas {pctVenta-pctVendidas}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:10,borderTop:"1px solid #EAE6DF"}}>
+                      <div style={{fontSize:"0.67rem",color:"#6B7A8A"}}>PM: {p.pmTecnico||"-"} · Entrega: {fmt(p.fechaEntrega)||"-"}</div>
+                      {p.blockers&&p.blockers.filter(b=>!b.resuelto).length>0&&(
+                        <span style={{fontSize:"0.61rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.08)",border:"1px solid rgba(224,90,90,0.2)",borderRadius:8,padding:"2px 7px"}}>⚠ {p.blockers.filter(b=>!b.resuelto).length} alerta</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
         )}
 
         {view==="proyecto"&&proj&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"18px 32px 0",background:"#0d0f14",borderBottom:"1px solid #252a3a",flexShrink:0}}>
+            <div style={{padding:"18px 32px 0",background:"#F7F6F3",borderBottom:"1px solid #DDD8CF",flexShrink:0}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14}}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6,flexWrap:"wrap"}}>
-                    <button onClick={()=>setView("dashboard")} style={{background:"none",border:"none",color:"#6b7394",cursor:"pointer",fontSize:"0.78rem",padding:0}}>&lt;- Volver</button>
+                    <button onClick={()=>setView("dashboard")} style={{background:"none",border:"none",color:"#6B7A8A",cursor:"pointer",fontSize:"0.78rem",padding:0}}>&lt;- Volver</button>
                     <h1 style={{margin:0,fontSize:"1.5rem",fontWeight:800,letterSpacing:"-0.03em"}}>{proj.name}</h1>
                     <span style={{fontSize:"0.67rem",fontWeight:700,padding:"3px 9px",borderRadius:8,background:projEst.bg,color:projEst.color,textTransform:"uppercase"}}>{projEst.label}</span>
-                    {proj.bp&&<span style={{fontSize:"0.67rem",fontWeight:700,padding:"3px 9px",borderRadius:8,background:"rgba(124,92,252,0.15)",color:"#a78bfa"}}>BP cargado</span>}
-                    <span style={{fontSize:"0.73rem",color:"#6b7394"}}>{proj.ubicacion} - {proj.zona}</span>
+                    {proj.bp&&<span style={{fontSize:"0.67rem",fontWeight:700,padding:"3px 9px",borderRadius:8,background:"rgba(124,92,252,0.15)",color:"#94a3b8"}}>BP cargado</span>}
+                    <span style={{fontSize:"0.73rem",color:"#6B7A8A"}}>{proj.ubicacion} - {proj.zona}</span>
                   </div>
                   <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-                    {["PO: "+proj.projectOwner,"PM: "+proj.pmTecnico,"Comercial: "+proj.responsableComercial,"Entrega: "+fmt(proj.fechaEntrega)].map(m=><span key={m} style={{fontSize:"0.75rem",color:"#6b7394"}}>{m}</span>)}
+                    {["PO: "+proj.projectOwner,"PM: "+proj.pmTecnico,"Comercial: "+proj.responsableComercial,"Entrega: "+fmt(proj.fechaEntrega)].map(m=><span key={m} style={{fontSize:"0.75rem",color:"#6B7A8A"}}>{m}</span>)}
                   </div>
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  <label style={{background:"rgba(167,139,250,0.1)",border:"1px solid rgba(167,139,250,0.3)",color:"#a78bfa",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:6}}>
+                  <label style={{background:"rgba(148,163,184,0.1)",border:"1px solid rgba(148,163,184,0.3)",color:"#94a3b8",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:6}}>
                     {bpImporting?"Cargando...":"Importar BP"}
                     <input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleBPFile} style={{display:"none"}} disabled={bpImporting}/>
                   </label>
@@ -1517,17 +1709,17 @@ export default function Overview(){
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
-                {[{label:"Total uds",val:st.total?st.totalViv+"V / "+st.totalParc+"P":"-"},{label:"Vendidas",val:st.vendidas,color:"#22d3a0"},{label:"Reservadas",val:st.reservadas,color:"#f5c842"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#22d3a0":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#f5c842":"#f05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
-                  <div key={k.label} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px"}}>
-                    <div style={{fontSize:"0.6rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.label}</div>
-                    <div style={{fontSize:"1.1rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
-                    {k.sub&&<div style={{fontSize:"0.65rem",color:"#6b7394",marginTop:2}}>{k.sub}</div>}
+                {[{label:"Total uds",val:st.total?st.numViviendas+"V / "+st.numParcelas+"P":"-"},{label:"Vendidas",val:st.vendidas,color:"#4ca99a"},{label:"Reservadas",val:st.reservadas,color:"#ddb96a"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#4ca99a":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#ddb96a":"#e05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
+                  <div key={k.label} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"10px 14px"}}>
+                    <div style={{fontSize:"0.6rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.label}</div>
+                    <div style={{fontSize:"1.1rem",fontWeight:800,color:k.color||"#1E2D4E"}}>{k.val}</div>
+                    {k.sub&&<div style={{fontSize:"0.65rem",color:"#6B7A8A",marginTop:2}}>{k.sub}</div>}
                   </div>
                 ))}
               </div>
               <div style={{display:"flex",overflowX:"auto"}}>
                 {TABS.map(t=>(
-                  <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",borderBottom:"2px solid "+(tab===t.id?"#4f8ef7":"transparent"),color:tab===t.id?"#e8eaf2":"#6b7394",padding:"9px 14px",cursor:"pointer",fontSize:"0.79rem",fontWeight:tab===t.id?700:400,fontFamily:"inherit",whiteSpace:"nowrap"}}>{t.l}</button>
+                  <button key={t.id} onClick={()=>setTab(t.id)} style={{background:"none",border:"none",borderBottom:"2px solid "+(tab===t.id?"#c9a86c":"transparent"),color:tab===t.id?"#1E2D4E":"#6B7A8A",padding:"9px 14px",cursor:"pointer",fontSize:"0.79rem",fontWeight:tab===t.id?700:400,fontFamily:"inherit",whiteSpace:"nowrap"}}>{t.l}</button>
                 ))}
               </div>
             </div>
@@ -1536,43 +1728,32 @@ export default function Overview(){
 
               {tab==="hitos"&&(
                 <div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
-                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Hitos del proyecto</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>{hitosView==="lista"?"Arrastra para reordenar - Click en circulo para cambiar estado":"Click en una barra para cambiar estado - edit para fechas"}</div></div>
-                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                      <div style={{display:"flex",background:"#1c2030",borderRadius:8,border:"1px solid #252a3a",padding:2}}>
-                        {["lista","gantt"].map(v=>(
-                          <button key={v} onClick={()=>setHitosView(v)} style={{background:hitosView===v?"#4f8ef7":"transparent",color:hitosView===v?"#fff":"#6b7394",border:"none",borderRadius:6,padding:"5px 12px",fontSize:"0.73rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{v}</button>
-                        ))}
-                      </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Hitos del proyecto</div><div style={{fontSize:"0.73rem",color:"#6B7A8A",marginTop:2}}>Arrastra para reordenar - Click en circulo para cambiar estado</div></div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
                       <input value={newHName} onChange={e=>setNewHName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();addH();}}} placeholder="Nombre del nuevo hito..." style={{...CSS.inp,width:210}}/>
                       <Btn onClick={addH} sm>+ Anadir</Btn>
                     </div>
                   </div>
-                  {hitosView==="lista"?(
-                    <>
-                      {proj.hitos.map((h,idx)=>(
-                        <HitoRow key={idx} h={h} idx={idx} onCycle={cycleHito} onEdit={openEditH} onDelete={delH} onDragStart={handleDragStart} onDragEnter={handleDragEnter} onDragEnd={handleDragEnd} isDragging={dragIdx===idx} isOver={overIdx===idx&&dragIdx!==idx}/>
-                      ))}
-                      <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
-                        {Object.entries(HITO_EST).map(([k,v])=>(
-                          <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:v.color}}><div style={{width:7,height:7,borderRadius:"50%",background:v.color}}/>{k}</div>
-                        ))}
-                      </div>
-                    </>
-                  ):(
-                    <HitosGantt hitos={proj.hitos} onCycle={cycleHito} onEdit={openEditH} onDelete={delH}/>
-                  )}
+                  {proj.hitos.map((h,idx)=>(
+                    <HitoRow key={idx} h={h} idx={idx} onCycle={cycleHito} onEdit={openEditH} onDelete={delH} onDragStart={handleDragStart} onDragEnter={handleDragEnter} onDragEnd={handleDragEnd} isDragging={dragIdx===idx} isOver={overIdx===idx&&dragIdx!==idx}/>
+                  ))}
+                  <div style={{display:"flex",gap:14,marginTop:16,flexWrap:"wrap"}}>
+                    {Object.entries(HITO_EST).map(([k,v])=>(
+                      <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:"0.71rem",color:v.color}}><div style={{width:7,height:7,borderRadius:"50%",background:v.color}}/>{k}</div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {tab==="bp"&&(
                 <div>
                   {!proj.bp?(
-                    <div style={{textAlign:"center",padding:"60px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+                    <div style={{textAlign:"center",padding:"60px 20px",color:"#6B7A8A",background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF"}}>
                       <div style={{fontSize:"3rem",marginBottom:12}}>BP</div>
-                      <div style={{fontWeight:700,fontSize:"1.1rem",color:"#e8eaf2",marginBottom:8}}>Business Plan no cargado</div>
+                      <div style={{fontWeight:700,fontSize:"1.1rem",color:"#1E2D4E",marginBottom:8}}>Business Plan no cargado</div>
                       <div style={{fontSize:"0.84rem",marginBottom:24}}>Importa el archivo .xlsm de monitoring para ver todos los KPIs financieros</div>
-                      <label style={{background:"#a78bfa",color:"#fff",borderRadius:8,padding:"10px 22px",cursor:"pointer",fontSize:"0.88rem",fontWeight:700}}>
+                      <label style={{background:"#94a3b8",color:"#fff",borderRadius:8,padding:"10px 22px",cursor:"pointer",fontSize:"0.88rem",fontWeight:700}}>
                         Importar Business Plan (.xlsm)
                         <input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleBPFile} style={{display:"none"}}/>
                       </label>
@@ -1582,22 +1763,22 @@ export default function Overview(){
                     return (
                       <div>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                          <div><div style={{fontWeight:800,fontSize:"0.95rem"}}>Business Plan - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Actualizado: {fmt(proj.ultimaActualizacion)}</div></div>
-                          <label style={{background:"transparent",border:"1px solid rgba(167,139,250,0.4)",color:"#a78bfa",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}>
+                          <div><div style={{fontWeight:800,fontSize:"0.95rem"}}>Business Plan - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6B7A8A",marginTop:2}}>Actualizado: {fmt(proj.ultimaActualizacion)}</div></div>
+                          <label style={{background:"transparent",border:"1px solid rgba(148,163,184,0.4)",color:"#94a3b8",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}>
                             Actualizar BP<input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleBPFile} style={{display:"none"}}/>
                           </label>
                         </div>
                         {d.negocios&&d.negocios.length>0&&(
-                          <div style={{background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)",borderRadius:12,padding:"14px 18px",marginBottom:16}}>
-                            <div style={{fontSize:"0.72rem",color:"#a78bfa",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Proyecto multi-negocio - {d.negocios.length} lineas de negocio</div>
+                          <div style={{background:"rgba(148,163,184,0.08)",border:"1px solid rgba(148,163,184,0.2)",borderRadius:12,padding:"14px 18px",marginBottom:16}}>
+                            <div style={{fontSize:"0.72rem",color:"#94a3b8",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Proyecto multi-negocio - {d.negocios.length} lineas de negocio</div>
                             <div style={{display:"grid",gridTemplateColumns:"repeat("+d.negocios.length+",1fr)",gap:10}}>
                               {d.negocios.map((neg,ni)=>(
-                                <div key={ni} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"12px 14px"}}>
-                                  <div style={{fontWeight:700,fontSize:"0.88rem",color:"#a78bfa",marginBottom:8}}>{neg.nombre}</div>
-                                  {[{l:"Unidades",v:neg.numViviendas||"-"},{l:"Ventas",v:fmtEurM(neg.ventasActual)},{l:"Beneficio",v:fmtEurM(neg.beneficioActual),c:neg.beneficioActual>0?"#22d3a0":"#f05a5a"},{l:"TIR",v:fmtPct(neg.tirActual),c:neg.tirActual>0.15?"#22d3a0":"#f5c842"},{l:"MgV",v:fmtPct(neg.mgvActual)},{l:"Fondos propios",v:fmtEurM(neg.fondosPropios)},{l:"Comercializacion",v:fmtEurM(neg.comercialActual)}].map(x=>(
+                                <div key={ni} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"12px 14px"}}>
+                                  <div style={{fontWeight:700,fontSize:"0.88rem",color:"#94a3b8",marginBottom:8}}>{neg.nombre}</div>
+                                  {[{l:"Unidades",v:neg.numViviendas||"-"},{l:"Ventas",v:fmtEurM(neg.ventasActual)},{l:"Beneficio",v:fmtEurM(neg.beneficioActual),c:neg.beneficioActual>0?"#4ca99a":"#e05a5a"},{l:"TIR",v:fmtPct(neg.tirActual),c:neg.tirActual>0.15?"#4ca99a":"#ddb96a"},{l:"MgV",v:fmtPct(neg.mgvActual)},{l:"Fondos propios",v:fmtEurM(neg.fondosPropios)},{l:"Comercializacion",v:fmtEurM(neg.comercialActual)}].map(x=>(
                                     <div key={x.l} style={{display:"flex",justifyContent:"space-between",fontSize:"0.78rem",marginBottom:4}}>
-                                      <span style={{color:"#6b7394"}}>{x.l}</span>
-                                      <span style={{fontWeight:600,color:x.c||"#e8eaf2"}}>{x.v}</span>
+                                      <span style={{color:"#6B7A8A"}}>{x.l}</span>
+                                      <span style={{fontWeight:600,color:x.c||"#1E2D4E"}}>{x.v}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1605,84 +1786,84 @@ export default function Overview(){
                             </div>
                           </div>
                         )}
-                        <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",marginBottom:16}}>
-                          <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Datos del proyecto</div>
+                        <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+                          <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Datos del proyecto</div>
                           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
                             {[{l:"Viviendas",v:d.numViviendas||"-"},{l:"Edificabilidad",v:d.edificabilidad?fmtNum(d.edificabilidad)+" m2":"-"},{l:"Duracion obra",v:d.duracionObra?d.duracionObra+" meses":"-"},{l:"Inicio obra",v:fmt(d.fechaInicioObra)},{l:"Licencia",v:fmt(d.fechaLicencia)},{l:"Escritura",v:fmt(d.fechaEntrega)},{l:"Fondos propios",v:fmtEurM(d.fondosPropios)},{l:"Duracion total",v:d.duracionMeses?d.duracionMeses+" meses":"-"}].map(x=>(
-                              <div key={x.l}><div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div><div style={{fontWeight:600,fontSize:"0.9rem"}}>{x.v}</div></div>
+                              <div key={x.l}><div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div><div style={{fontWeight:600,fontSize:"0.9rem"}}>{x.v}</div></div>
                             ))}
                           </div>
                         </div>
-                        <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",marginBottom:16}}>
-                          <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>P&amp;L - Base vs Actual</div>
-                          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:0,borderRadius:8,overflow:"hidden",border:"1px solid #252a3a"}}>
-                            {["Concepto","BP Base","BP Actual","Diferencia"].map(h=><div key={h} style={{fontSize:"0.65rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 12px",background:"#1c2030",borderBottom:"1px solid #252a3a"}}>{h}</div>)}
+                        <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+                          <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>P&amp;L - Base vs Actual</div>
+                          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:0,borderRadius:8,overflow:"hidden",border:"1px solid #DDD8CF"}}>
+                            {["Concepto","BP Base","BP Actual","Diferencia"].map(h=><div key={h} style={{fontSize:"0.65rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",padding:"8px 12px",background:"#F0EEE9",borderBottom:"1px solid #DDD8CF"}}>{h}</div>)}
                             {[{label:"Ventas (GDV)",prev:d.ventasPrev,actual:d.ventasActual,pos:true},{label:"Compra suelo",prev:d.sueloPrev,actual:d.sueloActual},{label:"Hard Cost (construccion)",prev:d.hardPrev,actual:d.hardActual},{label:"Soft Cost (honorarios)",prev:d.softPrev,actual:d.softActual},{label:"Gastos financieros",prev:d.financieroPrev,actual:d.financieroActual},{label:"Comercializacion",prev:d.comercialPrev,actual:d.comercialActual},{label:"Total gastos",prev:d.totalGastosPrev,actual:d.totalGastosActual,bold:true},{label:"Resultado / Beneficio",prev:d.beneficioPrev,actual:d.beneficioActual,bold:true,pos:true}].map((row,i)=>{
                               const diff=(row.actual||0)-(row.prev||0);
-                              const dc=row.pos?(diff>=0?"#22d3a0":"#f05a5a"):(diff<=0?"#22d3a0":"#f05a5a");
-                              const bg=row.bold?"#1a1e2c":"transparent";
+                              const dc=row.pos?(diff>=0?"#4ca99a":"#e05a5a"):(diff<=0?"#4ca99a":"#e05a5a");
+                              const bg=row.bold?"#EDE8DF":"transparent";
                               return [
-                                <div key={i+"a"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",fontWeight:row.bold?700:400,background:bg}}>{row.label}</div>,
-                                <div key={i+"b"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",color:"#6b7394",background:bg}}>{fmtEurM(row.prev)}</div>,
-                                <div key={i+"c"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",fontWeight:row.bold?700:400,background:bg}}>{fmtEurM(row.actual)}</div>,
-                                <div key={i+"d"} style={{padding:"9px 12px",borderBottom:"1px solid #1c2030",fontSize:"0.82rem",fontWeight:600,color:diff!==0?dc:"#6b7394",background:bg}}>{diff!==0?(diff>0?"+":"")+fmtEurM(diff):"-"}</div>,
+                                <div key={i+"a"} style={{padding:"9px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",fontWeight:row.bold?700:400,background:bg}}>{row.label}</div>,
+                                <div key={i+"b"} style={{padding:"9px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",color:"#6B7A8A",background:bg}}>{fmtEurM(row.prev)}</div>,
+                                <div key={i+"c"} style={{padding:"9px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",fontWeight:row.bold?700:400,background:bg}}>{fmtEurM(row.actual)}</div>,
+                                <div key={i+"d"} style={{padding:"9px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",fontWeight:600,color:diff!==0?dc:"#6B7A8A",background:bg}}>{diff!==0?(diff>0?"+":"")+fmtEurM(diff):"-"}</div>,
                               ];
                             })}
                           </div>
                         </div>
-                        <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px 20px",marginBottom:16}}>
-                          <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>KPIs de rentabilidad</div>
+                        <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+                          <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>KPIs de rentabilidad</div>
                           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-                            <KpiCard label="TIR pretax" val={fmtPct(d.tirActual||d.irr)} prev={fmtPct(d.tirPrev)} color={(d.tirActual||d.irr)>0.15?"#22d3a0":"#f5c842"}/>
-                            <KpiCard label="TIR post-tax" val={fmtPct(d.tirPostActual)} color={d.tirPostActual>0.12?"#22d3a0":"#f5c842"}/>
-                            <KpiCard label="Margen sobre ventas" val={fmtPct(d.mgvActual)} prev={fmtPct(d.mgvPrev)} color={d.mgvActual>0.12?"#22d3a0":"#f5c842"}/>
-                            <KpiCard label="Mom (pretax)" val={d.momActual?d.momActual.toFixed(2)+"x":"-"} color="#4f8ef7"/>
-                            <KpiCard label="Beneficio total" val={fmtEurM(d.beneficioActual||d.netProfit)} prev={fmtEurM(d.beneficioPrev)} color="#22d3a0"/>
-                            <KpiCard label="ROE (Bfcio/FFPP)" val={d.roeActual?d.roeActual.toFixed(2)+"x":"-"} color="#4f8ef7"/>
-                            <KpiCard label="REI" val={d.reiActual?fmtPct(d.reiActual):"-"} color="#f5c842"/>
-                            <KpiCard label="Fondos propios" val={fmtEurM(d.fondosPropios||d.equityAmount)} color="#f5c842"/>
-                            <KpiCard label="GDV (ventas totales)" val={fmtEurM(d.ventasActual||d.gdv)} color="#e8eaf2"/>
-                            <KpiCard label="Total costes" val={fmtEurM(d.totalGastosActual||d.gdc)} color="#e8eaf2"/>
-                            <KpiCard label="Hard Cost" val={fmtEurM(d.hardActual)} color="#e8eaf2"/>
-                            <KpiCard label="Comercializacion" val={fmtEurM(d.comercialActual)} color="#4f8ef7"/>
+                            <KpiCard label="TIR pretax" val={fmtPct(d.tirActual||d.irr)} prev={fmtPct(d.tirPrev)} color={(d.tirActual||d.irr)>0.15?"#4ca99a":"#ddb96a"}/>
+                            <KpiCard label="TIR post-tax" val={fmtPct(d.tirPostActual)} color={d.tirPostActual>0.12?"#4ca99a":"#ddb96a"}/>
+                            <KpiCard label="Margen sobre ventas" val={fmtPct(d.mgvActual)} prev={fmtPct(d.mgvPrev)} color={d.mgvActual>0.12?"#4ca99a":"#ddb96a"}/>
+                            <KpiCard label="Mom (pretax)" val={d.momActual?d.momActual.toFixed(2)+"x":"-"} color="#c9a86c"/>
+                            <KpiCard label="Beneficio total" val={fmtEurM(d.beneficioActual||d.netProfit)} prev={fmtEurM(d.beneficioPrev)} color="#4ca99a"/>
+                            <KpiCard label="ROE (Bfcio/FFPP)" val={d.roeActual?d.roeActual.toFixed(2)+"x":"-"} color="#c9a86c"/>
+                            <KpiCard label="REI" val={d.reiActual?fmtPct(d.reiActual):"-"} color="#ddb96a"/>
+                            <KpiCard label="Fondos propios" val={fmtEurM(d.fondosPropios||d.equityAmount)} color="#ddb96a"/>
+                            <KpiCard label="GDV (ventas totales)" val={fmtEurM(d.ventasActual||d.gdv)} color="#1E2D4E"/>
+                            <KpiCard label="Total costes" val={fmtEurM(d.totalGastosActual||d.gdc)} color="#1E2D4E"/>
+                            <KpiCard label="Hard Cost" val={fmtEurM(d.hardActual)} color="#1E2D4E"/>
+                            <KpiCard label="Comercializacion" val={fmtEurM(d.comercialActual)} color="#c9a86c"/>
                           </div>
                         </div>
                         {/* Desglose Comercial Fees */}
                         {(d.masterBroker||d.structuringFee||d.mktSalesMgmt)&&(
-                          <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px",marginBottom:14}}>
-                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:14,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Desglose Comercial Fees</div>
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px",marginBottom:14}}>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Desglose Comercial Fees</div>
 
                             {/* Per-negocio breakdown if available */}
                             {d.feesByNegocio&&d.feesByNegocio.length>0?(
                               <div>
                                 <div style={{display:"grid",gridTemplateColumns:"repeat("+d.feesByNegocio.length+",1fr)",gap:10,marginBottom:14}}>
                                   {d.feesByNegocio.map((neg,ni)=>(
-                                    <div key={ni} style={{background:"#1c2030",borderRadius:10,padding:"12px 14px"}}>
-                                      <div style={{fontWeight:700,fontSize:"0.82rem",color:"#a78bfa",marginBottom:8}}>{neg.nombre}</div>
+                                    <div key={ni} style={{background:"#F0EEE9",borderRadius:10,padding:"12px 14px"}}>
+                                      <div style={{fontWeight:700,fontSize:"0.82rem",color:"#94a3b8",marginBottom:8}}>{neg.nombre}</div>
                                       {[
-                                        {l:"Mktg & Sales",v:neg.mktSalesMgmt,c:"#4f8ef7"},
+                                        {l:"Mktg & Sales",v:neg.mktSalesMgmt,c:"#c9a86c"},
                                         {l:"Master Broker",v:neg.masterBroker,c:"#f5924e"},
-                                        {l:"Structuring/Exit",v:neg.structuringFee,c:"#f5c842"},
-                                        {l:"Bank Guarantee",v:neg.bankGuarantee,c:"#6b7394"},
-                                        {l:"Total",v:neg.comercialTotal,c:"#e8eaf2",bold:true},
+                                        {l:"Structuring/Exit",v:neg.structuringFee,c:"#ddb96a"},
+                                        {l:"Bank Guarantee",v:neg.bankGuarantee,c:"#6B7A8A"},
+                                        {l:"Total",v:neg.comercialTotal,c:"#1E2D4E",bold:true},
                                       ].filter(x=>x.v>0).map(x=>(
                                         <div key={x.l} style={{display:"flex",justifyContent:"space-between",fontSize:"0.75rem",marginBottom:4}}>
-                                          <span style={{color:"#6b7394"}}>{x.l}</span>
+                                          <span style={{color:"#6B7A8A"}}>{x.l}</span>
                                           <span style={{fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
                                         </div>
                                       ))}
                                     </div>
                                   ))}
                                 </div>
-                                <div style={{borderTop:"1px solid #252a3a",paddingTop:12}}>
-                                  <div style={{fontWeight:700,fontSize:"0.78rem",color:"#6b7394",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Consolidado</div>
+                                <div style={{borderTop:"1px solid #DDD8CF",paddingTop:12}}>
+                                  <div style={{fontWeight:700,fontSize:"0.78rem",color:"#6B7A8A",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.06em"}}>Consolidado</div>
                                   {[
-                                    {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#4f8ef7"},
+                                    {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#c9a86c"},
                                     {l:"Master Broker",v:d.masterBroker,c:"#f5924e"},
-                                    {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#f5c842"},
-                                    {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#e8eaf2",bold:true},
+                                    {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#ddb96a"},
+                                    {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#1E2D4E",bold:true},
                                   ].filter(x=>x.v>0).map(x=>(
-                                    <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1c2030"}}>
+                                    <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #E8E2D8"}}>
                                       <span style={{fontSize:"0.8rem",fontWeight:x.bold?700:400}}>{x.l}</span>
                                       <span style={{fontSize:"0.8rem",fontWeight:x.bold?700:600,color:x.c}}>{fmtEurM(x.v)}</span>
                                     </div>
@@ -1692,13 +1873,13 @@ export default function Overview(){
                             ):(
                               <div>
                                 {[
-                                  {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#4f8ef7"},
+                                  {l:"Marketing & Sales Mgmt.",v:d.mktSalesMgmt,c:"#c9a86c"},
                                   {l:"Master Broker",v:d.masterBroker,c:"#f5924e"},
-                                  {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#f5c842"},
-                                  {l:"Bank Guarantee Fee",v:d.bankGuaranteeFee,c:"#6b7394"},
-                                  {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#e8eaf2",bold:true},
+                                  {l:"Structuring / Exit Fee",v:d.structuringFee,c:"#ddb96a"},
+                                  {l:"Bank Guarantee Fee",v:d.bankGuaranteeFee,c:"#6B7A8A"},
+                                  {l:"Total Comercial Fees",v:d.comercialFeesTotal||d.comercialActual,c:"#1E2D4E",bold:true},
                                 ].filter(x=>x.v>0).map(x=>(
-                                  <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
+                                  <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #DDD8CF"}}>
                                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                                       <div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/>
                                       <span style={{fontSize:"0.82rem",fontWeight:x.bold?700:400}}>{x.l}</span>
@@ -1712,19 +1893,19 @@ export default function Overview(){
                         )}
 
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                          <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 18px"}}>
-                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Fuentes de financiacion</div>
-                            {[{l:"Equity / Fondos propios",v:d.fondosPropios||d.equityAmount,c:"#4f8ef7"},{l:"Prestamo promotor",v:d.prestamo,c:"#f5c842"},{l:"Ingresos compradores",v:d.dineroCO,c:"#22d3a0"}].map(x=>(
-                              <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 18px"}}>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Fuentes de financiacion</div>
+                            {[{l:"Equity / Fondos propios",v:d.fondosPropios||d.equityAmount,c:"#c9a86c"},{l:"Prestamo promotor",v:d.prestamo,c:"#ddb96a"},{l:"Ingresos compradores",v:d.dineroCO,c:"#4ca99a"}].map(x=>(
+                              <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #DDD8CF"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/><span style={{fontSize:"0.82rem"}}>{x.l}</span></div>
                                 <span style={{fontSize:"0.82rem",fontWeight:600,color:x.c}}>{fmtEurM(x.v)}</span>
                               </div>
                             ))}
                           </div>
-                          <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 18px"}}>
-                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em"}}>Usos (costes)</div>
-                            {[{l:"Adquisicion suelo",v:d.sueloActual,c:"#f05a5a"},{l:"Hard Cost (construccion)",v:d.hardActual,c:"#f5924e"},{l:"Soft Cost (honorarios)",v:d.softActual,c:"#f5c842"},{l:"Comercializacion",v:d.comercialActual,c:"#4f8ef7"},{l:"Gastos financieros",v:d.financieroActual,c:"#6b7394"}].map(x=>(
-                              <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #252a3a"}}>
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 18px"}}>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Usos (costes)</div>
+                            {[{l:"Adquisicion suelo",v:d.sueloActual,c:"#e05a5a"},{l:"Hard Cost (construccion)",v:d.hardActual,c:"#f5924e"},{l:"Soft Cost (honorarios)",v:d.softActual,c:"#ddb96a"},{l:"Comercializacion",v:d.comercialActual,c:"#c9a86c"},{l:"Gastos financieros",v:d.financieroActual,c:"#6B7A8A"}].map(x=>(
+                              <div key={x.l} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #DDD8CF"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/><span style={{fontSize:"0.82rem"}}>{x.l}</span></div>
                                 <span style={{fontSize:"0.82rem",fontWeight:600}}>{fmtEurM(x.v)}</span>
                               </div>
@@ -1740,58 +1921,58 @@ export default function Overview(){
               {tab==="viviendas"&&(
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Tabla de viviendas</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Click en estado para cambiarlo</div></div>
+                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Tabla de viviendas</div><div style={{fontSize:"0.73rem",color:"#6B7A8A",marginTop:2}}>Click en estado para cambiarlo</div></div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                       {activeVivs.length>0&&!proj.master&&<Btn onClick={clearViv} v="danger" sm>Limpiar</Btn>}
-                      <label style={{background:"transparent",border:"1px solid rgba(167,139,250,0.4)",color:"#a78bfa",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
+                      <label style={{background:"transparent",border:"1px solid rgba(148,163,184,0.4)",color:"#94a3b8",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
                         Desde BP<input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleBPFile} style={{display:"none"}}/>
                       </label>
-                      <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
+                      <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#c9a86c",borderRadius:8,padding:"4px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:5}}>
                         Lista precios<input type="file" accept=".xlsx,.xls,.csv" onChange={handleVivFile} style={{display:"none"}}/>
                       </label>
                       <Btn onClick={openNewV} sm>+ Anadir</Btn>
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
-                    {[{l:"Total",v:st.total,c:"#e8eaf2"},{l:"Vendidas",v:st.vendidas,c:"#22d3a0"},{l:"Reservadas",v:st.reservadas,c:"#f5c842"},{l:"Disponibles",v:st.disponibles,c:"#4f8ef7"}].map(x=>(
-                      <div key={x.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px",textAlign:"center"}}>
-                        <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>{x.l}</div>
+                    {[{l:"Total",v:st.total,c:"#1E2D4E"},{l:"Vendidas",v:st.vendidas,c:"#4ca99a"},{l:"Reservadas",v:st.reservadas,c:"#ddb96a"},{l:"Disponibles",v:st.disponibles,c:"#c9a86c"}].map(x=>(
+                      <div key={x.l} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"10px 14px",textAlign:"center"}}>
+                        <div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>{x.l}</div>
                         <div style={{fontSize:"1.3rem",fontWeight:800,color:x.c}}>{x.v}</div>
                       </div>
                     ))}
                   </div>
                   {activeVivs.length===0?(
-                    <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+                    <div style={{textAlign:"center",padding:"50px 20px",color:"#6B7A8A",background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF"}}>
                       <div style={{fontSize:"2.5rem",marginBottom:10}}>[]</div>
-                      <div style={{fontWeight:600,marginBottom:4,color:"#e8eaf2"}}>No hay viviendas cargadas</div>
+                      <div style={{fontWeight:600,marginBottom:4,color:"#1E2D4E"}}>No hay viviendas cargadas</div>
                       <div style={{fontSize:"0.8rem",marginBottom:20}}>Importa desde el BP o desde una lista de precios Excel</div>
                     </div>
                   ):(
                     <div>
-                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden",marginBottom:12}}>
-                        <div style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"8px 16px",borderBottom:"1px solid #252a3a"}}>
-                          {["Ref","Tipologia","Tipo","m2","Precio PVP","Estado","Notas",""].map(h=><div key={h} style={{fontSize:"0.62rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
+                      <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:12}}>
+                        <div style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"8px 16px",borderBottom:"1px solid #DDD8CF"}}>
+                          {["Ref","Tipologia","Tipo","m2","Precio PVP","Estado","Notas",""].map(h=><div key={h} style={{fontSize:"0.62rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{h}</div>)}
                         </div>
                         {activeVivs.map((v,i)=>{
                           const vs=VIV_ESTADOS[v.estado]||VIV_ESTADOS.disponible;
                           return (
-                            <div key={v.id} style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"10px 16px",borderBottom:i<activeVivs.length-1?"1px solid #1c2030":"none",alignItems:"center"}}
-                              onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            <div key={v.id} style={{display:"grid",gridTemplateColumns:"0.7fr 1fr 1fr 0.7fr 1.2fr 1.1fr 1.4fr 70px",padding:"10px 16px",borderBottom:i<activeVivs.length-1?"1px solid #E8E2D8":"none",alignItems:"center"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#EDE8DF"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                               <div style={{fontWeight:600,fontSize:"0.84rem"}}>{v.ref}</div>
                               <div style={{fontSize:"0.82rem"}}>{v.tipologia||"-"}</div>
-                              <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.planta||"-"}</div>
-                              <div style={{fontSize:"0.78rem",color:"#6b7394"}}>{v.superficie?v.superficie+"m2":"-"}</div>
+                              <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{v.planta||"-"}</div>
+                              <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{v.superficie?v.superficie+"m2":"-"}</div>
                               <div style={{fontSize:"0.88rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
                               <div><span onClick={()=>cycleViv(v.id)} style={{fontSize:"0.67rem",fontWeight:700,padding:"3px 8px",borderRadius:8,background:vs.color+"18",color:vs.color,cursor:"pointer",border:"1px solid "+vs.color+"35",textTransform:"uppercase"}}>{vs.label}</span></div>
-                              <div style={{fontSize:"0.72rem",color:"#6b7394",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={v.notas}>{v.notas||"-"}</div>
+                              <div style={{fontSize:"0.72rem",color:"#6B7A8A",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={v.notas}>{v.notas||"-"}</div>
                               <div style={{display:"flex",gap:4}}><Btn onClick={()=>openEditV(v)} sm>edit</Btn><Btn onClick={()=>delV(v.id)} v="danger" sm>x</Btn></div>
                             </div>
                           );
                         })}
                       </div>
-                      <div style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"14px 18px",display:"flex",gap:28,flexWrap:"wrap"}}>
-                        {[{l:"Precio medio viviendas",v:fmtEur(st.precioMedio)},{l:"Precio medio parcelas",v:fmtEur(st.precioMedioParcela)},{l:"Ingresos potenciales",v:fmtEur(st.ingresosTotal)},{l:"Ingresos asegurados",v:fmtEur(st.ingresosVR),c:"#22d3a0"}].map(x=>(
-                          <div key={x.l}><div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div><div style={{fontWeight:700,color:x.c||"#e8eaf2"}}>{x.v}</div></div>
+                      <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"14px 18px",display:"flex",gap:28,flexWrap:"wrap"}}>
+                        {[{l:"Precio medio viviendas",v:fmtEur(st.precioMedio)},{l:"Precio medio parcelas",v:fmtEur(st.precioMedioParcela)},{l:"Ingresos potenciales",v:fmtEur(st.ingresosTotal)},{l:"Ingresos asegurados",v:fmtEur(st.ingresosVR),c:"#4ca99a"}].map(x=>(
+                          <div key={x.l}><div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div><div style={{fontWeight:700,color:x.c||"#1E2D4E"}}>{x.v}</div></div>
                         ))}
                       </div>
                     </div>
@@ -1816,15 +1997,15 @@ export default function Overview(){
               {tab==="marketing"&&(
                 <div>
                   {!proj.marketing?(
-                    <div style={{textAlign:"center",padding:"50px 20px",color:"#6b7394",background:"#141720",borderRadius:12,border:"1px solid #252a3a"}}>
+                    <div style={{textAlign:"center",padding:"50px 20px",color:"#6B7A8A",background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF"}}>
                       <div style={{fontSize:"2.5rem",marginBottom:10}}>MK</div>
-                      <div style={{fontWeight:700,fontSize:"1rem",color:"#e8eaf2",marginBottom:6}}>Sin planificacion de marketing</div>
+                      <div style={{fontWeight:700,fontSize:"1rem",color:"#1E2D4E",marginBottom:6}}>Sin planificacion de marketing</div>
                       <div style={{fontSize:"0.8rem",marginBottom:20}}>
                         {proj.bp&&proj.bp.comercialActual?(
-                          <span>Presupuesto del BP disponible: <strong style={{color:"#22d3a0"}}>{fmtEur(proj.bp.comercialActual)}</strong></span>
+                          <span>Presupuesto del BP disponible: <strong style={{color:"#4ca99a"}}>{fmtEur(proj.bp.comercialActual)}</strong></span>
                         ):"Importa primero el BP para ver el presupuesto disponible."}
                       </div>
-                      <label style={{background:"#4f8ef7",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
+                      <label style={{background:"#c9a86c",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
                         Importar planificacion de marketing (.xlsx)
                         <input type="file" accept=".xlsx,.xls" onChange={handleMktFile} style={{display:"none"}}/>
                       </label>
@@ -1840,46 +2021,46 @@ export default function Overview(){
                     return (
                       <div>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                          <div><div style={{fontWeight:700,fontSize:"0.95rem"}}>Planificacion de Marketing - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas</div></div>
+                          <div><div style={{fontWeight:700,fontSize:"0.95rem"}}>Planificacion de Marketing - {proj.name}</div><div style={{fontSize:"0.73rem",color:"#6B7A8A",marginTop:2}}>{mkt.partidas.length} partidas</div></div>
                           <div style={{display:"flex",gap:8}}>
-                            <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
+                            <label style={{background:"transparent",border:"1px solid #4f8ef7",color:"#c9a86c",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700}}>
                               Actualizar<input type="file" accept=".xlsx,.xls" onChange={handleMktFile} style={{display:"none"}}/>
                             </label>
-                            <button onClick={()=>upd(activeId,p=>({...p,marketing:null}))} style={{background:"transparent",border:"1px solid rgba(240,90,90,0.3)",color:"#f05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
+                            <button onClick={()=>upd(activeId,p=>({...p,marketing:null}))} style={{background:"transparent",border:"1px solid rgba(224,90,90,0.3)",color:"#e05a5a",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:600,fontFamily:"inherit"}}>Borrar</button>
                           </div>
                         </div>
-                        <div style={{background:presupuestoBP>0?"rgba(34,211,160,0.07)":"rgba(79,142,247,0.07)",border:"1px solid "+(presupuestoBP>0?"rgba(34,211,160,0.25)":"rgba(79,142,247,0.2)"),borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+                        <div style={{background:presupuestoBP>0?"rgba(76,169,154,0.07)":"rgba(201,168,108,0.07)",border:"1px solid "+(presupuestoBP>0?"rgba(76,169,154,0.25)":"rgba(201,168,108,0.2)"),borderRadius:12,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
                           <div style={{display:"flex",alignItems:"center",gap:12}}>
                             <div style={{fontSize:"1.5rem"}}>EUR</div>
                             <div>
-                              <div style={{fontSize:"0.7rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto destinado a Marketing (Comercializacion BP)</div>
-                              <div style={{fontSize:"1.6rem",fontWeight:800,color:presupuestoBP>0?"#22d3a0":"#6b7394",letterSpacing:"-0.02em"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP cargado"}</div>
-                              {presupuestoBP>0&&<div style={{fontSize:"0.75rem",color:"#6b7394",marginTop:2}}>Extraido automaticamente del Business Plan</div>}
+                              <div style={{fontSize:"0.7rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto destinado a Marketing (Comercializacion BP)</div>
+                              <div style={{fontSize:"1.6rem",fontWeight:800,color:presupuestoBP>0?"#4ca99a":"#6B7A8A",letterSpacing:"-0.02em"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP cargado"}</div>
+                              {presupuestoBP>0&&<div style={{fontSize:"0.75rem",color:"#6B7A8A",marginTop:2}}>Extraido automaticamente del Business Plan</div>}
                             </div>
                           </div>
-                          {!presupuestoBP&&<div style={{fontSize:"0.78rem",color:"#4f8ef7"}}>Importa el BP para ver el presupuesto</div>}
+                          {!presupuestoBP&&<div style={{fontSize:"0.78rem",color:"#c9a86c"}}>Importa el BP para ver el presupuesto</div>}
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:18}}>
-                          <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
-                            <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Total planificado</div>
-                            <div style={{fontSize:"1.3rem",fontWeight:800,color:"#4f8ef7"}}>{fmtEur(totalPlanificado)}</div>
-                            <div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{mkt.partidas.length} partidas</div>
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"14px 16px"}}>
+                            <div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Total planificado</div>
+                            <div style={{fontSize:"1.3rem",fontWeight:800,color:"#c9a86c"}}>{fmtEur(totalPlanificado)}</div>
+                            <div style={{fontSize:"0.7rem",color:"#6B7A8A",marginTop:2}}>{mkt.partidas.length} partidas</div>
                           </div>
-                          <div style={{background:"#141720",borderRadius:12,border:"1px solid "+(restante<0?"rgba(240,90,90,0.3)":"#252a3a"),padding:"14px 16px"}}>
-                            <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante disponible</div>
-                            <div style={{fontSize:"1.3rem",fontWeight:800,color:presupuestoBP===0?"#6b7394":restante<0?"#f05a5a":"#22d3a0"}}>{presupuestoBP>0?fmtEur(restante):"-"}</div>
-                            {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#f05a5a":"#6b7394",marginTop:2}}>{restante<0?"Excedido":"Disponible"}</div>}
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid "+(restante<0?"rgba(224,90,90,0.3)":"#DDD8CF"),padding:"14px 16px"}}>
+                            <div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>Restante disponible</div>
+                            <div style={{fontSize:"1.3rem",fontWeight:800,color:presupuestoBP===0?"#6B7A8A":restante<0?"#e05a5a":"#4ca99a"}}>{presupuestoBP>0?fmtEur(restante):"-"}</div>
+                            {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:restante<0?"#e05a5a":"#6B7A8A",marginTop:2}}>{restante<0?"Excedido":"Disponible"}</div>}
                           </div>
-                          <div style={{background:"#141720",borderRadius:12,border:"1px solid "+(pctUsado>100?"rgba(240,90,90,0.3)":pctUsado>80?"rgba(245,200,66,0.3)":"#252a3a"),padding:"14px 16px"}}>
-                            <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% del presupuesto usado</div>
-                            <div style={{fontSize:"1.3rem",fontWeight:800,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{presupuestoBP>0?pctUsado+"%":"-"}</div>
-                            {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:2}}>{fmtEur(totalPlanificado)} de {fmtEur(presupuestoBP)}</div>}
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid "+(pctUsado>100?"rgba(224,90,90,0.3)":pctUsado>80?"rgba(221,185,106,0.3)":"#DDD8CF"),padding:"14px 16px"}}>
+                            <div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>% del presupuesto usado</div>
+                            <div style={{fontSize:"1.3rem",fontWeight:800,color:pctUsado>100?"#e05a5a":pctUsado>80?"#ddb96a":"#4ca99a"}}>{presupuestoBP>0?pctUsado+"%":"-"}</div>
+                            {presupuestoBP>0&&<div style={{fontSize:"0.7rem",color:"#6B7A8A",marginTop:2}}>{fmtEur(totalPlanificado)} de {fmtEur(presupuestoBP)}</div>}
                           </div>
                         </div>
                         {presupuestoBP>0&&(
-                          <div style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"14px 18px",marginBottom:16}}>
-                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:"0.78rem",color:"#6b7394"}}>Gasto vs presupuesto BP</span><span style={{fontSize:"0.82rem",fontWeight:700,color:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#22d3a0"}}>{fmtEur(totalPlanificado)} / {fmtEur(presupuestoBP)}</span></div>
-                            <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(pctUsado,100)+"%",background:pctUsado>100?"#f05a5a":pctUsado>80?"#f5c842":"#4f8ef7",borderRadius:5}}/></div>
+                          <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"14px 18px",marginBottom:16}}>
+                            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:"0.78rem",color:"#6B7A8A"}}>Gasto vs presupuesto BP</span><span style={{fontSize:"0.82rem",fontWeight:700,color:pctUsado>100?"#e05a5a":pctUsado>80?"#ddb96a":"#4ca99a"}}>{fmtEur(totalPlanificado)} / {fmtEur(presupuestoBP)}</span></div>
+                            <div style={{height:10,background:"#F0EEE9",borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(pctUsado,100)+"%",background:pctUsado>100?"#e05a5a":pctUsado>80?"#ddb96a":"#c9a86c",borderRadius:5}}/></div>
                           </div>
                         )}
                         {/* Monthly timeline view if PPTO data available */}
@@ -1891,19 +2072,19 @@ export default function Overview(){
                             mkt.partidas.forEach(p=>(p.monthly||[]).forEach(m=>{if(m.amount>0) allMeses[m.iso]=m.label;}));
                             const mesesSorted=Object.keys(allMeses).sort().map(iso=>({iso,label:allMeses[iso]}));
                             return (
-                              <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden"}}>
-                                <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
+                              <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",overflow:"hidden"}}>
+                                <div style={{padding:"12px 18px",borderBottom:"1px solid #DDD8CF",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between"}}>
                                   <span>Planificacion mensual</span>
-                                  <span style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:400}}>{mesesSorted.length} meses activos</span>
+                                  <span style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:400}}>{mesesSorted.length} meses activos</span>
                                 </div>
                                 <div style={{overflowX:"auto"}}>
                                   <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.75rem",minWidth:800}}>
                                     <thead>
-                                      <tr style={{background:"#1c2030",borderBottom:"2px solid #252a3a"}}>
-                                        <th style={{textAlign:"left",padding:"8px 14px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:200}}>Accion / Proveedor</th>
-                                        <th style={{textAlign:"right",padding:"8px 10px",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:90}}>Total</th>
+                                      <tr style={{background:"#F0EEE9",borderBottom:"2px solid #DDD8CF"}}>
+                                        <th style={{textAlign:"left",padding:"8px 14px",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:200}}>Accion / Proveedor</th>
+                                        <th style={{textAlign:"right",padding:"8px 10px",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:90}}>Total</th>
                                         {mesesSorted.map(m=>(
-                                          <th key={m.iso} style={{textAlign:"right",padding:"8px 6px",color:"#4f8ef7",fontWeight:700,minWidth:70,whiteSpace:"nowrap"}}>{m.label}</th>
+                                          <th key={m.iso} style={{textAlign:"right",padding:"8px 6px",color:"#c9a86c",fontWeight:700,minWidth:70,whiteSpace:"nowrap"}}>{m.label}</th>
                                         ))}
                                       </tr>
                                     </thead>
@@ -1914,20 +2095,20 @@ export default function Overview(){
                                         data.items.forEach(it=>(it.monthly||[]).forEach(m=>{if(m.amount) catByMes[m.iso]=(catByMes[m.iso]||0)+m.amount;}));
                                         return [
                                           // ── TIPO CAMPAÑA header ── aparece UNA sola vez
-                                          <tr key={cat+"_hdr"} style={{background:"rgba(167,139,250,0.12)",borderTop:ci>0?"2px solid #252a3a":"none"}}>
+                                          <tr key={cat+"_hdr"} style={{background:"rgba(148,163,184,0.12)",borderTop:ci>0?"2px solid #DDD8CF":"none"}}>
                                             <td colSpan={2+mesesSorted.length} style={{padding:"9px 14px"}}>
                                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                                                <span style={{fontWeight:700,color:"#a78bfa",fontSize:"0.82rem",textTransform:"uppercase",letterSpacing:"0.05em"}}>{cat}</span>
-                                                <span style={{fontWeight:700,color:"#a78bfa",fontSize:"0.82rem"}}>{fmtEur(catTotal)}</span>
+                                                <span style={{fontWeight:700,color:"#94a3b8",fontSize:"0.82rem",textTransform:"uppercase",letterSpacing:"0.05em"}}>{cat}</span>
+                                                <span style={{fontWeight:700,color:"#94a3b8",fontSize:"0.82rem"}}>{fmtEur(catTotal)}</span>
                                               </div>
                                             </td>
                                           </tr>,
                                           // ── Fila de totales mensuales del tipo ──
-                                          <tr key={cat+"_subtot"} style={{background:"rgba(167,139,250,0.05)",borderBottom:"1px solid #252a3a"}}>
-                                            <td style={{padding:"5px 14px 5px 20px",fontSize:"0.7rem",color:"#6b7394",fontStyle:"italic"}}>{data.items.length} acciones</td>
-                                            <td style={{textAlign:"right",padding:"5px 10px",fontWeight:600,color:"#a78bfa",fontSize:"0.75rem"}}>{fmtEur(catTotal)}</td>
+                                          <tr key={cat+"_subtot"} style={{background:"rgba(148,163,184,0.05)",borderBottom:"1px solid #DDD8CF"}}>
+                                            <td style={{padding:"5px 14px 5px 20px",fontSize:"0.7rem",color:"#6B7A8A",fontStyle:"italic"}}>{data.items.length} acciones</td>
+                                            <td style={{textAlign:"right",padding:"5px 10px",fontWeight:600,color:"#94a3b8",fontSize:"0.75rem"}}>{fmtEur(catTotal)}</td>
                                             {mesesSorted.map(m=>(
-                                              <td key={m.iso} style={{textAlign:"right",padding:"5px 6px",color:catByMes[m.iso]?"#a78bfa":"#1c2030",fontWeight:600,fontSize:"0.72rem"}}>
+                                              <td key={m.iso} style={{textAlign:"right",padding:"5px 6px",color:catByMes[m.iso]?"#94a3b8":"#F0EEE9",fontWeight:600,fontSize:"0.72rem"}}>
                                                 {catByMes[m.iso]?fmtEur(catByMes[m.iso]):""}
                                               </td>
                                             ))}
@@ -1936,15 +2117,15 @@ export default function Overview(){
                                           ...data.items.map((item,ii)=>{
                                             const byMes={};(item.monthly||[]).forEach(m=>{if(m.amount) byMes[m.iso]=m.amount;});
                                             return (
-                                              <tr key={cat+ii} style={{borderBottom:"1px solid #1c2030"}}
-                                                onMouseEnter={e=>e.currentTarget.style.background="#1a1e2c"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                              <tr key={cat+ii} style={{borderBottom:"1px solid #E8E2D8"}}
+                                                onMouseEnter={e=>e.currentTarget.style.background="#EDE8DF"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                                 <td style={{padding:"7px 14px 7px 26px"}}>
                                                   <div style={{fontWeight:500,fontSize:"0.8rem"}}>{item.accion}</div>
-                                                  {item.proveedor&&<div style={{fontSize:"0.68rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                                                  {item.proveedor&&<div style={{fontSize:"0.68rem",color:"#6B7A8A",marginTop:1}}>{item.proveedor}</div>}
                                                 </td>
-                                                <td style={{textAlign:"right",padding:"7px 10px",fontWeight:600,color:"#4f8ef7",fontSize:"0.8rem",whiteSpace:"nowrap"}}>{fmtEur(item.total)}</td>
+                                                <td style={{textAlign:"right",padding:"7px 10px",fontWeight:600,color:"#c9a86c",fontSize:"0.8rem",whiteSpace:"nowrap"}}>{fmtEur(item.total)}</td>
                                                 {mesesSorted.map(m=>(
-                                                  <td key={m.iso} style={{textAlign:"right",padding:"7px 6px",color:byMes[m.iso]?"#22d3a0":"#252a3a",fontWeight:byMes[m.iso]?600:400,fontSize:"0.75rem"}}>
+                                                  <td key={m.iso} style={{textAlign:"right",padding:"7px 6px",color:byMes[m.iso]?"#4ca99a":"#DDD8CF",fontWeight:byMes[m.iso]?600:400,fontSize:"0.75rem"}}>
                                                     {byMes[m.iso]?fmtEur(byMes[m.iso]):"-"}
                                                   </td>
                                                 ))}
@@ -1953,12 +2134,12 @@ export default function Overview(){
                                           })
                                         ];
                                       })}
-                                      <tr style={{background:"#1c2030",fontWeight:700,borderTop:"2px solid #4f8ef7"}}>
-                                        <td style={{padding:"9px 14px",color:"#e8eaf2",fontSize:"0.82rem"}}>TOTAL GENERAL</td>
-                                        <td style={{textAlign:"right",padding:"9px 10px",color:"#4f8ef7",fontSize:"0.84rem"}}>{fmtEur(totalPlanificado)}</td>
+                                      <tr style={{background:"#F0EEE9",fontWeight:700,borderTop:"2px solid #4f8ef7"}}>
+                                        <td style={{padding:"9px 14px",color:"#1E2D4E",fontSize:"0.82rem"}}>TOTAL GENERAL</td>
+                                        <td style={{textAlign:"right",padding:"9px 10px",color:"#c9a86c",fontSize:"0.84rem"}}>{fmtEur(totalPlanificado)}</td>
                                         {mesesSorted.map(m=>{
                                           const tot=mkt.partidas.reduce((a,p)=>a+((p.monthly||[]).find(mm=>mm.iso===m.iso)?((p.monthly||[]).find(mm=>mm.iso===m.iso).amount):0),0);
-                                          return <td key={m.iso} style={{textAlign:"right",padding:"9px 6px",color:tot>0?"#f5c842":"#252a3a",fontWeight:700,fontSize:"0.75rem"}}>{tot>0?fmtEur(tot):"-"}</td>;
+                                          return <td key={m.iso} style={{textAlign:"right",padding:"9px 6px",color:tot>0?"#ddb96a":"#DDD8CF",fontWeight:700,fontSize:"0.75rem"}}>{tot>0?fmtEur(tot):"-"}</td>;
                                         })}
                                       </tr>
                                     </tbody>
@@ -1969,24 +2150,24 @@ export default function Overview(){
                           }
                           // Fallback: simple list view (Lanzamiento format)
                           return (
-                            <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",overflow:"hidden"}}>
-                              <div style={{padding:"12px 18px",borderBottom:"1px solid #252a3a",fontWeight:700,fontSize:"0.86rem"}}>Por categoria</div>
+                            <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",overflow:"hidden"}}>
+                              <div style={{padding:"12px 18px",borderBottom:"1px solid #DDD8CF",fontWeight:700,fontSize:"0.86rem"}}>Por categoria</div>
                               {Object.entries(byCat).map(([cat,data],ci)=>(
-                                <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #1c2030":"none"}}>
-                                  <div style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"10px 18px",background:"#1a1e2c",alignItems:"center"}}>
+                                <div key={cat} style={{borderBottom:ci<Object.keys(byCat).length-1?"1px solid #E8E2D8":"none"}}>
+                                  <div style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"10px 18px",background:"#EDE8DF",alignItems:"center"}}>
                                     <div style={{fontWeight:600,fontSize:"0.84rem"}}>{cat}</div>
-                                    <div style={{fontSize:"0.82rem",fontWeight:700,color:"#4f8ef7"}}>{fmtEur(data.total)}</div>
-                                    <div style={{fontSize:"0.75rem",color:"#6b7394"}}>{data.items.length} partidas</div>
+                                    <div style={{fontSize:"0.82rem",fontWeight:700,color:"#c9a86c"}}>{fmtEur(data.total)}</div>
+                                    <div style={{fontSize:"0.75rem",color:"#6B7A8A"}}>{data.items.length} partidas</div>
                                   </div>
                                   {data.items.map((item,ii)=>(
-                                    <div key={ii} style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #1c2030",alignItems:"center"}}
-                                      onMouseEnter={e=>e.currentTarget.style.background="#1c2030"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                                    <div key={ii} style={{display:"grid",gridTemplateColumns:"1.8fr 0.8fr 1.2fr",padding:"7px 18px 7px 32px",borderTop:"1px solid #E8E2D8",alignItems:"center"}}
+                                      onMouseEnter={e=>e.currentTarget.style.background="#F0EEE9"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                                       <div>
                                         <div style={{fontSize:"0.8rem"}}>{item.accion}{item.detalle?" - "+item.detalle:""}</div>
-                                        {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6b7394",marginTop:1}}>{item.proveedor}</div>}
+                                        {item.proveedor&&<div style={{fontSize:"0.7rem",color:"#6B7A8A",marginTop:1}}>{item.proveedor}</div>}
                                       </div>
                                       <div style={{fontSize:"0.8rem",fontWeight:600}}>{fmtEur(item.total)}</div>
-                                      <div style={{fontSize:"0.72rem",color:"#6b7394"}}>{item.inicio||item.fin?((!item.inicio||!item.fin)?fmt(item.inicio||item.fin):(fmt(item.inicio)+" - "+fmt(item.fin))):"-"}</div>
+                                      <div style={{fontSize:"0.72rem",color:"#6B7A8A"}}>{item.inicio||item.fin?((!item.inicio||!item.fin)?fmt(item.inicio||item.fin):(fmt(item.inicio)+" - "+fmt(item.fin))):"-"}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -2003,7 +2184,7 @@ export default function Overview(){
               {tab==="comercial"&&(()=>{
                 const m=proj.master;
                 const absorcionPct=st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0;
-                const absorcionColor=absorcionPct>60?"#22d3a0":absorcionPct>30?"#f5c842":"#f05a5a";
+                const absorcionColor=absorcionPct>60?"#4ca99a":absorcionPct>30?"#ddb96a":"#e05a5a";
                 // Master-derived metrics
                 const ingresosCom=m?m.ventas.filter(v=>v.status==="reservada"||v.status==="vendida").reduce((a,v)=>a+v.precio,0):st.ingresosVR;
                 const comisionTotal=m?m.ventas.reduce((a,v)=>a+(v.comision||0),0):0;
@@ -2021,68 +2202,68 @@ export default function Overview(){
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
                       {[
                         {label:"Total unidades",val:st.total||0},
-                        {label:"Reservadas",val:st.reservadas,color:"#f5c842"},
-                        {label:"Escrituradas/Vendidas",val:st.vendidas,color:"#22d3a0"},
-                        {label:"Disponibles",val:st.disponibles,color:"#4f8ef7"},
+                        {label:"Reservadas",val:st.reservadas,color:"#ddb96a"},
+                        {label:"Escrituradas/Vendidas",val:st.vendidas,color:"#4ca99a"},
+                        {label:"Disponibles",val:st.disponibles,color:"#c9a86c"},
                         {label:"Precio medio VIV",val:fmtEur(st.precioMedio),sub:st.precioMedioParc?"Parcelas: "+fmtEur(st.precioMedioParc):""},
-                        {label:"Ingresos comprometidos",val:fmtEur(ingresosCom),color:"#22d3a0"},
-                        {label:"Rescisiones",val:rescisiones,color:rescisiones>0?"#f05a5a":"#6b7394"},
-                        {label:"Incremento medio repricing",val:incrementoMedio>0?fmtEur(incrementoMedio):"-",color:"#f5c842"},
+                        {label:"Ingresos comprometidos",val:fmtEur(ingresosCom),color:"#4ca99a"},
+                        {label:"Rescisiones",val:rescisiones,color:rescisiones>0?"#e05a5a":"#6B7A8A"},
+                        {label:"Incremento medio repricing",val:incrementoMedio>0?fmtEur(incrementoMedio):"-",color:"#ddb96a"},
                       ].map(k=>(
-                        <div key={k.label} style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"14px 16px"}}>
-                          <div style={{fontSize:"0.62rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{k.label}</div>
-                          <div style={{fontSize:"1.25rem",fontWeight:800,color:k.color||"#e8eaf2"}}>{k.val}</div>
-                          {k.sub&&<div style={{fontSize:"0.68rem",color:"#6b7394",marginTop:3}}>{k.sub}</div>}
+                        <div key={k.label} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"14px 16px"}}>
+                          <div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{k.label}</div>
+                          <div style={{fontSize:"1.25rem",fontWeight:800,color:k.color||"#1E2D4E"}}>{k.val}</div>
+                          {k.sub&&<div style={{fontSize:"0.68rem",color:"#6B7A8A",marginTop:3}}>{k.sub}</div>}
                         </div>
                       ))}
                     </div>
 
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
+                      <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}>
-                          <span style={{fontSize:"0.78rem",color:"#6b7394",fontWeight:500}}>Absorcion (reservadas + vendidas)</span>
+                          <span style={{fontSize:"0.78rem",color:"#6B7A8A",fontWeight:500}}>Absorcion (reservadas + vendidas)</span>
                           <span style={{fontSize:"0.92rem",fontWeight:800,color:absorcionColor}}>{absorcionPct}%</span>
                         </div>
-                        <div style={{height:10,background:"#1c2030",borderRadius:5,overflow:"hidden",marginBottom:10}}>
+                        <div style={{height:10,background:"#F0EEE9",borderRadius:5,overflow:"hidden",marginBottom:10}}>
                           <div style={{height:"100%",width:absorcionPct+"%",background:absorcionColor,borderRadius:5}}/>
                         </div>
-                        <div style={{display:"flex",gap:16,fontSize:"0.75rem",color:"#6b7394"}}>
-                          <span style={{color:"#f5c842"}}>{st.reservadas} reservadas</span>
-                          <span style={{color:"#22d3a0"}}>{st.vendidas} escrituradas</span>
-                          <span style={{color:"#4f8ef7"}}>{st.disponibles} disponibles</span>
+                        <div style={{display:"flex",gap:16,fontSize:"0.75rem",color:"#6B7A8A"}}>
+                          <span style={{color:"#ddb96a"}}>{st.reservadas} reservadas</span>
+                          <span style={{color:"#4ca99a"}}>{st.vendidas} escrituradas</span>
+                          <span style={{color:"#c9a86c"}}>{st.disponibles} disponibles</span>
                         </div>
                       </div>
 
-                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
-                        <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Financiero</div>
+                      <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px"}}>
+                        <div style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Financiero</div>
                         {[
                           {l:"Ingresos potenciales totales",v:fmtEur(st.ingresosTotal)},
-                          {l:"Ingresos comprometidos",v:fmtEur(ingresosCom),c:"#22d3a0"},
+                          {l:"Ingresos comprometidos",v:fmtEur(ingresosCom),c:"#4ca99a"},
                           {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
                           {l:"Presupuesto proyecto",v:proj.presupuesto||"-"},
                           {l:"Comercializadora",v:proj.comercializadora||"-"},
                           {l:"Entrega prevista",v:fmt(proj.fechaEntrega)},
                         ].map(f=>(
-                          <div key={f.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #1c2030",fontSize:"0.8rem"}}>
-                            <span style={{color:"#6b7394"}}>{f.l}</span>
-                            <span style={{fontWeight:600,color:f.c||"#e8eaf2"}}>{f.v}</span>
+                          <div key={f.l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #E8E2D8",fontSize:"0.8rem"}}>
+                            <span style={{color:"#6B7A8A"}}>{f.l}</span>
+                            <span style={{fontWeight:600,color:f.c||"#1E2D4E"}}>{f.v}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
                     {agList.length>0&&(
-                      <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"16px 20px"}}>
-                        <div style={{fontSize:"0.72rem",color:"#6b7394",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Ventas por agencia</div>
+                      <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px"}}>
+                        <div style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Ventas por agencia</div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                           {agList.map(([ag,n])=>{
                             const pctAg=st.reservadas+st.vendidas>0?Math.round(n/(st.reservadas+st.vendidas)*100):0;
                             return (
-                              <div key={ag} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
+                              <div key={ag} style={{background:"#F0EEE9",borderRadius:8,padding:"10px 12px"}}>
                                 <div style={{fontSize:"0.78rem",fontWeight:600,marginBottom:4}}>{ag||"Directa"}</div>
                                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                                  <span style={{fontSize:"1rem",fontWeight:800,color:"#4f8ef7"}}>{n}</span>
-                                  <span style={{fontSize:"0.72rem",color:"#6b7394"}}>{pctAg}%</span>
+                                  <span style={{fontSize:"1rem",fontWeight:800,color:"#c9a86c"}}>{n}</span>
+                                  <span style={{fontSize:"0.72rem",color:"#6B7A8A"}}>{pctAg}%</span>
                                 </div>
                               </div>
                             );
@@ -2096,51 +2277,16 @@ export default function Overview(){
 
               {tab==="equipo"&&(
                 <div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,gap:10,flexWrap:"wrap"}}>
-                    <div style={{fontWeight:700,fontSize:"0.92rem"}}>Datos del proyecto - {proj.name}</div>
-                    <label style={{background:"transparent",border:"1px solid rgba(79,142,247,0.4)",color:"#4f8ef7",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,display:"inline-flex",alignItems:"center",gap:5}}>
-                      {kickoffImporting?"Leyendo documento...":"Importar Kick Off (.docx)"}
-                      <input type="file" accept=".docx" onChange={handleKickoffFile} style={{display:"none"}} disabled={kickoffImporting}/>
-                    </label>
-                  </div>
-
-                  <div style={{fontSize:"0.7rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:10}}>Datos generales</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:24}}>
-                    {[{l:"Ubicacion",v:proj.ubicacion||"-"},{l:"Zona",v:proj.zona||"-"},{l:"Estado",v:(ESTADOS[proj.estado]||{}).label||proj.estado||"-"},{l:"Fecha entrega",v:proj.fechaEntrega?fmt(proj.fechaEntrega):"-"},{l:"Presupuesto",v:proj.presupuesto||"-"},{l:"Coste actual",v:proj.costeActual||"-"},{l:"Comercializadora",v:proj.comercializadora||"-"},{l:"Ultima actualizacion",v:proj.ultimaActualizacion?fmt(proj.ultimaActualizacion):"-"}].map(x=>(
-                      <div key={x.l} style={{background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"10px 14px"}}>
-                        <div style={{fontSize:"0.6rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{x.l}</div>
-                        <div style={{fontSize:"0.86rem",fontWeight:700}}>{x.v}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{fontSize:"0.7rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:10}}>Equipo</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13,marginBottom:26}}>
-                    {[{rol:"Project Owner (Overview)",persona:proj.projectOwner,desc:"Responsable global. Coordinacion transversal, decisiones clave.",color:"#4f8ef7"},{rol:"PM Tecnico (BSA)",persona:proj.pmTecnico,desc:"Proyecto, obra, licencias. Exclusivamente tecnico.",color:"#22d3a0"},{rol:"Responsable Comercial",persona:proj.responsableComercial,desc:"Pricing, estrategia, posicionamiento, direccion comercializadora.",color:"#f5c842"},{rol:"Comercializadora",persona:proj.comercializadora||"Sin asignar",desc:"Ejecucion ventas, atencion leads, reporte semanal.",color:"#f5924e"},{rol:"Arquitectura",persona:proj.arquitectura,desc:"Proyecto basico/ejecucion, licencias, direccion de obra.",color:"#a78bfa"},{rol:"Financiero",persona:proj.financiero,desc:"Business plan, tesoreria, financiacion.",color:"#4f8ef7"},{rol:"Contabilidad / Fiscal",persona:proj.contableFiscal,desc:"Contabilidad de la SPV, facturacion, obligaciones fiscales.",color:"#22d3a0"},{rol:"Marketing",persona:proj.marketingResp||"Sin asignar",desc:"Posicionamiento, identidad visual, campanas.",color:"#f5c842"},{rol:"Juridico",persona:proj.juridico||"Sin asignar",desc:"Contratos de reserva/compraventa, asesoramiento legal.",color:"#f05a5a"}].map(r=>(
-                      <div key={r.rol} style={{background:"#141720",borderRadius:12,border:"1px solid "+r.color+"20",padding:"17px 19px"}}>
+                  <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Estructura de equipo - {proj.name}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:13}}>
+                    {[{rol:"Project Owner (Overview)",persona:proj.projectOwner,desc:"Responsable global. Coordinacion transversal, decisiones clave.",color:"#c9a86c"},{rol:"PM Tecnico (BSA)",persona:proj.pmTecnico,desc:"Proyecto, obra, licencias. Exclusivamente tecnico.",color:"#4ca99a"},{rol:"Responsable Comercial",persona:proj.responsableComercial,desc:"Pricing, estrategia, posicionamiento, direccion comercializadora.",color:"#ddb96a"},{rol:"Comercializadora",persona:proj.comercializadora||"Sin asignar",desc:"Ejecucion ventas, atencion leads, reporte semanal.",color:"#f5924e"}].map(r=>(
+                      <div key={r.rol} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid "+r.color+"20",padding:"17px 19px"}}>
                         <div style={{fontSize:"0.62rem",color:r.color,textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700,marginBottom:7}}>{r.rol}</div>
                         <div style={{fontWeight:700,fontSize:"0.98rem",marginBottom:7}}>{r.persona||"-"}</div>
-                        <div style={{fontSize:"0.74rem",color:"#6b7394",lineHeight:1.55}}>{r.desc}</div>
+                        <div style={{fontSize:"0.74rem",color:"#6B7A8A",lineHeight:1.55}}>{r.desc}</div>
                       </div>
                     ))}
                   </div>
-
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                    <div><div style={{fontWeight:700,fontSize:"0.92rem"}}>Documentacion y licencias</div><div style={{fontSize:"0.73rem",color:"#6b7394",marginTop:2}}>Click en el estado para avanzarlo</div></div>
-                    <Btn onClick={openNewDoc} sm>+ Anadir</Btn>
-                  </div>
-                  {(!proj.documentos||proj.documentos.length===0)&&<div style={{color:"#6b7394",fontSize:"0.84rem"}}>Sin documentos registrados.</div>}
-                  {(proj.documentos||[]).map((d,idx)=>{
-                    const ds=DOC_ESTADOS[d.estado]||DOC_ESTADOS.pendiente;
-                    return (
-                      <div key={idx} style={{display:"flex",alignItems:"center",gap:11,background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"11px 15px",marginBottom:7}}>
-                        <div onClick={()=>cycleDoc(idx)} style={{cursor:"pointer",fontSize:"0.71rem",fontWeight:700,padding:"3px 10px",borderRadius:8,background:ds.bg,color:ds.color,whiteSpace:"nowrap"}}>{ds.label}</div>
-                        <div style={{flex:1,fontSize:"0.83rem"}}>{d.nombre}</div>
-                        <div style={{fontSize:"0.71rem",padding:"2px 7px",borderRadius:8,background:"#1c2030",border:"1px solid #252a3a",color:"#6b7394",whiteSpace:"nowrap"}}>{d.responsable||"Sin asignar"}</div>
-                        <div style={{display:"flex",gap:5}}><Btn onClick={()=>openEditDoc(d,idx)} sm>edit</Btn><Btn onClick={()=>delDoc(idx)} v="danger" sm>x</Btn></div>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
 
@@ -2148,14 +2294,14 @@ export default function Overview(){
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div style={{fontWeight:700,fontSize:"0.92rem"}}>Alertas y bloqueos</div><Btn onClick={openNewB} sm>+ Anadir</Btn></div>
                   {proj.blockers.length===0&&(
-                    <div style={{padding:"18px",color:"#22d3a0",fontSize:"0.86rem",background:"rgba(34,211,160,0.05)",borderRadius:12,border:"1px solid rgba(34,211,160,0.2)"}}>Sin bloqueos activos</div>
+                    <div style={{padding:"18px",color:"#4ca99a",fontSize:"0.86rem",background:"rgba(76,169,154,0.05)",borderRadius:12,border:"1px solid rgba(76,169,154,0.2)"}}>Sin bloqueos activos</div>
                   )}
                   {proj.blockers.map((b,i)=>{
                     const bs=BLOCK_ST[b.tipo]||BLOCK_ST.info;
                     return (
                       <div key={i} style={{display:"flex",alignItems:"flex-start",gap:13,background:bs.bg,borderRadius:12,border:"1px solid "+bs.border,padding:"15px 18px",marginBottom:9}}>
                         <div style={{fontSize:"1.15rem",flexShrink:0,marginTop:2}}>{bs.icon}</div>
-                        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:4}}>{b.titulo}</div><div style={{fontSize:"0.77rem",color:"#6b7394",marginBottom:5}}>{b.desc}</div><div style={{fontSize:"0.71rem",color:"#6b7394"}}>Responsable: <span style={{color:"#e8eaf2"}}>{b.responsable}</span></div></div>
+                        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:4}}>{b.titulo}</div><div style={{fontSize:"0.77rem",color:"#6B7A8A",marginBottom:5}}>{b.desc}</div><div style={{fontSize:"0.71rem",color:"#6B7A8A"}}>Responsable: <span style={{color:"#1E2D4E"}}>{b.responsable}</span></div></div>
                         <div style={{display:"flex",gap:5}}><Btn onClick={()=>openEditB(b,i)} sm>edit</Btn><Btn onClick={()=>delB(i)} v="danger" sm>x</Btn></div>
                       </div>
                     );
@@ -2163,17 +2309,61 @@ export default function Overview(){
                 </div>
               )}
 
+              {tab==="seguimiento"&&(
+                <div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:"0.92rem"}}>Seguimiento del proyecto</div>
+                      <div style={{fontSize:"0.74rem",color:"#6B7A8A",marginTop:2}}>Checklist de control extraído de la ficha de seguimiento — {seguimientoItems.filter(t=>t.done).length}/{seguimientoItems.length} completados</div>
+                    </div>
+                  </div>
+                  {(()=>{
+                    const areas=[...new Set(seguimientoItems.map(t=>{const m=t.texto.match(/^\[([^\]]+)\]/);return m?m[1]:"OTROS";}))];
+                    return areas.map(area=>{
+                      const items=seguimientoItems.filter(t=>{const m=t.texto.match(/^\[([^\]]+)\]/);return (m?m[1]:"OTROS")===area;});
+                      const done=items.filter(t=>t.done).length;
+                      const pctA=Math.round(done/items.length*100);
+                      const areaColors={"GOBIERNO":"#7c5cfc","LEGAL":"#c9a86c","URBANISMO":"#4ca99a","TÉCNICA":"#e05a5a","FINANCIERA":"#1E2D4E","FINANCIACIÓN":"#ddb96a","COMERCIAL":"#4ca99a"};
+                      const aColor=areaColors[area]||"#6B7A8A";
+                      return (
+                        <div key={area} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",marginBottom:12,overflow:"hidden"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",borderBottom:"1px solid #DDD8CF",background:"rgba(240,238,233,0.5)"}}>
+                            <div style={{width:3,height:20,borderRadius:2,background:aColor,flexShrink:0}}/>
+                            <div style={{fontWeight:700,fontSize:"0.83rem",flex:1}}>{area}</div>
+                            <div style={{fontSize:"0.72rem",color:"#6B7A8A",marginRight:8}}>{done}/{items.length}</div>
+                            <div style={{width:80,height:4,background:"#DDD8CF",borderRadius:2,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:pctA+"%",background:pctA===100?"#4ca99a":aColor,borderRadius:2,transition:"width 0.3s"}}/>
+                            </div>
+                            <div style={{fontSize:"0.7rem",fontWeight:700,color:pctA===100?"#4ca99a":aColor,minWidth:32,textAlign:"right"}}>{pctA}%</div>
+                          </div>
+                          {items.map(t=>{
+                            const label=t.texto.replace(/^\[[^\]]+\]\s*/,"");
+                            return (
+                              <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px",borderBottom:"1px solid #F0EEE9"}}>
+                                <div onClick={()=>togT(t.id)} style={{width:16,height:16,borderRadius:4,border:"2px solid "+(t.done?"#4ca99a":"#DDD8CF"),background:t.done?"#4ca99a":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.58rem",color:"#F7F6F3",fontWeight:900,flexShrink:0}}>{t.done?"✓":""}</div>
+                                <div style={{flex:1,fontSize:"0.81rem",textDecoration:t.done?"line-through":"none",color:t.done?"#6B7A8A":"#1E2D4E"}}>{label}</div>
+                                <div style={{width:8,height:8,borderRadius:"50%",background:PRIO_CLR[t.prioridad]||"#ddb96a",flexShrink:0}}/>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+
               {tab==="tareas"&&(
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div style={{fontWeight:700,fontSize:"0.92rem"}}>Tareas</div><Btn onClick={openNewT} sm>+ Nueva</Btn></div>
-                  {proj.tareas.length===0&&<div style={{color:"#6b7394",fontSize:"0.84rem"}}>No hay tareas aun.</div>}
-                  {proj.tareas.map(t=>(
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:11,background:"#141720",borderRadius:10,border:"1px solid #252a3a",padding:"11px 15px",marginBottom:7}}>
-                      <div style={{width:5,height:5,borderRadius:"50%",background:PRIO_CLR[t.prioridad]||"#f5c842",flexShrink:0}}/>
-                      <div onClick={()=>togT(t.id)} style={{width:17,height:17,borderRadius:5,border:"2px solid "+(t.done?"#22d3a0":"#252a3a"),background:t.done?"#22d3a0":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",color:"#0d0f14",fontWeight:900,flexShrink:0}}>{t.done?"v":""}</div>
-                      <div style={{flex:1,fontSize:"0.83rem",textDecoration:t.done?"line-through":"none",color:t.done?"#6b7394":"#e8eaf2"}}>{t.texto}</div>
-                      <div style={{fontSize:"0.71rem",padding:"2px 7px",borderRadius:8,background:"#1c2030",border:"1px solid #252a3a",color:"#6b7394",whiteSpace:"nowrap"}}>{t.responsable}</div>
-                      <div style={{fontSize:"0.71rem",color:"#6b7394",whiteSpace:"nowrap"}}>{fmt(t.vencimiento)}</div>
+                  {tareasLibres.length===0&&<div style={{color:"#6B7A8A",fontSize:"0.84rem",padding:"16px 0"}}>No hay tareas aún. Usa "+ Nueva" para añadir.</div>}
+                  {tareasLibres.map(t=>(
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:11,background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"11px 15px",marginBottom:7}}>
+                      <div style={{width:5,height:5,borderRadius:"50%",background:PRIO_CLR[t.prioridad]||"#ddb96a",flexShrink:0}}/>
+                      <div onClick={()=>togT(t.id)} style={{width:17,height:17,borderRadius:5,border:"2px solid "+(t.done?"#4ca99a":"#DDD8CF"),background:t.done?"#4ca99a":"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",color:"#F7F6F3",fontWeight:900,flexShrink:0}}>{t.done?"✓":""}</div>
+                      <div style={{flex:1,fontSize:"0.83rem",textDecoration:t.done?"line-through":"none",color:t.done?"#6B7A8A":"#1E2D4E"}}>{t.texto}</div>
+                      <div style={{fontSize:"0.71rem",padding:"2px 7px",borderRadius:8,background:"#F0EEE9",border:"1px solid #DDD8CF",color:"#6B7A8A",whiteSpace:"nowrap"}}>{t.responsable||"Sin asignar"}</div>
+                      <div style={{fontSize:"0.71rem",color:"#6B7A8A",whiteSpace:"nowrap"}}>{fmt(t.vencimiento)}</div>
                       <div style={{display:"flex",gap:5}}><Btn onClick={()=>openEditT(t)} sm>edit</Btn><Btn onClick={()=>delT(t.id)} v="danger" sm>x</Btn></div>
                     </div>
                   ))}
@@ -2182,25 +2372,22 @@ export default function Overview(){
 
               {tab==="reporte"&&(
                 <div>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4,gap:10,flexWrap:"wrap"}}>
-                    <div style={{fontWeight:700,fontSize:"0.92rem"}}>Reporte semanal - {proj.name}</div>
-                    <Btn onClick={exportExcel} v="primary" sm>Exportar Excel</Btn>
-                  </div>
-                  <div style={{fontSize:"0.77rem",color:"#f5c842",marginBottom:18,padding:"8px 12px",background:"rgba(245,200,66,0.06)",borderRadius:8,border:"1px solid rgba(245,200,66,0.2)"}}>Debe completarse por el Project Owner antes de cada reunion semanal</div>
-                  <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px",marginBottom:14}}>
-                    <div style={{fontSize:"0.7rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:9}}>Resumen ejecutivo de la semana</div>
+                  <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:4}}>Reporte semanal - {proj.name}</div>
+                  <div style={{fontSize:"0.77rem",color:"#ddb96a",marginBottom:18,padding:"8px 12px",background:"rgba(221,185,106,0.06)",borderRadius:8,border:"1px solid rgba(221,185,106,0.2)"}}>Debe completarse por el Project Owner antes de cada reunion semanal</div>
+                  <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px",marginBottom:14}}>
+                    <div style={{fontSize:"0.7rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:9}}>Resumen ejecutivo de la semana</div>
                     <textarea value={resumenLocal} onChange={e=>setResumenLocal(e.target.value)} placeholder="Que ha pasado esta semana? Avances, problemas, decisiones tomadas." style={{...CSS.inp,minHeight:100,resize:"vertical",lineHeight:1.6}}/>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
-                      <div style={{fontSize:"0.7rem",color:"#6b7394"}}>Guardado: {proj.ultimaActualizacion?fmt(proj.ultimaActualizacion):"-"}</div>
+                      <div style={{fontSize:"0.7rem",color:"#6B7A8A"}}>Guardado: {proj.ultimaActualizacion?fmt(proj.ultimaActualizacion):"-"}</div>
                       <Btn onClick={saveResumen} v="primary" sm>Guardar resumen</Btn>
                     </div>
                   </div>
-                  <div style={{background:"#141720",borderRadius:12,border:"1px solid #252a3a",padding:"18px"}}>
+                  <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px"}}>
                     <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:13}}>Checklist</div>
                     {[{label:"BP cargado",ok:!!proj.bp},{label:"Marketing planificado",ok:!!proj.marketing},{label:"Viviendas cargadas",ok:st.total>0},{label:"Hitos actualizados",ok:proj.hitos.some(h=>h.estado!=="pendiente")},{label:"Resumen guardado (min 20 chars)",ok:(proj.resumenSemanal||"").length>20},{label:"Tareas asignadas",ok:proj.tareas.length>0&&proj.tareas.every(t=>t.responsable)}].map((item,i,arr)=>(
-                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<arr.length-1?"1px solid #252a3a":"none"}}>
-                        <div style={{width:20,height:20,borderRadius:6,background:item.ok?"rgba(34,211,160,0.12)":"rgba(240,90,90,0.08)",border:"1px solid "+(item.ok?"#22d3a0":"#f05a5a"),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",color:item.ok?"#22d3a0":"#f05a5a",flexShrink:0}}>{item.ok?"v":"x"}</div>
-                        <div style={{fontSize:"0.83rem",color:item.ok?"#e8eaf2":"#6b7394"}}>{item.label}</div>
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<arr.length-1?"1px solid #DDD8CF":"none"}}>
+                        <div style={{width:20,height:20,borderRadius:6,background:item.ok?"rgba(76,169,154,0.12)":"rgba(224,90,90,0.08)",border:"1px solid "+(item.ok?"#4ca99a":"#e05a5a"),display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.68rem",color:item.ok?"#4ca99a":"#e05a5a",flexShrink:0}}>{item.ok?"v":"x"}</div>
+                        <div style={{fontSize:"0.83rem",color:item.ok?"#1E2D4E":"#6B7A8A"}}>{item.label}</div>
                       </div>
                     ))}
                   </div>
@@ -2217,55 +2404,26 @@ export default function Overview(){
       {modal==="tarea"&&<ModalTarea tF={tF} onChange={chTF} onSave={saveT} onClose={()=>setModal(null)} isEdit={!!editId.current}/>}
       {modal==="blocker"&&<ModalBlocker bF={bF} onChange={chBF} onSave={saveB} onClose={()=>setModal(null)}/>}
       {modal==="vivienda"&&<ModalVivienda vF={vF} onChange={chVF} onSave={saveV} onClose={()=>setModal(null)} isEdit={!!editId.current}/>}
-      {modal==="doc"&&<ModalDocumento dF={dF} onChange={chDF} onSave={saveDoc} onClose={()=>setModal(null)} isEdit={docIsEdit.current}/>}
 
       {modal==="bpPreview"&&bpPreview&&(
         <Modal title="Confirmar importacion del Business Plan" onClose={()=>{setModal(null);setBpPreview(null);}} wide>
-          <div style={{fontSize:"0.84rem",color:"#6b7394",marginBottom:18}}>Se importaran los siguientes datos a la promocion <strong style={{color:"#e8eaf2"}}>{proj&&proj.name}</strong>:</div>
+          <div style={{fontSize:"0.84rem",color:"#6B7A8A",marginBottom:18}}>Se importaran los siguientes datos a la promocion <strong style={{color:"#1E2D4E"}}>{proj&&proj.name}</strong>:</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
             {[{l:"Viviendas",v:bpPreview.numViviendas},{l:"Localidad",v:bpPreview.localidad},{l:"GDV (ventas totales)",v:fmtEurM(bpPreview.ventasActual)},{l:"Total gastos",v:fmtEurM(bpPreview.totalGastosActual)},{l:"Beneficio estimado",v:fmtEurM(bpPreview.beneficioActual)},{l:"TIR (pretax)",v:fmtPct(bpPreview.tirActual)},{l:"Margen s/ventas",v:fmtPct(bpPreview.mgvActual)},{l:"Fecha escritura",v:fmt(bpPreview.fechaEntrega)},{l:"Viviendas Lista Precios",v:((bpPreview.viviendas&&bpPreview.viviendas.length)||0)+" unidades"},{l:"Fondos propios",v:fmtEurM(bpPreview.fondosPropios)}].map(x=>(
-              <div key={x.l} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
-                <div style={{fontSize:"0.65rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{x.l}</div>
+              <div key={x.l} style={{background:"#F0EEE9",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{fontSize:"0.65rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{x.l}</div>
                 <div style={{fontWeight:600,fontSize:"0.88rem"}}>{x.v||"-"}</div>
               </div>
             ))}
           </div>
           {bpPreview.viviendas&&bpPreview.viviendas.length>0&&(
-            <div style={{background:"rgba(34,211,160,0.06)",border:"1px solid rgba(34,211,160,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.8rem",color:"#22d3a0"}}>
+            <div style={{background:"rgba(76,169,154,0.06)",border:"1px solid rgba(76,169,154,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.8rem",color:"#4ca99a"}}>
               Se cargaran {bpPreview.viviendas.length} viviendas desde Lista_Precios
             </div>
           )}
           <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
             <Btn onClick={()=>{setModal(null);setBpPreview(null);}}>Cancelar</Btn>
             <Btn onClick={confirmBP} v="primary">Confirmar importacion</Btn>
-          </div>
-        </Modal>
-      )}
-
-      {modal==="kickoffPreview"&&kickoffPreview&&(
-        <Modal title="Confirmar importacion del Kick Off" onClose={()=>{setModal(null);setKickoffPreview(null);}} wide>
-          <div style={{fontSize:"0.84rem",color:"#6b7394",marginBottom:18}}>Se rellenaran estos campos en <strong style={{color:"#e8eaf2"}}>{proj&&proj.name}</strong> (solo si estan vacios, no se pisa nada ya cargado):</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-            {[{l:"Nombre",v:kickoffPreview.name},{l:"Nombre tecnico",v:kickoffPreview.nombreTecnico},{l:"Ubicacion",v:kickoffPreview.ubicacion},{l:"Fecha entrega",v:kickoffPreview.fechaEntrega?fmt(kickoffPreview.fechaEntrega):null},{l:"Inicio comercializacion",v:kickoffPreview.inicioComercializacion},{l:"Demolicion (hito)",v:kickoffPreview.demolicionFecha?fmt(kickoffPreview.demolicionFecha):null},{l:"PM Tecnico",v:kickoffPreview.roles.pmTecnico},{l:"Responsable Comercial",v:kickoffPreview.roles.responsableComercial},{l:"Arquitectura",v:kickoffPreview.roles.arquitectura},{l:"Financiero",v:kickoffPreview.roles.financiero},{l:"Contabilidad/Fiscal",v:kickoffPreview.roles.contableFiscal},{l:"Marketing",v:kickoffPreview.roles.marketingResp},{l:"Juridico",v:kickoffPreview.roles.juridico}].filter(x=>x.v).map(x=>(
-              <div key={x.l} style={{background:"#1c2030",borderRadius:8,padding:"10px 12px"}}>
-                <div style={{fontSize:"0.65rem",color:"#6b7394",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:3}}>{x.l}</div>
-                <div style={{fontWeight:600,fontSize:"0.88rem"}}>{x.v}</div>
-              </div>
-            ))}
-          </div>
-          {kickoffPreview.documentos&&kickoffPreview.documentos.length>0&&(
-            <div style={{background:"rgba(34,211,160,0.06)",border:"1px solid rgba(34,211,160,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.8rem",color:"#22d3a0"}}>
-              Se anadiran {kickoffPreview.documentos.length} items a Documentacion (estado urbanistico)
-            </div>
-          )}
-          {Object.keys(kickoffPreview.roles||{}).length===0&&!kickoffPreview.name&&(
-            <div style={{background:"rgba(240,90,90,0.06)",border:"1px solid rgba(240,90,90,0.2)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:"0.8rem",color:"#f05a5a"}}>
-              No se ha reconocido ningun campo. Revisa que el documento siga el formato estandar de kick off (etiquetas "Campo:" y roles "Rol // Nombre").
-            </div>
-          )}
-          <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
-            <Btn onClick={()=>{setModal(null);setKickoffPreview(null);}}>Cancelar</Btn>
-            <Btn onClick={confirmKickoff} v="primary">Confirmar importacion</Btn>
           </div>
         </Modal>
       )}
