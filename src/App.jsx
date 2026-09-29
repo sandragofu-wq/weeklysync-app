@@ -1726,7 +1726,7 @@ export default function Overview(){
                 </div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
-                {[{label:"Total uds",val:st.total?st.numViviendas+"V / "+st.numParcelas+"P":"-"},{label:"Vendidas",val:st.vendidas,color:"#4ca99a"},{label:"Reservadas",val:st.reservadas,color:"#ddb96a"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#4ca99a":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#ddb96a":"#e05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
+                {[{label:"Total uds",val:st.total?(st.totalViv+"V"+(st.totalParc>0?" / "+st.totalParc+"P":"")):"-"},{label:"Vendidas",val:st.vendidas,color:"#4ca99a"},{label:"Reservadas",val:st.reservadas,color:"#ddb96a"},{label:"Absorcion",val:(st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0)+"%",color:(st.total&&(st.vendidas+st.reservadas)/st.total>0.6)?"#4ca99a":(st.total&&(st.vendidas+st.reservadas)/st.total>0.3)?"#ddb96a":"#e05a5a"},{label:"Precio medio VIV",val:fmtEur(st.precioMedio)}].map(k=>(
                   <div key={k.label} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"10px 14px"}}>
                     <div style={{fontSize:"0.6rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:4}}>{k.label}</div>
                     <div style={{fontSize:"1.1rem",fontWeight:800,color:k.color||"#1E2D4E"}}>{k.val}</div>
@@ -1828,6 +1828,41 @@ export default function Overview(){
                             })}
                           </div>
                         </div>
+                        {/* ── ALERTAS DE DESVIACIÓN ────────────────────────────────── */}
+                        {(()=>{
+                          const alertas=[];
+                          const diffVentas=(d.ventasActual||0)-(d.ventasPrev||0);
+                          const diffSuelo=(d.sueloActual||0)-(d.sueloPrev||0);
+                          const diffBfcio=(d.beneficioActual||0)-(d.beneficioPrev||0);
+                          const diffSoft=(d.softActual||0)-(d.softPrev||0);
+                          if(diffVentas<-100000) alertas.push({tipo:"critico",msg:`Ingresos ${fmtEurM(diffVentas)} vs plan base — precio medio o unidades ajustadas a la baja`});
+                          if(diffSuelo>100000) alertas.push({tipo:"aviso",msg:`Suelo +${fmtEurM(diffSuelo)} sobre plan — coste de adquisición superior al previsto`});
+                          if(diffSoft>100000) alertas.push({tipo:"aviso",msg:`Soft Cost +${fmtEurM(diffSoft)} — honorarios técnicos o gastos gestión aumentados`});
+                          if(diffBfcio<-500000) alertas.push({tipo:"critico",msg:`Beneficio ${fmtEurM(diffBfcio)} vs plan base — margen comprimido un ${Math.abs(diffBfcio/(d.beneficioPrev||1)*100).toFixed(0)}%`});
+                          // Alertas de calendario
+                          const today=new Date(); const licDate=d.fechaLicencia?new Date(d.fechaLicencia):null;
+                          if(licDate){const dias=Math.round((licDate-today)/(1000*60*60*24));if(dias<90&&dias>0) alertas.push({tipo:"aviso",msg:`Licencia prevista en ${dias} días (${fmt(d.fechaLicencia)}) — riesgo de retraso obra`});else if(dias<0) alertas.push({tipo:"critico",msg:`Licencia con ${Math.abs(dias)} días de retraso sobre lo previsto`});}
+                          // Alerta umbral bancario
+                          const vivs=proj.viviendas||[];
+                          const nViv=d.numViviendas||proj.numViviendas||0;
+                          const reservadas=vivs.filter(v=>v.estado==="reservada"||v.estado==="vendida").length;
+                          const umbral=nViv?Math.ceil(nViv*0.6):0;
+                          if(nViv&&reservadas<umbral) alertas.push({tipo:reservadas<umbral*0.7?"critico":"aviso",msg:`Trigger bancario: ${reservadas}/${umbral} unidades comprometidas (60% necesario para préstamo promotor)`});
+                          if(alertas.length===0) return null;
+                          return (
+                            <div style={{marginBottom:16}}>
+                              <div style={{fontWeight:700,fontSize:"0.78rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Alertas de desviación</div>
+                              {alertas.map((a,ai)=>(
+                                <div key={ai} style={{background:a.tipo==="critico"?"rgba(224,90,90,0.08)":"rgba(221,185,106,0.08)",border:`1px solid ${a.tipo==="critico"?"rgba(224,90,90,0.3)":"rgba(221,185,106,0.3)"}`,borderRadius:8,padding:"9px 14px",marginBottom:7,display:"flex",alignItems:"flex-start",gap:8}}>
+                                  <span style={{color:a.tipo==="critico"?"#e05a5a":"#ddb96a",fontWeight:700,fontSize:"0.78rem",marginTop:1}}>⚠</span>
+                                  <span style={{fontSize:"0.81rem",color:"#1E2D4E"}}>{a.msg}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── KPIs DE RENTABILIDAD ─────────────────────────────────── */}
                         <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
                           <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>KPIs de rentabilidad</div>
                           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
@@ -1845,6 +1880,163 @@ export default function Overview(){
                             <KpiCard label="Comercializacion" val={fmtEurM(d.comercialActual)} color="#c9a86c"/>
                           </div>
                         </div>
+
+                        {/* ── ESTADO COMERCIAL BP ──────────────────────────────────── */}
+                        {d.viviendas&&d.viviendas.length>0&&(()=>{
+                          const vivsBP=d.viviendas||[];
+                          const vRes=vivsBP.filter(v=>v.estado==="reservada");
+                          const vVend=vivsBP.filter(v=>v.estado==="vendida");
+                          const vLib=vivsBP.filter(v=>v.estado==="disponible");
+                          const vBlq=vivsBP.filter(v=>v.estado==="no-venta");
+                          const vResc=vivsBP.filter(v=>v.estado==="rescindida");
+                          const totalVivs=vivsBP.filter(v=>v.tipologia==="Vivienda");
+                          const totalParc=vivsBP.filter(v=>v.tipologia!=="Vivienda");
+                          const nVivTotal=d.numViviendas||totalVivs.length;
+                          const umbral=Math.ceil(nVivTotal*0.6);
+                          const comprometidas=vRes.length+vVend.length;
+                          const pctComp=nVivTotal?comprometidas/nVivTotal:0;
+                          const gdvRes=vRes.reduce((s,v)=>s+(v.precio||0),0);
+                          const gdvLib=vLib.reduce((s,v)=>s+(v.precio||0),0);
+                          const pmRes=vRes.length?gdvRes/vRes.length:0;
+                          const pmLib=vLib.length?gdvLib/vLib.length:0;
+                          // Repricing: precio actual vs origen
+                          const repricedVivs=vivsBP.filter(v=>v.precioOrigen&&v.precio&&v.precio!==v.precioOrigen);
+                          const avgSubida=repricedVivs.length?repricedVivs.reduce((s,v)=>s+(v.precio-v.precioOrigen)/v.precioOrigen,0)/repricedVivs.length:0;
+                          return (
+                            <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+                              <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Estado comercial — Lista de precios BP</div>
+                              {/* Barra trigger bancario */}
+                              <div style={{background:"rgba(76,169,154,0.07)",border:"1px solid rgba(76,169,154,0.2)",borderRadius:10,padding:"12px 16px",marginBottom:14}}>
+                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                                  <span style={{fontSize:"0.8rem",fontWeight:700,color:"#1E2D4E"}}>Trigger bancario — 60% comprometidas</span>
+                                  <span style={{fontSize:"0.8rem",fontWeight:700,color:pctComp>=0.6?"#4ca99a":"#ddb96a"}}>{comprometidas}/{umbral} unidades · {Math.round(pctComp*100)}%</span>
+                                </div>
+                                <div style={{background:"#E8E2D8",borderRadius:6,height:8,overflow:"hidden"}}>
+                                  <div style={{height:"100%",borderRadius:6,background:pctComp>=0.6?"#4ca99a":"#ddb96a",width:Math.min(pctComp*100,100)+"%",transition:"width 0.4s"}}/>
+                                </div>
+                                <div style={{fontSize:"0.72rem",color:"#6B7A8A",marginTop:5}}>{pctComp>=0.6?"✓ Umbral alcanzado — financiación bancaria activable":`Faltan ${umbral-comprometidas} unidades para activar el préstamo promotor`}</div>
+                              </div>
+                              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:14}}>
+                                {[
+                                  {l:"Reservadas",v:vRes.length,c:"#ddb96a",gdv:gdvRes,pm:pmRes},
+                                  {l:"Vendidas",v:vVend.length,c:"#4ca99a",gdv:vVend.reduce((s,v)=>s+(v.precio||0),0),pm:vVend.length?vVend.reduce((s,v)=>s+(v.precio||0),0)/vVend.length:0},
+                                  {l:"Disponibles",v:vLib.length,c:"#c9a86c",gdv:gdvLib,pm:pmLib},
+                                  {l:"No venta",v:vBlq.length,c:"#6B7A8A",gdv:0,pm:0},
+                                  {l:"Rescisiones",v:vResc.length,c:"#e05a5a",gdv:0,pm:0},
+                                ].map(x=>(
+                                  <div key={x.l} style={{background:"#F0EEE9",borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
+                                    <div style={{fontSize:"0.6rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700,marginBottom:4}}>{x.l}</div>
+                                    <div style={{fontSize:"1.5rem",fontWeight:800,color:x.c,lineHeight:1}}>{x.v}</div>
+                                    {x.pm>0&&<div style={{fontSize:"0.66rem",color:"#6B7A8A",marginTop:4}}>{new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(x.pm)} media</div>}
+                                  </div>
+                                ))}
+                              </div>
+                              {/* GDV pendiente de venta */}
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                                <div style={{background:"#F0EEE9",borderRadius:10,padding:"12px 16px"}}>
+                                  <div style={{fontSize:"0.66rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>GDV comprometido (res+vend)</div>
+                                  <div style={{fontSize:"1.1rem",fontWeight:800,color:"#4ca99a"}}>{fmtEurM((vRes.reduce((s,v)=>s+(v.precio||0),0)+vVend.reduce((s,v)=>s+(v.precio||0),0)))}</div>
+                                </div>
+                                <div style={{background:"#F0EEE9",borderRadius:10,padding:"12px 16px"}}>
+                                  <div style={{fontSize:"0.66rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>GDV pendiente (disponibles)</div>
+                                  <div style={{fontSize:"1.1rem",fontWeight:800,color:"#c9a86c"}}>{fmtEurM(gdvLib)}</div>
+                                </div>
+                              </div>
+                              {/* Repricing */}
+                              {repricedVivs.length>0&&(
+                                <div style={{borderTop:"1px solid #E8E2D8",paddingTop:12}}>
+                                  <div style={{fontSize:"0.74rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Repricing aplicado</div>
+                                  <div style={{display:"flex",gap:20}}>
+                                    <div style={{fontSize:"0.81rem"}}><span style={{color:"#6B7A8A"}}>Unidades repriceadas:</span> <strong>{repricedVivs.length}</strong></div>
+                                    <div style={{fontSize:"0.81rem"}}><span style={{color:"#6B7A8A"}}>Subida media:</span> <strong style={{color:"#4ca99a"}}>+{(avgSubida*100).toFixed(1)}%</strong></div>
+                                  </div>
+                                </div>
+                              )}
+                              {/* Parcelas */}
+                              {totalParc.length>0&&(
+                                <div style={{borderTop:"1px solid #E8E2D8",paddingTop:12,marginTop:12}}>
+                                  <div style={{fontSize:"0.74rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Parcelas ({totalParc.length})</div>
+                                  <div style={{display:"flex",gap:20}}>
+                                    <div style={{fontSize:"0.81rem"}}><span style={{color:"#6B7A8A"}}>Reservadas:</span> <strong>{totalParc.filter(v=>v.estado==="reservada").length}</strong></div>
+                                    <div style={{fontSize:"0.81rem"}}><span style={{color:"#6B7A8A"}}>Disponibles:</span> <strong>{totalParc.filter(v=>v.estado==="disponible").length}</strong></div>
+                                    <div style={{fontSize:"0.81rem"}}><span style={{color:"#6B7A8A"}}>Precio medio:</span> <strong>{totalParc.length?new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(totalParc.reduce((s,v)=>s+(v.precio||0),0)/totalParc.length):"-"}</strong></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── DESGLOSE €/m² ────────────────────────────────────────── */}
+                        {d.edificabilidad>0&&(()=>{
+                          const m2=d.edificabilidad;
+                          const items=[
+                            {l:"Suelo",v:d.sueloActual,c:"#e05a5a"},
+                            {l:"Hard Cost (construcción)",v:d.hardActual,c:"#f5924e"},
+                            {l:"Soft Cost",v:d.softActual,c:"#ddb96a"},
+                            {l:"Comercialización",v:d.comercialActual,c:"#c9a86c"},
+                            {l:"Gastos financieros",v:d.financieroActual,c:"#6B7A8A"},
+                          ].filter(x=>x.v>0);
+                          const total=items.reduce((s,x)=>s+x.v,0);
+                          return (
+                            <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+                              <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Estructura de costes — €/m² edificable ({fmtNum(m2)} m²)</div>
+                              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 0.6fr",gap:0,borderRadius:8,overflow:"hidden",border:"1px solid #DDD8CF"}}>
+                                {["Partida","Total","€/m²","% s/GDV"].map(h=><div key={h} style={{fontSize:"0.62rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",padding:"7px 12px",background:"#F0EEE9",borderBottom:"1px solid #DDD8CF"}}>{h}</div>)}
+                                {items.map((x,i)=>[
+                                  <div key={i+"a"} style={{padding:"8px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:x.c,flexShrink:0}}/>{x.l}</div>,
+                                  <div key={i+"b"} style={{padding:"8px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",fontWeight:600}}>{fmtEurM(x.v)}</div>,
+                                  <div key={i+"c"} style={{padding:"8px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",color:"#1E2D4E"}}>{Math.round(x.v/m2).toLocaleString("es-ES")} €</div>,
+                                  <div key={i+"d"} style={{padding:"8px 12px",borderBottom:"1px solid #E8E2D8",fontSize:"0.82rem",color:"#6B7A8A"}}>{d.ventasActual?fmtPct(x.v/d.ventasActual):"-"}</div>,
+                                ])}
+                                {[
+                                  <div key="ta" style={{padding:"8px 12px",fontWeight:700,fontSize:"0.82rem",background:"#EDE8DF",display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:"#1E2D4E",flexShrink:0}}/>Total costes</div>,
+                                  <div key="tb" style={{padding:"8px 12px",fontWeight:700,fontSize:"0.82rem",background:"#EDE8DF"}}>{fmtEurM(total)}</div>,
+                                  <div key="tc" style={{padding:"8px 12px",fontWeight:700,fontSize:"0.82rem",background:"#EDE8DF"}}>{Math.round(total/m2).toLocaleString("es-ES")} €</div>,
+                                  <div key="td" style={{padding:"8px 12px",fontWeight:700,fontSize:"0.82rem",background:"#EDE8DF",color:"#6B7A8A"}}>{d.ventasActual?fmtPct(total/d.ventasActual):"-"}</div>,
+                                ]}
+                              </div>
+                              {d.ventasActual&&<div style={{fontSize:"0.75rem",color:"#6B7A8A",marginTop:8}}>GDV: {fmtEurM(d.ventasActual)} · {Math.round(d.ventasActual/m2).toLocaleString("es-ES")} €/m² · Beneficio: {Math.round((d.beneficioActual||0)/m2).toLocaleString("es-ES")} €/m²</div>}
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── CALENDARIO DE HITOS CRÍTICOS ─────────────────────────── */}
+                        {(d.fechaLicencia||d.fechaInicioObra||d.fechaEntrega)&&(()=>{
+                          const today=new Date();
+                          const hitosCalend=[
+                            {l:"Licencia de obras",f:d.fechaLicencia,icon:"📋",critico:true},
+                            {l:"Inicio de obra",f:d.fechaInicioObra,icon:"🏗",critico:true},
+                            {l:"Fin de obra",f:d.duracionObra&&d.fechaInicioObra?new Date(new Date(d.fechaInicioObra).getTime()+d.duracionObra*30.5*24*3600*1000).toISOString().substring(0,10):null,icon:"✅",critico:false},
+                            {l:"Escrituras",f:d.fechaEntrega,icon:"📝",critico:true},
+                          ].filter(h=>h.f);
+                          return (
+                            <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+                              <div style={{fontWeight:700,fontSize:"0.86rem",marginBottom:14,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Calendario de hitos críticos</div>
+                              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                                {hitosCalend.map((h,hi)=>{
+                                  const fd=new Date(h.f);
+                                  const dias=Math.round((fd-today)/(1000*60*60*24));
+                                  const pasado=dias<0;
+                                  const urgente=!pasado&&dias<90;
+                                  const clr=pasado?"#6B7A8A":urgente?"#ddb96a":"#4ca99a";
+                                  const estado=pasado?"Completado":urgente?`En ${dias} días`:`En ${Math.round(dias/30)} meses`;
+                                  return (
+                                    <div key={hi} style={{display:"flex",alignItems:"center",gap:14,padding:"10px 14px",background:urgente?"rgba(221,185,106,0.06)":"#F9F7F4",borderRadius:8,border:`1px solid ${urgente?"rgba(221,185,106,0.3)":"#E8E2D8"}`}}>
+                                      <div style={{fontSize:"1.2rem",width:28,textAlign:"center"}}>{h.icon}</div>
+                                      <div style={{flex:1}}>
+                                        <div style={{fontWeight:600,fontSize:"0.83rem"}}>{h.l}</div>
+                                        <div style={{fontSize:"0.73rem",color:"#6B7A8A",marginTop:2}}>{fmt(h.f)}</div>
+                                      </div>
+                                      <div style={{fontWeight:700,fontSize:"0.8rem",color:clr,background:`${clr}18`,borderRadius:6,padding:"3px 10px",whiteSpace:"nowrap"}}>{estado}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {d.duracionMeses&&<div style={{fontSize:"0.75rem",color:"#6B7A8A",marginTop:10}}>Duración total del proyecto: <strong>{d.duracionMeses} meses</strong></div>}
+                            </div>
+                          );
+                        })()}
                         {/* Desglose Comercial Fees */}
                         {(d.masterBroker||d.structuringFee||d.mktSalesMgmt)&&(
                           <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px",marginBottom:14}}>
