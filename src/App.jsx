@@ -968,7 +968,13 @@ export default function Overview(){
     // Load from cloud FIRST - block saves until done
     cloudLoad().then(data=>{
       if(data&&Array.isArray(data)&&data.length>0){
-        const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+        const migrated=data.map(x=>{
+          // Fusionar tareas t_atl_ de DEFAULT_PROJECTS si faltan en los datos guardados
+          const defProj=DEFAULT_PROJECTS.find(d=>d.id===x.id);
+          const existingIds=new Set((x.tareas||[]).map(t=>String(t.id)));
+          const missingDef=defProj?(defProj.tareas||[]).filter(t=>String(t.id).startsWith("t_atl_")&&!existingIds.has(String(t.id))):[];
+          return {...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,tareas:[...(x.tareas||[]),...missingDef]};
+        });
         setProjects(migrated);
         try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
       }
@@ -1186,87 +1192,98 @@ export default function Overview(){
         const result={ventas:[],rescisiones:[]};
         const toISO=v=>{if(!v) return "";if(v instanceof Date) return v.toISOString().substring(0,10);const s=String(v).trim();if(s.includes("/")){ const p=s.split("/");if(p.length===3) return p[2].substring(0,4)+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0");}if(s.length>=10&&s.includes("-")) return s.substring(0,10);return "";};
         const toN=v=>{const n=Number(v);return isNaN(n)?0:n;};
-        // Try to find the right sheet - prefer "MED Hills - Master" or similar
-        const masterSheetName=wb.SheetNames.find(s=>s.toLowerCase().includes("master")||s.toLowerCase().includes("med hills"))||wb.SheetNames[0];
+        // Find best sheet: prefer one containing "master" in name, else first sheet with most data
+        const scoreSht=n=>{const l=n.toLowerCase();if(l.includes("master")) return 3;if(l.includes("vivienda")||l.includes("venta")||l.includes("inmueble")) return 2;if(l.includes("rescis")) return -1;return 0;};
+        const masterSheetName=wb.SheetNames.slice().sort((a,b)=>scoreSht(b)-scoreSht(a))[0];
         const ws=wb.Sheets[masterSheetName];
         if(ws){
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
-          let hdrIdx=-1;
-          for(let i=0;i<Math.min(rows.length,12);i++){
-            const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().trim());
-            if(r.some(c=>c==="VVDA"||c==="VIVIENDA"||c==="INMUEBLE")&&r.some(c=>c.includes("STATUS")||c.includes("PRECIO")||c==="ACCIONES")){hdrIdx=i;break;}
+          // Find header row: the row that has the most "useful" column keywords
+          const HDR_KEYWORDS=["status","precio","tipologia","tipología","vivienda","vvda","inmueble","numeracion","numeración","referencia","ref","m2","agencia","nombre","blq"];
+          let hdrIdx=-1,hdrScore=0;
+          for(let i=0;i<Math.min(rows.length,15);i++){
+            const r=(rows[i]||[]).map(c=>String(c||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim());
+            const score=r.filter(c=>HDR_KEYWORDS.some(k=>c.includes(k.toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"")))).length;
+            if(score>hdrScore){hdrScore=score;hdrIdx=i;}
           }
           if(hdrIdx>=0){
-            const hdr=(rows[hdrIdx]||[]).map(c=>String(c||"").toUpperCase().trim());
-            const iRef=hdr.findIndex(h=>h==="VVDA"||h==="VIVIENDA"||h==="REF");
-            const iTipo=hdr.findIndex(h=>h==="TIPOLOGIA"||h==="INMUEBLE");
-            const iBlq=hdr.findIndex(h=>h==="BLQ"||h==="BLOQUE");
-            const iStatus=hdr.findIndex(h=>h.includes("STATUS COMERCIAL")||h==="STATUS");
-            // Price: prefer "PRECIO DE VENTA" or "PRECIO TOTAL OPERACION" or "PRECIO VENTA CON ANEJOS"
-            const iPrecio=hdr.findIndex(h=>h==="PRECIO DE VENTA")||hdr.findIndex(h=>h.includes("PRECIO TOTAL OPERAC"))||hdr.findIndex(h=>h.includes("PRECIO VENTA CON ANEJOS"));
-            const iPrecioOrigen=hdr.findIndex(h=>h.includes("PRECIO ORIGEN"));
-            const iM2=hdr.findIndex(h=>h==="M2 UTIL INT"||h==="M2 UTIL"||h==="M2 CONST INT");
-            const iNombre=hdr.findIndex(h=>h==="NOMBRE 1"||h==="NOMBRE");
-            const iAgencia=hdr.findIndex(h=>h==="AGENCIA");
-            const iFReserva=hdr.findIndex(h=>h==="F. RESERVA");
-            const iFCpcv=hdr.findIndex(h=>h==="F. CPCV");
-            const iComision=hdr.findIndex(h=>h.includes("TOTAL COMISION")||h.includes("TOTAL COMISIONES"));
-            const iPctCom=hdr.findIndex(h=>h.includes("% COMISION"));
-            // Repricings: SUBIDA cols
+            const normalize=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+            const hdr=(rows[hdrIdx]||[]).map(normalize);
+            const fi=(candidates)=>{for(const c of candidates){const i=hdr.findIndex(h=>h===normalize(c)||h.includes(normalize(c)));if(i>=0) return i;}return -1;};
+            const iRef=fi(["NUMERACION COMERCIAL","VVDA","VIVIENDA","REF","INMUEBLE","REFERENCIA"]);
+            const iTipo=fi(["TIPOLOGIA","INMUEBLE","TIPO"]);
+            const iBlq=fi(["BLQ","BLOQUE"]);
+            const iStatus=fi(["STATUS COMERCIAL","ESTADO COMERCIAL","STATUS","ESTADO"]);
+            const iPrecio=fi(["PRECIO DE VENTA","PRECIO TOTAL OPERAC","PRECIO VENTA CON ANEJOS","PRECIO FINAL"]);
+            const iPrecioOrigen=fi(["PRECIO ORIGEN","PRECIO BASE"]);
+            const iM2=fi(["M2 UTIL INT","M2 UTIL","METROS UTIL","M2 CONST INT","SUPERFICIE"]);
+            const iNombre=fi(["NOMBRE 1","NOMBRE","COMPRADOR"]);
+            const iAgencia=fi(["AGENCIA","COLABORADOR"]);
+            const iFReserva=fi(["F. RESERVA","FECHA RESERVA","F.RESERVA"]);
+            const iFCpcv=fi(["F. CPCV","FECHA CPCV","F.CPCV"]);
+            const iComision=fi(["TOTAL COMISION","TOTAL COMISIONES","COMISION TOTAL"]);
+            const iPctCom=fi(["% COMISION","PORCENTAJE COMISION"]);
+            const iVentaGsp=fi(["VENTA GSP"]);
+            // Repricings: cols whose header starts with REPRICING or SUBIDA
             const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")||h.startsWith("SUBIDA")) rpCols.push(i);});
+            const statusMap={"RESERVA":"reservada","RESERVADO":"reservada","CV":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida","BLOQUEADO":"no-venta","BLOQUEADO PROMOTOR":"no-venta"};
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
-              // Ref: col3=VVDA which already contains full ref like "B1-401"
-              // col2=BLQ is the block number only, col3=VVDA has the full reference
-              const vvdaVal=String(r[iRef>=0?iRef:3]||"").trim();
+              // Get ref from best column
+              const rawRef=String(r[iRef>=0?iRef:3]||"").trim();
               const blqVal=iBlq>=0?String(r[iBlq]||"").trim():"";
-              let ref=vvdaVal;
-              // Only prepend "B+blq-" if vvda is a plain number (no dash, no B prefix)
-              if(ref&&!ref.includes("-")&&!ref.toUpperCase().startsWith("B")&&blqVal){
-                ref="B"+blqVal+"-"+ref;
-              }
-              if(!ref||ref.toUpperCase().includes("TOTAL")||ref.toUpperCase()==="VVDA"||ref.toUpperCase()==="INMUEBLE") continue;
-              // Try price cols in order, skip False/null
+              let ref=rawRef;
+              if(ref&&!ref.includes("-")&&!ref.toUpperCase().startsWith("B")&&blqVal) ref="B"+blqVal+"-"+ref;
+              if(!ref||normalize(ref).includes("TOTAL")||normalize(ref)===normalize("VVDA")||normalize(ref)===normalize("INMUEBLE")||normalize(ref)===normalize("NUMERACION COMERCIAL")) continue;
+              // Price: try detected col, then scan all cols for first number > 1000
               let precio=0;
-              for(const pc of [iPrecio>=0?iPrecio:-1,65,66,67,47,12].filter(x=>x>=0)){
-                const v=r[pc];
-                if(v&&v!==false&&String(v).toUpperCase()!=="FALSE"){const n=toN(v);if(n>1000){precio=n;break;}}
-              }
+              const priceColsToTry=[iPrecio,...rpCols.slice(0,1)].filter(x=>x>=0);
+              for(const pc of priceColsToTry){const v=r[pc];if(v&&v!==false&&String(v).toUpperCase()!=="FALSE"){const n=toN(v);if(n>1000){precio=n;break;}}}
+              if(!precio){for(let ci=0;ci<r.length;ci++){const v=r[ci];if(v&&typeof v==="number"&&v>10000){precio=v;break;}}}
               if(!precio) continue;
-              const statusRaw=String(r[iStatus>=0?iStatus:16]||"").trim().toUpperCase();
-              const statusMap={"RESERVA":"reservada","RESERVADO":"reservada","CV":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida","BLOQUEADO":"no-venta","BLOQUEADO PROMOTOR":"no-venta"};
+              // Status: use VENTA GSP (☑=vendido) to override status when present
+              let statusRaw=normalize(String(r[iStatus>=0?iStatus:17]||""));
+              if(iVentaGsp>=0){const g=String(r[iVentaGsp]||"").trim();if(g==="☑"||g==="✓"||g==="x"||g.toLowerCase()==="si"||g==="1") statusRaw="VENDIDA";}
               const status=statusMap[statusRaw]||"disponible";
               const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
-              const tipoInmueble=String(r[1]||"").trim().toUpperCase()||"VIV";// col1=INMUEBLE (VIV/PK/TR)
+              const tipoInmueble=normalize(String(r[iTipo>=0?iTipo:1]||""))||"VIV";
+              const precioOrigenVal=toN(r[iPrecioOrigen>=0?iPrecioOrigen:18]);
               result.ventas.push({
                 ref,tipo:tipoInmueble,status,precio,
-                precioOrigen:toN(r[iPrecioOrigen>=0?iPrecioOrigen:17]),
-                m2:toN(r[iM2>=0?iM2:8]),
-                nombre:String(r[iNombre>=0?iNombre:35]||"").trim(),
-                agencia:String(r[iAgencia>=0?iAgencia:55]||"").trim(),
-                fReserva:toISO(r[iFReserva>=0?iFReserva:64]),
-                fCpcv:toISO(r[iFCpcv>=0?iFCpcv:65]),
-                comision:toN(r[iComision>=0?iComision:59]),
-                pctComision:toN(r[iPctCom>=0?iPctCom:58]),
+                precioOrigen:precioOrigenVal,
+                m2:toN(r[iM2>=0?iM2:9]),
+                nombre:String(r[iNombre>=0?iNombre:36]||"").trim(),
+                agencia:String(r[iAgencia>=0?iAgencia:56]||"").trim(),
+                fReserva:toISO(r[iFReserva>=0?iFReserva:65]),
+                fCpcv:toISO(r[iFCpcv>=0?iFCpcv:66]),
+                comision:toN(r[iComision>=0?iComision:60]),
+                pctComision:toN(r[iPctCom>=0?iPctCom:59]),
                 repricings:rps,
-                incremento:precio-(toN(r[iPrecioOrigen>=0?iPrecioOrigen:17])||precio),
+                incremento:precio-(precioOrigenVal||precio),
               });
             }
           }
         }
-        const wsR=wb.Sheets["Rescisiones"];
+        // Find rescisiones sheet by name
+        const rescSheetName=wb.SheetNames.find(s=>s.toLowerCase().includes("rescis"))||null;
+        const wsR=rescSheetName?wb.Sheets[rescSheetName]:null;
         if(wsR){
           const rowsR=window.XLSX.utils.sheet_to_json(wsR,{header:1,defval:null,raw:true});
-          const hdrR=(rowsR[0]||[]).map(c=>String(c||"").toUpperCase().trim());
-          const iRef=hdrR.findIndex(h=>h==="VVDA");
-          const iFecha=hdrR.findIndex(h=>h==="FECHA RESCISION");
-          const iPrecio=hdrR.findIndex(h=>h==="PRECIO DE VENTA");
-          const iNombre=hdrR.findIndex(h=>h==="NOMBRE 1");
-          for(let i=1;i<rowsR.length;i++){
+          // Find header row in rescisiones sheet
+          let rHdrIdx=0;
+          for(let i=0;i<Math.min(rowsR.length,6);i++){const r=(rowsR[i]||[]).map(c=>String(c||"").toUpperCase().trim());if(r.some(c=>c.includes("VVDA")||c.includes("REFERENCIA")||c.includes("NUMERACION")||c.includes("RESCIS"))){rHdrIdx=i;break;}}
+          const hdrR=(rowsR[rHdrIdx]||[]).map(c=>String(c||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim());
+          const norR=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+          const fiR=cs=>{for(const c of cs){const i=hdrR.findIndex(h=>h===norR(c)||h.includes(norR(c)));if(i>=0) return i;}return -1;};
+          const iRefR=fiR(["NUMERACION COMERCIAL","VVDA","REFERENCIA","REF","INMUEBLE"]);
+          const iFechaR=fiR(["FECHA RESCISION","FECHA RESCISIÓN","RESCISION"]);
+          const iPrecioR=fiR(["PRECIO DE VENTA","PRECIO"]);
+          const iNombreR=fiR(["NOMBRE 1","NOMBRE","COMPRADOR"]);
+          for(let i=rHdrIdx+1;i<rowsR.length;i++){
             const r=rowsR[i];if(!r) continue;
-            const ref=String(r[iRef>=0?iRef:2]||"").trim();
+            const ref=String(r[iRefR>=0?iRefR:2]||"").trim();
             if(!ref) continue;
-            result.rescisiones.push({ref,fecha:toISO(r[iFecha>=0?iFecha:15]),precio:toN(r[iPrecio>=0?iPrecio:6]),nombre:String(r[iNombre>=0?iNombre:32]||"").trim()});
+            result.rescisiones.push({ref,fecha:toISO(r[iFechaR>=0?iFechaR:15]),precio:toN(r[iPrecioR>=0?iPrecioR:6]),nombre:String(r[iNombreR>=0?iNombreR:32]||"").trim()});
           }
         }
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
