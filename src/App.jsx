@@ -34,7 +34,7 @@ const HITO_CYCLE = ["pendiente","en-curso","completado","retrasado"];
 const ESTADOS = {"en-marcha":{label:"En marcha",color:"#4ca99a",bg:"rgba(76,169,154,0.12)"},"en-riesgo":{label:"En riesgo",color:"#ddb96a",bg:"rgba(221,185,106,0.12)"},"bloqueado":{label:"Bloqueado",color:"#e05a5a",bg:"rgba(224,90,90,0.12)"},"planificacion":{label:"Planificacion",color:"#c9a86c",bg:"rgba(201,168,108,0.12)"},"entregado":{label:"Entregado",color:"#94a3b8",bg:"rgba(148,163,184,0.12)"}};
 const HITO_EST = {"completado":{color:"#4ca99a",bg:"rgba(76,169,154,0.15)",icon:"✓"},"en-curso":{color:"#c9a86c",bg:"rgba(201,168,108,0.15)",icon:"->"},"pendiente":{color:"#B0BBC6",bg:"rgba(61,80,112,0.15)",icon:"o"},"retrasado":{color:"#e05a5a",bg:"rgba(224,90,90,0.15)",icon:"!"}};
 const BLOCK_ST = {critico:{bg:"rgba(224,90,90,0.10)",border:"rgba(224,90,90,0.3)",icon:"[!]"},aviso:{bg:"rgba(221,185,106,0.10)",border:"rgba(221,185,106,0.3)",icon:"[?]"},info:{bg:"rgba(201,168,108,0.10)",border:"rgba(201,168,108,0.3)",icon:"[i]"}};
-const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#c9a86c"},"reservada":{label:"Reservada",color:"#ddb96a"},"vendida":{label:"Vendida",color:"#4ca99a"},"no-venta":{label:"No venta",color:"#6B7A8A"}};
+const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#c9a86c"},"reservada":{label:"Reservada",color:"#ddb96a"},"vendida":{label:"Vendida",color:"#4ca99a"},"rescindida":{label:"Rescisión",color:"#e05a5a"},"no-venta":{label:"No venta",color:"#6B7A8A"}};
 const PRIO_CLR = {alta:"#e05a5a",media:"#ddb96a",baja:"#4ca99a"};
 const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","Dani (BSA)","Inma (BSA)"];
 const CSS = {inp:{width:"100%",background:"#F0EEE9",border:"1px solid #DDD8CF",borderRadius:8,padding:"8px 11px",color:"#1E2D4E",fontFamily:"inherit",fontSize:"0.84rem",outline:"none",boxSizing:"border-box"}};
@@ -427,7 +427,7 @@ const calcStats = (vv=[]) => {
 // Also converts master.ventas format to viviendas format on the fly
 const masterToVivs = (master) => {
   if(!master||!master.ventas) return null;
-  const estadoMap={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+  const estadoMap={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"rescindida","no-venta":"no-venta"};
   return master.ventas.map(v=>({
     id:v.ref,
     ref:v.ref,
@@ -536,7 +536,7 @@ const parseBP = wb => {
     const viviendas=[];
     if(wb.Sheets["Lista_Precios"]){
       const lp=sheetRows("Lista_Precios");
-      const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
+      const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","rescindida":"rescindida","rescision":"rescindida","rescisión":"rescindida","baja":"rescindida","bloqueado":"no-venta","bloqueado promotor":"no-venta","bloqueado promotor ":"no-venta"};
       for(let i=0;i<lp.length;i++){
         const r=lp[i];if(!r||r[0]==null) continue;
         const tipo=String(r[0]||"").trim().toUpperCase();
@@ -700,7 +700,7 @@ const ModalVivienda = memo(function ModalVivienda({vF,onChange,onSave,onClose,is
       <FL label="Tipo / Planta"><input style={CSS.inp} value={vF.planta} onChange={e=>onChange("planta",e.target.value)}/></FL>
       <FL label="Superficie m2"><input type="number" style={CSS.inp} value={vF.superficie} onChange={e=>onChange("superficie",e.target.value)}/></FL>
       <FL label="Precio PVP (EUR)"><input type="number" style={CSS.inp} value={vF.precio} onChange={e=>onChange("precio",e.target.value)}/></FL>
-      <FL label="Estado"><select style={CSS.inp} value={vF.estado} onChange={e=>onChange("estado",e.target.value)}><option value="disponible">Disponible</option><option value="reservada">Reservada</option><option value="vendida">Vendida</option><option value="no-venta">No venta</option></select></FL>
+      <FL label="Estado"><select style={CSS.inp} value={vF.estado} onChange={e=>onChange("estado",e.target.value)}><option value="disponible">Disponible</option><option value="reservada">Reservada</option><option value="vendida">Vendida</option><option value="rescindida">Rescisión</option><option value="no-venta">No venta</option></select></FL>
     </div>
     <FL label="Notas"><input style={CSS.inp} value={vF.notas} onChange={e=>onChange("notas",e.target.value)}/></FL>
     <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">{isEdit?"Guardar":"Anadir"}</Btn></div>
@@ -867,7 +867,7 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
         </div>
         <div style={{maxHeight:400,overflowY:"auto"}}>
           {ventas.map((v,i)=>{
-            const sKey=v.status==="rescindida"?"no-venta":(v.status||"disponible");
+            const sKey=v.status||"disponible";
             const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
             const inc=Number(v.incremento)||0;
             return (
@@ -1026,14 +1026,14 @@ export default function Overview(){
   const saveV=useCallback(()=>{if(!vF.ref.trim()) return;const clean={...vF,precio:parsePrice(vF.precio),superficie:parseFloat(String(vF.superficie).replace(",","."))||0};if(editId.current) upd(activeId,p=>({...p,viviendas:p.viviendas.map(v=>v.id!==editId.current?v:{...v,...clean})}));else upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),{id:Date.now(),...clean}]}));setModal(null);},[activeId,vF,upd]);
   const delV=useCallback(vid=>upd(activeId,p=>({...p,viviendas:p.viviendas.filter(v=>v.id!==vid)})),[activeId,upd]);
   const cycleViv=useCallback(vid=>{
-    const cyc=["disponible","reservada","vendida","no-venta"];
-    const estadoToStatus={"disponible":"disponible","reservada":"reservada","vendida":"vendida","no-venta":"rescindida"};
+    const cyc=["disponible","reservada","vendida","rescindida","no-venta"];
+    const estadoToStatus={"disponible":"disponible","reservada":"reservada","vendida":"vendida","rescindida":"rescindida","no-venta":"no-venta"};
     upd(activeId,p=>{
       if(p.master){
         // Update master.ventas
         const newVentas=p.master.ventas.map(v=>{
           if(v.ref!==vid) return v;
-          const curEstado={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"}[v.status]||"disponible";
+          const curEstado={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"rescindida","no-venta":"no-venta"}[v.status]||"disponible";
           const nextEstado=cyc[(cyc.indexOf(curEstado)+1)%cyc.length];
           return {...v,status:estadoToStatus[nextEstado]||nextEstado};
         });
@@ -1087,7 +1087,7 @@ export default function Overview(){
             const statusCol=iStatus>=0?iStatus:1;
             const precioCol=iPrecio>=0?iPrecio:(iPrecioBase>=0?iPrecioBase:13);
             const fmtE=v=>new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v);
-            const statusMapMH={"vendida":"vendida","escritura":"vendida","escriturado":"vendida","reserva":"reservada","reservado":"reservada","rescindida":"no-venta","rescision":"no-venta","libre":"disponible","disponible":"disponible"};
+            const statusMapMH={"vendida":"vendida","escritura":"vendida","escriturado":"vendida","reserva":"reservada","reservado":"reservada","rescindida":"rescindida","rescision":"rescindida","baja":"rescindida","libre":"disponible","disponible":"disponible"};
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
               const ref=String(r[refCol]||"").trim();
@@ -1288,7 +1288,7 @@ export default function Overview(){
         }
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
         // Sync with viviendas
-        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"no-venta"};
+        const estadoMap2={"reservada":"reservada","disponible":"disponible","vendida":"vendida","rescindida":"rescindida","no-venta":"no-venta"};
         const viviendasFromMaster=result.ventas.map(v=>({
           id:Date.now()+Math.random(),ref:v.ref,
           tipologia:v.tipo==="VIVIENDA"||v.ref.toUpperCase().includes("-V")?"Vivienda":"Parcela",
