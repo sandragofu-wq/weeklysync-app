@@ -1626,6 +1626,8 @@ export default function Overview(){
               const status=statusMap[statusRaw]||"disponible";
               const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
               const tipoInmueble=normalize(String(r[iTipo>=0?iTipo:1]||""))||"VIV";
+              // Solo viviendas (VIV) — PK y TR tienen precios propios que distorsionan stats
+              if(tipoInmueble==="PK"||tipoInmueble==="TR") continue;
               const precioOrigenVal=toN(r[iPrecioOrigen>=0?iPrecioOrigen:18]);
               result.ventas.push({
                 ref,tipo:tipoInmueble,status,precio,
@@ -1643,26 +1645,33 @@ export default function Overview(){
             }
           }
         }
-        // Find rescisiones sheet by name
-        const rescSheetName=wb.SheetNames.find(s=>s.toLowerCase().includes("rescis"))||null;
+        // Find rescisiones sheet — buscar por "rescis", "resoluciones" o "pendiente"
+        const rescSheetName=wb.SheetNames.find(s=>{const l=s.toLowerCase();return l.includes("rescis")||l.includes("resoluc")||l.includes("pendiente");})||null;
         const wsR=rescSheetName?wb.Sheets[rescSheetName]:null;
         if(wsR){
           const rowsR=window.XLSX.utils.sheet_to_json(wsR,{header:1,defval:null,raw:true});
-          // Find header row in rescisiones sheet
-          let rHdrIdx=0;
-          for(let i=0;i<Math.min(rowsR.length,6);i++){const r=(rowsR[i]||[]).map(c=>String(c||"").toUpperCase().trim());if(r.some(c=>c.includes("VVDA")||c.includes("REFERENCIA")||c.includes("NUMERACION")||c.includes("RESCIS"))){rHdrIdx=i;break;}}
-          const hdrR=(rowsR[rHdrIdx]||[]).map(c=>String(c||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim());
-          const norR=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
-          const fiR=cs=>{for(const c of cs){const i=hdrR.findIndex(h=>h===norR(c)||h.includes(norR(c)));if(i>=0) return i;}return -1;};
-          const iRefR=fiR(["NUMERACION COMERCIAL","VVDA","REFERENCIA","REF","INMUEBLE"]);
-          const iFechaR=fiR(["FECHA RESCISION","FECHA RESCISIÓN","RESCISION"]);
-          const iPrecioR=fiR(["PRECIO DE VENTA","PRECIO"]);
-          const iNombreR=fiR(["NOMBRE 1","NOMBRE","COMPRADOR"]);
-          for(let i=rHdrIdx+1;i<rowsR.length;i++){
+          // La hoja "Resoluciones y pendientes" tiene secciones con cabeceras de sección
+          // (ej: "Resoluciones vendidas", "Resoluciones libres", "Pendiente de resolución")
+          // seguidas de filas de datos. Recogemos cualquier ref tipo B#-### que aparezca.
+          const REF_RE=/^[A-Z]\d+-\d+$/i;
+          const seenRefs=new Set();
+          // Intentar detectar col de ref por cabecera, o usar col B (índice 1) por defecto
+          let refColR=1;
+          for(let i=0;i<Math.min(rowsR.length,10);i++){
+            const r=(rowsR[i]||[]).map(c=>String(c||"").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim());
+            const ci=r.findIndex(c=>c.includes("VVDA")||c.includes("NUMERACION")||c.includes("REFERENCIA")||c==="REF");
+            if(ci>=0){refColR=ci;break;}
+          }
+          for(let i=0;i<rowsR.length;i++){
             const r=rowsR[i];if(!r) continue;
-            const ref=String(r[iRefR>=0?iRefR:2]||"").trim();
-            if(!ref) continue;
-            result.rescisiones.push({ref,fecha:toISO(r[iFechaR>=0?iFechaR:15]),precio:toN(r[iPrecioR>=0?iPrecioR:6]),nombre:String(r[iNombreR>=0?iNombreR:32]||"").trim()});
+            // Buscar en todas las columnas por si la ref no está en refColR
+            let ref="";
+            const candidate=String(r[refColR]||"").trim();
+            if(REF_RE.test(candidate)){ref=candidate;}
+            else{for(let ci=0;ci<Math.min(r.length,10);ci++){const v=String(r[ci]||"").trim();if(REF_RE.test(v)){ref=v;break;}}}
+            if(!ref||seenRefs.has(ref)) continue;
+            seenRefs.add(ref);
+            result.rescisiones.push({ref,fecha:"",precio:0,nombre:""});
           }
         }
         if(!result.ventas.length){alert("No se encontraron datos en el master comercial.");return;}
