@@ -879,7 +879,7 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
                 onMouseEnter={e=>e.currentTarget.style.background="#EDE8DF"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref||"-"}</div>
                 <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
-                <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{labelMostrar}</span></div>
+                <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color}}>{labelMostrar}</span></div>
                 <div style={{fontSize:"0.82rem",color:"#6B7A8A"}}>{fmtEur(v.precioOrigen)}</div>
                 <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
                 <div style={{fontSize:"0.82rem",color:inc>0?"#4ca99a":"#6B7A8A",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
@@ -1143,7 +1143,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
               {l:"Pte. de entrar",    v:inf.pteEntrar,    p:prev?.pteEntrar,    mejor:false},
               {l:"Agendar visita",    v:inf.agendar,      p:prev?.agendar,      mejor:false},
               {l:"Con repasos",       v:inf.conRepasos,   p:prev?.conRepasos,   mejor:false},
-              {l:"Sin repasos",       v:inf.noRepasa,     p:prev?.noRepasa,     mejor:null},
+              {l:"Sin clasificar",    v:inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa), p:prev?(prev.total-(prev.finalizadas+prev.pteTerminar+prev.pteEntrar+prev.agendar+(prev.noRepasa||0))):null, mejor:false},
               {l:"Con alarma activa", v:inf.conAlarma,    p:prev?.conAlarma,    mejor:null},
             ].map(k => {
               const d = k.p != null ? k.v - k.p : null;
@@ -1167,19 +1167,33 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                   <span style={{fontSize:"0.78rem",fontWeight:700,color:"#1E2D4E"}}>Progreso finalización posventa</span>
                   <span style={{fontSize:"0.78rem",fontWeight:800,color:"#4ca99a"}}>{pct}%
-                    {pctPrev!=null&&pct!==pctPrev&&<span style={{color:"#4ca99a",fontSize:"0.68rem"}}> (+{pct-pctPrev}pp vs anterior)</span>}
+                    {pctPrev!=null&&pct!==pctPrev&&(()=>{const diff=pct-pctPrev;return <span style={{color:diff>0?"#4ca99a":"#e05a5a",fontSize:"0.68rem"}}> ({diff>0?"+":""}{diff}pp vs anterior)</span>;})()}
                   </span>
                 </div>
                 <div style={{height:10,background:"#F0EEE9",borderRadius:5,overflow:"hidden",position:"relative"}}>
                   {pctPrev!=null&&<div style={{position:"absolute",top:0,left:0,height:"100%",width:pctPrev+"%",background:"#DDD8CF",borderRadius:5}}/>}
                   <div style={{position:"absolute",top:0,left:0,height:"100%",width:pct+"%",background:"#4ca99a",borderRadius:5}}/>
                 </div>
-                <div style={{display:"flex",gap:16,marginTop:8,fontSize:"0.68rem",color:"#6B7A8A"}}>
-                  <span>🟢 Final.: {inf.finalizadas}</span>
-                  <span>🔴 Pte. terminar: {inf.pteTerminar}</span>
-                  <span>🟡 Pte. entrar: {inf.pteEntrar}</span>
-                  <span>🟠 Agendar: {inf.agendar}</span>
-                </div>
+                {(()=>{
+                  const clasificadas = inf.finalizadas + inf.pteTerminar + inf.pteEntrar + inf.agendar + inf.noRepasa;
+                  const sinClasificar = inf.total - clasificadas;
+                  return (
+                    <div style={{marginTop:8}}>
+                      <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:"0.68rem",color:"#6B7A8A"}}>
+                        <span>🟢 Final.: {inf.finalizadas}</span>
+                        <span>🔴 Pte. terminar: {inf.pteTerminar}</span>
+                        <span>🟡 Pte. entrar: {inf.pteEntrar}</span>
+                        <span>🟠 Agendar: {inf.agendar}</span>
+                        {inf.noRepasa>0&&<span>⬜ Sin repasos: {inf.noRepasa}</span>}
+                      </div>
+                      {sinClasificar>0&&(
+                        <div style={{marginTop:6,fontSize:"0.67rem",color:"#e05a5a",fontWeight:600}}>
+                          ⚠ {sinClasificar} escrituradas sin estado clasificado ({clasificadas} de {inf.total} identificadas)
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -1197,7 +1211,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                   {l:"Pte. terminar",        v:inf.pteTerminar-prev.pteTerminar, pos:false},
                   {l:"Pte. de entrar",       v:inf.pteEntrar-prev.pteEntrar,     pos:false},
                   {l:"Nuevas a agendar",     v:inf.agendar-prev.agendar,         pos:false},
-                  {l:"Repasos pendientes",   v:inf.conRepasos-prev.conRepasos,   pos:false},
+                  {l:"Con repasos (Δ)",      v:inf.conRepasos-prev.conRepasos,   pos:false},
                 ].map(x => {
                   const c = x.pos===null||x.v===0 ? "#6B7A8A" : x.pos ? (x.v>0?"#4ca99a":"#e05a5a") : (x.v<0?"#4ca99a":"#e05a5a");
                   return (
