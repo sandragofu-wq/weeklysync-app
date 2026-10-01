@@ -1842,11 +1842,9 @@ export default function Overview(){
               for(const pc of priceColsToTry){const v=r[pc];if(v&&v!==false&&String(v).toUpperCase()!=="FALSE"){const n=toN(v);if(n>1000){precio=n;break;}}}
               if(!precio){for(let ci=0;ci<r.length;ci++){const v=r[ci];if(v&&typeof v==="number"&&v>10000){precio=v;break;}}}
               if(!precio) continue;
-              // Status: use VENTA GSP (☑=vendido) to override status when present
-              let statusRaw=normalize(String(r[iStatus>=0?iStatus:17]||""));
-              // Guardar texto original del Excel (capitalizado) para mostrarlo tal cual
+              // Status: leer directamente STATUS COMERCIAL, sin sobreescribir con VENTA GSP
               const statusExcel=String(r[iStatus>=0?iStatus:17]||"").trim()||"—";
-              if(iVentaGsp>=0){const g=String(r[iVentaGsp]||"").trim();if(g==="☑"||g==="✓"||g==="x"||g.toLowerCase()==="si"||g==="1") statusRaw="VENDIDA";}
+              let statusRaw=normalize(statusExcel);
               const status=statusMap[statusRaw]||"disponible";
               const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
               const tipoInmueble=normalize(String(r[iTipo>=0?iTipo:1]||""))||"VIV";
