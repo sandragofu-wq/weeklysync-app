@@ -1004,6 +1004,27 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     };
   };
 
+  const extraerFechaDeNombre = (nombre) => {
+    // Intenta parsear YYMMDD o YYYYMMDD al inicio del nombre de archivo
+    // ej: "260914_MD_CONTROL..." → 2026-09-14
+    //     "20260914_..." → 2026-09-14
+    const m6 = nombre.match(/^(\d{2})(\d{2})(\d{2})[_\- ]/);
+    if (m6) {
+      const [,yy,mm,dd] = m6;
+      const year = parseInt(yy) < 50 ? "20"+yy : "19"+yy;
+      const d = new Date(`${year}-${mm}-${dd}`);
+      if (!isNaN(d)) return `${year}-${mm}-${dd}`;
+    }
+    const m8 = nombre.match(/^(\d{4})(\d{2})(\d{2})[_\- ]/);
+    if (m8) {
+      const [,yyyy,mm,dd] = m8;
+      const d = new Date(`${yyyy}-${mm}-${dd}`);
+      if (!isNaN(d)) return `${yyyy}-${mm}-${dd}`;
+    }
+    // Fallback: fecha de hoy
+    return new Date().toISOString().substring(0,10);
+  };
+
   const importarInforme = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1013,7 +1034,8 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
         const wb = window.XLSX.read(ev.target.result, {type:'array', cellDates:true});
         const parsed = parseInformePosventa(wb);
         if (!parsed) { alert('No se pudo leer el informe. Comprueba que es el formato correcto.'); return; }
-        const nuevo = {id:Date.now(), fecha:new Date().toISOString().substring(0,10), nombre:file.name, ...parsed};
+        const fechaInforme = extraerFechaDeNombre(file.name);
+        const nuevo = {id:Date.now(), fecha:fechaInforme, fechaImport:new Date().toISOString().substring(0,10), nombre:file.name, ...parsed};
         upd(activeId, p => ({...p, posventaInformes:[...(p.posventaInformes||[]), nuevo]}));
         setPvTab('informe');
       } catch(err) { alert('Error al leer: ' + err.message); }
@@ -1177,57 +1199,102 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
           {/* Evolutivo histórico */}
           {informes.length >= 2 && (()=>{
             const cronologico=[...informes].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
-            const labels=cronologico.map(x=>fmt(x.fecha));
+            // Detectar si todas las fechas son iguales (importadas el mismo día)
+            const fechasUnicas=new Set(cronologico.map(x=>x.fecha));
+            const todasIguales=fechasUnicas.size===1;
             const series=[
-              {key:"finalizadas", label:"Finalizadas", color:"#4ca99a"},
-              {key:"pteTerminar",  label:"Pte. terminar", color:"#e05a5a"},
-              {key:"pteEntrar",    label:"Pte. entrar",   color:"#ddb96a"},
-              {key:"agendar",      label:"Agendar",        color:"#c9a86c"},
+              {key:"finalizadas", label:"Finalizadas",   color:"#4ca99a"},
+              {key:"pteTerminar", label:"Pte. terminar", color:"#e05a5a"},
+              {key:"pteEntrar",   label:"Pte. entrar",   color:"#ddb96a"},
+              {key:"agendar",     label:"Agendar",        color:"#c9a86c"},
             ];
+            // Escala Y: desde el mínimo real al máximo, con padding
             const allVals=cronologico.flatMap(x=>series.map(s=>x[s.key]||0));
             const maxV=Math.max(...allVals,1);
-            const W=560,H=160,padL=28,padR=10,padT=10,padB=28;
+            const minV=0;
+            const W=620,H=180,padL=32,padR=16,padT=14,padB=36;
             const cW=W-padL-padR,cH=H-padT-padB;
             const n=cronologico.length;
-            const xOf=i=>padL+(i/(n-1))*cW;
-            const yOf=v=>padT+cH-(v/maxV)*cH;
+            const xOf=i=>padL+(n>1?i/(n-1):0.5)*cW;
+            const yOf=v=>padT+cH-((v-minV)/(maxV-minV||1))*cH;
             const polyline=s=>cronologico.map((x,i)=>`${xOf(i)},${yOf(x[s.key]||0)}`).join(" ");
-            // Ticks Y
-            const yTicks=[0,Math.round(maxV/2),maxV];
+            const yTicks=[minV,Math.round(maxV/2),maxV];
+            // Etiquetas X: nombre corto del archivo (primeros 10 chars) o fecha
+            const xLabel=x=>{
+              // Intenta mostrar la fecha del informe; si es igual para todos, usa el nombre del archivo abreviado
+              if(todasIguales){
+                // Extrae prefijo de fecha del nombre si lo tiene (YYMMDD_)
+                const m=x.nombre.match(/^(\d{6}|\d{8})/);
+                if(m){
+                  const raw=m[0];
+                  if(raw.length===6) return `${raw.substring(4,6)}/${raw.substring(2,4)}`;
+                  if(raw.length===8) return `${raw.substring(6,8)}/${raw.substring(4,6)}`;
+                }
+                return x.nombre.substring(0,8);
+              }
+              return fmt(x.fecha);
+            };
             return (
               <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"16px 18px",marginBottom:14}}>
-                <div style={{fontWeight:700,fontSize:"0.78rem",color:"#1E2D4E",marginBottom:12}}>Evolutivo histórico posventa ({informes.length} informes)</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                  <div style={{fontWeight:700,fontSize:"0.78rem",color:"#1E2D4E"}}>Evolutivo histórico posventa ({informes.length} informes)</div>
+                  {todasIguales&&<div style={{fontSize:"0.68rem",color:"#e05a5a",background:"rgba(224,90,90,0.08)",padding:"3px 8px",borderRadius:6}}>⚠ Los informes tienen la misma fecha de importación. Corrige las fechas abajo para ver el evolutivo real.</div>}
+                </div>
+
+                {/* Editor de fechas por informe */}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #E8E2D8"}}>
+                  {cronologico.map((x)=>(
+                    <div key={x.id} style={{display:"flex",flexDirection:"column",gap:2,background:"#F8F7F4",borderRadius:7,padding:"5px 8px",fontSize:"0.67rem",minWidth:100}}>
+                      <div style={{color:"#6B7A8A",fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}} title={x.nombre}>{x.nombre.substring(0,18)}{x.nombre.length>18?"…":""}</div>
+                      <input type="date" defaultValue={x.fecha}
+                        style={{border:"1px solid #DDD8CF",borderRadius:5,padding:"2px 4px",fontSize:"0.67rem",fontFamily:"inherit",outline:"none",color:"#1E2D4E",background:"#fff"}}
+                        onChange={e=>{const v=e.target.value;if(v) upd(activeId,p=>({...p,posventaInformes:(p.posventaInformes||[]).map(inf2=>inf2.id===x.id?{...inf2,fecha:v}:inf2)}));}}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Gráfica */}
                 <div style={{overflowX:"auto"}}>
-                  <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",maxWidth:W,display:"block",minWidth:320}}>
-                    {/* Grid lines */}
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",maxWidth:W,display:"block",minWidth:340}}>
+                    {/* Grid Y */}
                     {yTicks.map(v=>(
                       <g key={v}>
-                        <line x1={padL} y1={yOf(v)} x2={W-padR} y2={yOf(v)} stroke="#E8E2D8" strokeWidth="1"/>
-                        <text x={padL-4} y={yOf(v)+4} textAnchor="end" fontSize="9" fill="#9BA8B4">{v}</text>
+                        <line x1={padL} y1={yOf(v)} x2={W-padR} y2={yOf(v)} stroke="#E8E2D8" strokeWidth="1" strokeDasharray={v===minV?"none":"3,3"}/>
+                        <text x={padL-5} y={yOf(v)+4} textAnchor="end" fontSize="9" fill="#9BA8B4">{v}</text>
                       </g>
                     ))}
                     {/* X labels */}
                     {cronologico.map((x,i)=>(
-                      <text key={i} x={xOf(i)} y={H-4} textAnchor="middle" fontSize="8.5" fill="#9BA8B4">{labels[i]}</text>
+                      <text key={i} x={xOf(i)} y={H-4} textAnchor="middle" fontSize="8" fill="#9BA8B4">{xLabel(x)}</text>
                     ))}
-                    {/* Lines */}
+                    {/* Líneas verticales guía */}
+                    {cronologico.map((x,i)=>(
+                      <line key={i} x1={xOf(i)} y1={padT} x2={xOf(i)} y2={H-padB} stroke="#E8E2D8" strokeWidth="0.5"/>
+                    ))}
+                    {/* Series */}
                     {series.map(s=>(
                       <g key={s.key}>
-                        <polyline points={polyline(s)} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
-                        {cronologico.map((x,i)=>(
-                          <circle key={i} cx={xOf(i)} cy={yOf(x[s.key]||0)} r="3.5" fill={s.color} stroke="#fff" strokeWidth="1.5">
-                            <title>{s.label}: {x[s.key]||0} ({labels[i]})</title>
-                          </circle>
-                        ))}
+                        <polyline points={polyline(s)} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+                        {cronologico.map((x,i)=>{
+                          const v=x[s.key]||0;
+                          return (
+                            <g key={i}>
+                              <circle cx={xOf(i)} cy={yOf(v)} r="4.5" fill={s.color} stroke="#fff" strokeWidth="2"/>
+                              {/* Valor encima del punto */}
+                              <text x={xOf(i)} y={yOf(v)-8} textAnchor="middle" fontSize="9" fontWeight="700" fill={s.color}>{v}</text>
+                            </g>
+                          );
+                        })}
                       </g>
                     ))}
                   </svg>
                 </div>
                 {/* Leyenda */}
-                <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:8}}>
+                <div style={{display:"flex",gap:16,flexWrap:"wrap",marginTop:4}}>
                   {series.map(s=>(
-                    <span key={s.key} style={{fontSize:"0.68rem",color:"#6B7A8A",display:"flex",alignItems:"center",gap:5}}>
-                      <span style={{width:14,height:3,borderRadius:2,background:s.color,display:"inline-block"}}/>
+                    <span key={s.key} style={{fontSize:"0.70rem",color:"#6B7A8A",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{width:16,height:3,borderRadius:2,background:s.color,display:"inline-block"}}/>
                       {s.label}
                     </span>
                   ))}
