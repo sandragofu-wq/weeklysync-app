@@ -34,7 +34,7 @@ const HITO_CYCLE = ["pendiente","en-curso","completado","retrasado"];
 const ESTADOS = {"en-marcha":{label:"En marcha",color:"#4ca99a",bg:"rgba(76,169,154,0.12)"},"en-riesgo":{label:"En riesgo",color:"#ddb96a",bg:"rgba(221,185,106,0.12)"},"bloqueado":{label:"Bloqueado",color:"#e05a5a",bg:"rgba(224,90,90,0.12)"},"planificacion":{label:"Planificacion",color:"#c9a86c",bg:"rgba(201,168,108,0.12)"},"entregado":{label:"Entregado",color:"#94a3b8",bg:"rgba(148,163,184,0.12)"}};
 const HITO_EST = {"completado":{color:"#4ca99a",bg:"rgba(76,169,154,0.15)",icon:"✓"},"en-curso":{color:"#c9a86c",bg:"rgba(201,168,108,0.15)",icon:"->"},"pendiente":{color:"#B0BBC6",bg:"rgba(61,80,112,0.15)",icon:"o"},"retrasado":{color:"#e05a5a",bg:"rgba(224,90,90,0.15)",icon:"!"}};
 const BLOCK_ST = {critico:{bg:"rgba(224,90,90,0.10)",border:"rgba(224,90,90,0.3)",icon:"[!]"},aviso:{bg:"rgba(221,185,106,0.10)",border:"rgba(221,185,106,0.3)",icon:"[?]"},info:{bg:"rgba(201,168,108,0.10)",border:"rgba(201,168,108,0.3)",icon:"[i]"}};
-const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#c9a86c"},"reservada":{label:"Reservada",color:"#ddb96a"},"vendida":{label:"Vendida",color:"#4ca99a"},"rescindida":{label:"Rescisión",color:"#e05a5a"},"no-venta":{label:"No venta",color:"#6B7A8A"}};
+const VIV_ESTADOS = {"disponible":{label:"Disponible",color:"#4ca99a"},"reservada":{label:"Reservada",color:"#ddb96a"},"vendida":{label:"Vendida",color:"#4ca99a"},"rescindida":{label:"Rescisión",color:"#e05a5a"},"no-venta":{label:"No venta",color:"#6B7A8A"}};
 const PRIO_CLR = {alta:"#e05a5a",media:"#ddb96a",baja:"#4ca99a"};
 const TEAM = ["Sandra","Alberto","Pilar","Monica","Maria","Fran","Sara (BSA)","Dani (BSA)","Inma (BSA)"];
 const CSS = {inp:{width:"100%",background:"#F0EEE9",border:"1px solid #DDD8CF",borderRadius:8,padding:"8px 11px",color:"#1E2D4E",fontFamily:"inherit",fontSize:"0.84rem",outline:"none",boxSizing:"border-box"}};
@@ -869,10 +869,12 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
         </div>
         <div style={{maxHeight:400,overflowY:"auto"}}>
           {ventas.map((v,i)=>{
-            const sKey=v.status||"disponible";
+            // Recalcular status desde statusExcel si existe (corrige datos importados con parser antiguo)
+            const statusExcelMap={"reserva":"reservada","reservado":"reservada","libre":"disponible","disponible":"disponible","escritura":"vendida","escriturado":"vendida","vendida":"vendida","baja":"rescindida","rescision":"rescindida","rescindida":"rescindida","bloqueado":"no-venta","bloqueado promotor":"no-venta"};
+            const sKeyFromExcel=v.statusExcel&&v.statusExcel!=="—"?statusExcelMap[(v.statusExcel||"").toLowerCase().trim()]:null;
+            const sKey=sKeyFromExcel||v.status||"disponible";
             const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
             const inc=Number(v.incremento)||0;
-            // Texto a mostrar: el del Excel si existe, si no la etiqueta mapeada
             const labelMostrar=v.statusExcel&&v.statusExcel!=="—"?v.statusExcel:vs.label;
             return (
               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #E8E2D8":"none",alignItems:"center"}}
