@@ -1174,6 +1174,68 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
             </div>
           )}
 
+          {/* Evolutivo histórico */}
+          {informes.length >= 2 && (()=>{
+            const cronologico=[...informes].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+            const labels=cronologico.map(x=>fmt(x.fecha));
+            const series=[
+              {key:"finalizadas", label:"Finalizadas", color:"#4ca99a"},
+              {key:"pteTerminar",  label:"Pte. terminar", color:"#e05a5a"},
+              {key:"pteEntrar",    label:"Pte. entrar",   color:"#ddb96a"},
+              {key:"agendar",      label:"Agendar",        color:"#c9a86c"},
+            ];
+            const allVals=cronologico.flatMap(x=>series.map(s=>x[s.key]||0));
+            const maxV=Math.max(...allVals,1);
+            const W=560,H=160,padL=28,padR=10,padT=10,padB=28;
+            const cW=W-padL-padR,cH=H-padT-padB;
+            const n=cronologico.length;
+            const xOf=i=>padL+(i/(n-1))*cW;
+            const yOf=v=>padT+cH-(v/maxV)*cH;
+            const polyline=s=>cronologico.map((x,i)=>`${xOf(i)},${yOf(x[s.key]||0)}`).join(" ");
+            // Ticks Y
+            const yTicks=[0,Math.round(maxV/2),maxV];
+            return (
+              <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"16px 18px",marginBottom:14}}>
+                <div style={{fontWeight:700,fontSize:"0.78rem",color:"#1E2D4E",marginBottom:12}}>Evolutivo histórico posventa ({informes.length} informes)</div>
+                <div style={{overflowX:"auto"}}>
+                  <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",maxWidth:W,display:"block",minWidth:320}}>
+                    {/* Grid lines */}
+                    {yTicks.map(v=>(
+                      <g key={v}>
+                        <line x1={padL} y1={yOf(v)} x2={W-padR} y2={yOf(v)} stroke="#E8E2D8" strokeWidth="1"/>
+                        <text x={padL-4} y={yOf(v)+4} textAnchor="end" fontSize="9" fill="#9BA8B4">{v}</text>
+                      </g>
+                    ))}
+                    {/* X labels */}
+                    {cronologico.map((x,i)=>(
+                      <text key={i} x={xOf(i)} y={H-4} textAnchor="middle" fontSize="8.5" fill="#9BA8B4">{labels[i]}</text>
+                    ))}
+                    {/* Lines */}
+                    {series.map(s=>(
+                      <g key={s.key}>
+                        <polyline points={polyline(s)} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+                        {cronologico.map((x,i)=>(
+                          <circle key={i} cx={xOf(i)} cy={yOf(x[s.key]||0)} r="3.5" fill={s.color} stroke="#fff" strokeWidth="1.5">
+                            <title>{s.label}: {x[s.key]||0} ({labels[i]})</title>
+                          </circle>
+                        ))}
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+                {/* Leyenda */}
+                <div style={{display:"flex",gap:14,flexWrap:"wrap",marginTop:8}}>
+                  {series.map(s=>(
+                    <span key={s.key} style={{fontSize:"0.68rem",color:"#6B7A8A",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{width:14,height:3,borderRadius:2,background:s.color,display:"inline-block"}}/>
+                      {s.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Tabla filtrable */}
           <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden"}}>
             <div style={{padding:"12px 16px",borderBottom:"1px solid #DDD8CF",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
@@ -1344,18 +1406,60 @@ export default function Overview(){
 
   const proj=projects.find(p=>p.id===activeId);
   useEffect(()=>{
-    // Load from cloud FIRST - block saves until done
-    cloudLoad().then(data=>{
-      if(data&&Array.isArray(data)&&data.length>0){
-        const migrated=data.map(x=>{
-          // Fusionar tareas t_atl_ de DEFAULT_PROJECTS si faltan en los datos guardados
-          const defProj=DEFAULT_PROJECTS.find(d=>d.id===x.id);
-          const existingIds=new Set((x.tareas||[]).map(t=>String(t.id)));
-          const missingDef=defProj?(defProj.tareas||[]).filter(t=>String(t.id).startsWith("t_atl_")&&!existingIds.has(String(t.id))):[];
-          return {...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,tareas:[...(x.tareas||[]),...missingDef]};
+    // Load from cloud y hacer merge inteligente con localStorage
+    // — conservar siempre el campo con MÁS datos entre cloud y local
+    const localRaw=localStorage.getItem("ov11");
+    let localProjects=null;
+    try{const p=JSON.parse(localRaw||"null");if(Array.isArray(p)&&p.length>0) localProjects=p;}catch{}
+
+    const mergeArr=(a,b)=>{// devuelve el array con más elementos (o el no-vacío)
+      const aa=Array.isArray(a)?a:[];const bb=Array.isArray(b)?b:[];
+      return aa.length>=bb.length?aa:bb;
+    };
+    const mergeObj=(a,b)=>{// devuelve el objeto no nulo (o el que tenga más keys)
+      if(!a&&!b) return null;if(!a) return b;if(!b) return a;
+      return Object.keys(b).length>=Object.keys(a).length?{...a,...b}:{...b,...a};
+    };
+    const mergeProject=(cloud,local)=>{
+      if(!local) return cloud;
+      if(!cloud) return local;
+      // Para cada proyecto: conservar el campo con más información
+      const defProj=DEFAULT_PROJECTS.find(d=>d.id===cloud.id);
+      const existingIds=new Set([...(cloud.tareas||[]),...(local.tareas||[])].map(t=>String(t.id)));
+      const missingDef=defProj?(defProj.tareas||[]).filter(t=>String(t.id).startsWith("t_atl_")&&!existingIds.has(String(t.id))):[];
+      return {
+        ...cloud,
+        // Campos de array: conservar el más largo
+        hitos:mergeArr(cloud.hitos,local.hitos),
+        blockers:mergeArr(cloud.blockers,local.blockers),
+        tareas:[...new Map([...(local.tareas||[]),...(cloud.tareas||[]),...missingDef].map(t=>[String(t.id),t])).values()],
+        viviendas:mergeArr(cloud.viviendas,local.viviendas),
+        posventaInformes:mergeArr(cloud.posventaInformes,local.posventaInformes),
+        posventaIncidencias:mergeArr(cloud.posventaIncidencias,local.posventaIncidencias),
+        // Campos objeto: conservar si existe
+        bp:mergeObj(cloud.bp,local.bp),
+        marketing:mergeObj(cloud.marketing,local.marketing),
+        master:mergeObj(cloud.master,local.master),
+        // Texto: conservar el más largo
+        resumenSemanal:(cloud.resumenSemanal||"").length>=(local.resumenSemanal||"").length?cloud.resumenSemanal:local.resumenSemanal,
+      };
+    };
+
+    cloudLoad().then(cloudData=>{
+      if(cloudData&&Array.isArray(cloudData)&&cloudData.length>0){
+        const merged=cloudData.map(cx=>{
+          const lx=localProjects?localProjects.find(l=>l.id===cx.id):null;
+          return mergeProject(cx,lx);
         });
-        setProjects(migrated);
-        try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
+        // Añadir proyectos que solo existen en local (no llegaron aún al cloud)
+        if(localProjects){
+          const cloudIds=new Set(cloudData.map(c=>c.id));
+          localProjects.filter(l=>!cloudIds.has(l.id)).forEach(l=>merged.push(l));
+        }
+        setProjects(merged);
+        try{localStorage.setItem("ov11",JSON.stringify(merged));}catch{}
+      } else if(localProjects){
+        // Cloud vacío pero hay datos locales — no machacamos nada
       }
       setCloudSynced(true);
     }).catch(()=>setCloudSynced(true));
