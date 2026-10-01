@@ -872,12 +872,14 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
             const sKey=v.status||"disponible";
             const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
             const inc=Number(v.incremento)||0;
+            // Texto a mostrar: el del Excel si existe, si no la etiqueta mapeada
+            const labelMostrar=v.statusExcel&&v.statusExcel!=="—"?v.statusExcel:vs.label;
             return (
               <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 0.7fr 0.9fr 1fr 1fr 1fr 0.8fr 1fr",padding:"9px 16px",borderBottom:i<ventas.length-1?"1px solid #E8E2D8":"none",alignItems:"center"}}
                 onMouseEnter={e=>e.currentTarget.style.background="#EDE8DF"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                 <div style={{fontWeight:600,fontSize:"0.82rem"}}>{v.ref||"-"}</div>
                 <div style={{fontSize:"0.78rem",color:"#6B7A8A"}}>{(v.tipo||"")==="VIVIENDA"?"VIV":"PA"}</div>
-                <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{vs.label}</span></div>
+                <div><span style={{fontSize:"0.65rem",fontWeight:700,padding:"2px 6px",borderRadius:6,background:vs.color+"18",color:vs.color,textTransform:"uppercase"}}>{labelMostrar}</span></div>
                 <div style={{fontSize:"0.82rem",color:"#6B7A8A"}}>{fmtEur(v.precioOrigen)}</div>
                 <div style={{fontSize:"0.84rem",fontWeight:700}}>{fmtEur(v.precio)}</div>
                 <div style={{fontSize:"0.82rem",color:inc>0?"#4ca99a":"#6B7A8A",fontWeight:inc>0?600:400}}>{inc>0?"+"+fmtEur(inc):"-"}</div>
@@ -961,6 +963,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
   const [pvForm,   setPvForm]   = useState({show:false, ref:"", tipo:"incidencia", estado:"abierta", descripcion:"", fecha:new Date().toISOString().substring(0,10), responsable:""});
   const [vivFiltro, setVivFiltro] = useState('');
   const [estFiltro, setEstFiltro] = useState('');
+  const [vivSort,   setVivSort]   = useState({col:'ref', dir:1}); // col: ref|estado|propietario|repasos|llave|alarma, dir: 1 asc -1 desc
 
   const parseInformePosventa = (wb) => {
     if (!wb || !wb.Sheets) return null;
@@ -1074,11 +1077,23 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
   // ── vistas ──
   const inf  = lastInforme;
   const prev = prevInforme;
+  const ESTADO_ORDER = {'FINALIZADA':0,'PTE TERMINAR':1,'PENDIENTE DE ENTRAR':2,'RESCISIÓN':3,'SIN ESTADO':4};
   const vivsFiltradas = inf ? (inf.viviendas||[]).filter(v => {
     const matchRef = !vivFiltro || v.ref.toLowerCase().includes(vivFiltro.toLowerCase()) ||
                      (v.propietario && v.propietario.toLowerCase().includes(vivFiltro.toLowerCase()));
     const matchEst = !estFiltro || v.estado === estFiltro;
     return matchRef && matchEst;
+  }).sort((a,b)=>{
+    const {col,dir}=vivSort;
+    let va,vb;
+    if(col==='estado'){va=ESTADO_ORDER[a.estado]??9;vb=ESTADO_ORDER[b.estado]??9;}
+    else if(col==='ref'){va=a.ref||'';vb=b.ref||'';}
+    else if(col==='propietario'){va=(a.propietario||'').toLowerCase();vb=(b.propietario||'').toLowerCase();}
+    else if(col==='repasos'){va=a.repasos?1:0;vb=b.repasos?1:0;}
+    else if(col==='llave'){va=(a.llave||'').toLowerCase();vb=(b.llave||'').toLowerCase();}
+    else if(col==='alarma'){va=a.alarma==='Sí'?1:0;vb=b.alarma==='Sí'?1:0;}
+    else{va=a[col]||'';vb=b[col]||'';}
+    if(va<vb) return -dir; if(va>vb) return dir; return 0;
   }) : [];
 
   return (
@@ -1219,26 +1234,22 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
             const yOf=v=>padT+cH-((v-minV)/(maxV-minV||1))*cH;
             const polyline=s=>cronologico.map((x,i)=>`${xOf(i)},${yOf(x[s.key]||0)}`).join(" ");
             const yTicks=[minV,Math.round(maxV/2),maxV];
-            // Etiquetas X: nombre corto del archivo (primeros 10 chars) o fecha
+            // Etiquetas X: fecha con sufijo si hay duplicadas
+            const fechaCount={};
+            cronologico.forEach(x=>{fechaCount[x.fecha]=(fechaCount[x.fecha]||0)+1;});
+            const fechaIdx={};
             const xLabel=x=>{
-              // Intenta mostrar la fecha del informe; si es igual para todos, usa el nombre del archivo abreviado
-              if(todasIguales){
-                // Extrae prefijo de fecha del nombre si lo tiene (YYMMDD_)
-                const m=x.nombre.match(/^(\d{6}|\d{8})/);
-                if(m){
-                  const raw=m[0];
-                  if(raw.length===6) return `${raw.substring(4,6)}/${raw.substring(2,4)}`;
-                  if(raw.length===8) return `${raw.substring(6,8)}/${raw.substring(4,6)}`;
-                }
-                return x.nombre.substring(0,8);
+              const label=fmt(x.fecha);
+              if(fechaCount[x.fecha]>1){
+                fechaIdx[x.fecha]=(fechaIdx[x.fecha]||0)+1;
+                return `${label} (${fechaIdx[x.fecha]})`;
               }
-              return fmt(x.fecha);
+              return label;
             };
             return (
               <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"16px 18px",marginBottom:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                   <div style={{fontWeight:700,fontSize:"0.78rem",color:"#1E2D4E"}}>Evolutivo histórico posventa ({informes.length} informes)</div>
-                  {todasIguales&&<div style={{fontSize:"0.68rem",color:"#e05a5a",background:"rgba(224,90,90,0.08)",padding:"3px 8px",borderRadius:6}}>⚠ Los informes tienen la misma fecha de importación. Corrige las fechas abajo para ver el evolutivo real.</div>}
                 </div>
 
                 {/* Editor de fechas por informe */}
@@ -1314,24 +1325,50 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
               </select>
               <span style={{fontSize:"0.72rem",color:"#6B7A8A"}}>{vivsFiltradas.length} viviendas</span>
             </div>
-            <div style={{overflowX:"auto",maxHeight:480,overflowY:"auto"}}>
-              <div style={{display:"grid",gridTemplateColumns:"0.9fr 1fr 1.1fr 2.5fr 1fr 0.7fr",minWidth:700,padding:"8px 16px",background:"#F0EEE9",fontSize:"0.60rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",position:"sticky",top:0,zIndex:1}}>
-                {["Ref.","Estado","Propietario","Repasos pendientes","Llave","Alarma"].map(h=><div key={h}>{h}</div>)}
-              </div>
-              {vivsFiltradas.map((v,i) => {
-                const ec = ESTADOS_COLOR[v.estado] || ESTADOS_COLOR['SIN ESTADO'];
+            <div style={{overflowX:"auto",maxHeight:520,overflowY:"auto"}}>
+              {(()=>{
+                const COLS=[
+                  {key:'ref',        label:'Ref.',               fr:'0.9fr'},
+                  {key:'estado',     label:'Estado',             fr:'1fr'},
+                  {key:'propietario',label:'Propietario',        fr:'1.2fr'},
+                  {key:'repasos',    label:'Repasos pendientes', fr:'2.5fr'},
+                  {key:'llave',      label:'Llave',              fr:'1fr'},
+                  {key:'alarma',     label:'Alarma',             fr:'0.7fr'},
+                ];
+                const grid=COLS.map(c=>c.fr).join(' ');
+                const thStyle=(col)=>({
+                  cursor:'pointer',userSelect:'none',display:'flex',alignItems:'center',gap:4,
+                  color:vivSort.col===col?'#1E2D4E':'#6B7A8A',
+                  fontWeight:vivSort.col===col?800:700,
+                });
+                const arrow=(col)=>vivSort.col===col?(vivSort.dir===1?'↑':'↓'):'';
+                const toggleSort=(col)=>setVivSort(s=>s.col===col?{col,dir:-s.dir}:{col,dir:1});
                 return (
-                  <div key={v.ref+i} style={{display:"grid",gridTemplateColumns:"0.9fr 1fr 1.1fr 2.5fr 1fr 0.7fr",minWidth:700,padding:"8px 16px",borderBottom:i<vivsFiltradas.length-1?"1px solid #E8E2D8":"none",alignItems:"start",fontSize:"0.77rem"}}>
-                    <div style={{fontWeight:700}}>{v.ref}</div>
-                    <div><span style={{background:ec.bg,color:ec.c,borderRadius:5,padding:"2px 6px",fontSize:"0.65rem",fontWeight:700,whiteSpace:"nowrap"}}>{v.estado}</span></div>
-                    <div style={{color:"#6B7A8A",fontSize:"0.72rem"}}>{v.propietario||"—"}</div>
-                    <div style={{color:v.repasos?"#e05a5a":"#4ca99a",fontSize:"0.72rem",lineHeight:1.4}}>{v.repasos||<span style={{color:"#4ca99a",fontWeight:700}}>✓ Sin repasos</span>}</div>
-                    <div style={{fontSize:"0.70rem",color:v.llave&&String(v.llave).includes('RECOGIDA')?"#4ca99a":"#ddb96a"}}>{v.llave||"—"}</div>
-                    <div style={{fontSize:"0.70rem",color:v.alarma==='Sí'?"#4ca99a":"#6B7A8A"}}>{v.alarma||"—"}</div>
-                  </div>
+                  <>
+                    <div style={{display:'grid',gridTemplateColumns:grid,minWidth:700,padding:'8px 16px',background:'#F0EEE9',fontSize:'0.60rem',textTransform:'uppercase',letterSpacing:'0.06em',position:'sticky',top:0,zIndex:1,borderBottom:'1px solid #DDD8CF'}}>
+                      {COLS.map(c=>(
+                        <div key={c.key} style={thStyle(c.key)} onClick={()=>toggleSort(c.key)}>
+                          {c.label}<span style={{fontSize:'0.65rem',opacity:0.7}}>{arrow(c.key)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {vivsFiltradas.map((v,i)=>{
+                      const ec=ESTADOS_COLOR[v.estado]||ESTADOS_COLOR['SIN ESTADO'];
+                      return (
+                        <div key={v.ref+i} style={{display:'grid',gridTemplateColumns:grid,minWidth:700,padding:'8px 16px',borderBottom:i<vivsFiltradas.length-1?'1px solid #E8E2D8':'none',alignItems:'start',fontSize:'0.77rem'}}>
+                          <div style={{fontWeight:700}}>{v.ref}</div>
+                          <div><span style={{background:ec.bg,color:ec.c,borderRadius:5,padding:'2px 6px',fontSize:'0.65rem',fontWeight:700,whiteSpace:'nowrap'}}>{v.estado}</span></div>
+                          <div style={{color:'#6B7A8A',fontSize:'0.72rem'}}>{v.propietario||'—'}</div>
+                          <div style={{color:v.repasos?'#e05a5a':'#4ca99a',fontSize:'0.72rem',lineHeight:1.4}}>{v.repasos||<span style={{color:'#4ca99a',fontWeight:700}}>✓ Sin repasos</span>}</div>
+                          <div style={{fontSize:'0.70rem',color:v.llave&&String(v.llave).includes('RECOGIDA')?'#4ca99a':'#ddb96a'}}>{v.llave||'—'}</div>
+                          <div style={{fontSize:'0.70rem',color:v.alarma==='Sí'?'#4ca99a':'#6B7A8A'}}>{v.alarma||'—'}</div>
+                        </div>
+                      );
+                    })}
+                    {vivsFiltradas.length===0&&<div style={{padding:'30px',textAlign:'center',color:'#6B7A8A',fontSize:'0.82rem'}}>Sin resultados</div>}
+                  </>
                 );
-              })}
-              {vivsFiltradas.length===0&&<div style={{padding:"30px",textAlign:"center",color:"#6B7A8A",fontSize:"0.82rem"}}>Sin resultados</div>}
+              })()}
             </div>
           </div>
         </div>
@@ -1776,7 +1813,7 @@ export default function Overview(){
             const iVentaGsp=fi(["VENTA GSP"]);
             // Repricings: cols whose header starts with REPRICING or SUBIDA
             const rpCols=[];hdr.forEach((h,i)=>{if(h.startsWith("REPRICING")||h.startsWith("SUBIDA")) rpCols.push(i);});
-            const statusMap={"RESERVA":"reservada","RESERVADO":"reservada","CV":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida","BLOQUEADO":"no-venta","BLOQUEADO PROMOTOR":"no-venta"};
+            const statusMap={"RESERVA":"reservada","RESERVADO":"reservada","CV":"reservada","LIBRE":"disponible","DISPONIBLE":"disponible","ESCRITURA":"vendida","ESCRITURADO":"vendida","VENDIDA":"vendida","VENDIDO":"vendida","BAJA":"rescindida","RESCISION":"rescindida","RESCINDIDA":"rescindida","BLOQUEADO":"no-venta","BLOQUEADO PROMOTOR":"no-venta","BLOQUEADO PROMOTOR":"no-venta"};
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
               // Get ref from best column
@@ -1793,6 +1830,8 @@ export default function Overview(){
               if(!precio) continue;
               // Status: use VENTA GSP (☑=vendido) to override status when present
               let statusRaw=normalize(String(r[iStatus>=0?iStatus:17]||""));
+              // Guardar texto original del Excel (capitalizado) para mostrarlo tal cual
+              const statusExcel=String(r[iStatus>=0?iStatus:17]||"").trim()||"—";
               if(iVentaGsp>=0){const g=String(r[iVentaGsp]||"").trim();if(g==="☑"||g==="✓"||g==="x"||g.toLowerCase()==="si"||g==="1") statusRaw="VENDIDA";}
               const status=statusMap[statusRaw]||"disponible";
               const rps=rpCols.map(c=>toN(r[c])).filter(v=>v>0);
@@ -1801,7 +1840,7 @@ export default function Overview(){
               if(tipoInmueble==="PK"||tipoInmueble==="TR") continue;
               const precioOrigenVal=toN(r[iPrecioOrigen>=0?iPrecioOrigen:18]);
               result.ventas.push({
-                ref,tipo:tipoInmueble,status,precio,
+                ref,tipo:tipoInmueble,status,statusExcel,precio,
                 precioOrigen:precioOrigenVal,
                 m2:toN(r[iM2>=0?iM2:9]),
                 nombre:String(r[iNombre>=0?iNombre:36]||"").trim(),
