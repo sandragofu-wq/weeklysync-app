@@ -842,7 +842,7 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
         {[
           {l:"Total unidades",v:ventas.length,c:"#1E2D4E"},
           {l:"Vendidas/Reservadas",v:vendidas.length,c:"#4ca99a"},
-          {l:"Disponibles",v:libres.length,c:"#c9a86c"},
+          {l:"Disponibles",v:libres.length,c:"#4ca99a"},
           {l:"Rescisiones",v:rescisiones.length,c:"#e05a5a"},
           {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#4ca99a"},
           {l:"Precio medio VIV",v:fmtEur(precioMedioViv)},
