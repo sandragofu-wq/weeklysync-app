@@ -819,6 +819,7 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
   const comisionTotal=vendidas.reduce((a,v)=>a+(Number(v.comision)||0),0);
   const conRepricing=ventas.filter(v=>(Number(v.incremento)||0)>0);
   const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+(Number(v.incremento)||0),0)/conRepricing.length):0;
+  const incrementoTotal=conRepricing.reduce((a,v)=>a+(Number(v.incremento)||0),0);
   const vivsV=vendidas.filter(v=>(v.tipo||"")==="VIVIENDA"||(v.ref||"").includes("-V"));
   const parcV=vendidas.filter(v=>(v.tipo||"")!=="VIVIENDA"&&!(v.ref||"").includes("-V"));
   const precioMedioViv=vivsV.length?Math.round(vivsV.reduce((a,v)=>a+(Number(v.precio)||0),0)/vivsV.length):0;
@@ -846,7 +847,8 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
           {l:"Ingresos comprometidos",v:fmtEur(totalVentas),c:"#4ca99a"},
           {l:"Precio medio VIV",v:fmtEur(precioMedioViv)},
           {l:"Precio medio PARC",v:fmtEur(precioMedioParc)},
-          {l:"Incremento medio repricing",v:fmtEur(incrementoMedio),c:"#ddb96a"},
+          {l:"Incremento medio repricing",v:incrementoMedio>0?fmtEur(incrementoMedio):"-",c:"#ddb96a"},
+          {l:"Incremento total repricing",v:incrementoTotal>0?fmtEur(incrementoTotal):"-",c:"#c9a86c"},
           {l:"Comisiones totales",v:fmtEur(comisionTotal),c:"#f5924e"},
         ].map(k=>(
           <div key={k.l} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"12px 14px"}}>
@@ -923,6 +925,383 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+
+// ─── POSVENTA TAB ────────────────────────────────────────────────────────────
+const PosventaTab = ({proj, activeId, upd, fmt}) => {
+  const ps = proj.posventa || [];
+  const informes = (proj.posventaInformes || []).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  const lastInforme = informes[0] || null;
+  const prevInforme = informes[1] || null;
+
+  const ESTADOS_COLOR = {
+    'FINALIZADA':          {c:'#4ca99a', bg:'rgba(76,169,154,0.12)'},
+    'PTE TERMINAR':        {c:'#e05a5a', bg:'rgba(224,90,90,0.12)'},
+    'PENDIENTE DE ENTRAR': {c:'#ddb96a', bg:'rgba(221,185,106,0.12)'},
+    'AGENDAR VISITA':      {c:'#f5924e', bg:'rgba(245,146,78,0.12)'},
+    'NO REPASA':           {c:'#7c5cfc', bg:'rgba(124,92,252,0.12)'},
+    'SIN ESTADO':          {c:'#6B7A8A', bg:'rgba(107,122,138,0.12)'},
+  };
+  const POSVENTA_TIPOS = {
+    "incidencia": {label:"Incidencia", color:"#e05a5a", bg:"rgba(224,90,90,0.10)"},
+    "reparacion": {label:"Reparación", color:"#ddb96a", bg:"rgba(221,185,106,0.10)"},
+    "garantia":   {label:"Garantía",   color:"#f5924e", bg:"rgba(245,146,78,0.10)"},
+    "entrega":    {label:"Entrega",    color:"#4ca99a", bg:"rgba(76,169,154,0.10)"},
+    "solicitud":  {label:"Solicitud",  color:"#7c5cfc", bg:"rgba(124,92,252,0.10)"},
+    "otro":       {label:"Otro",       color:"#6B7A8A", bg:"rgba(107,122,138,0.10)"},
+  };
+  const POSVENTA_ESTADO = {
+    "abierta":    {label:"Abierta",     color:"#e05a5a"},
+    "en-proceso": {label:"En proceso",  color:"#ddb96a"},
+    "resuelta":   {label:"Resuelta",    color:"#4ca99a"},
+    "cerrada":    {label:"Cerrada",     color:"#6B7A8A"},
+  };
+
+  const [pvTab,    setPvTab]    = useState(informes.length > 0 ? 'informe' : 'manual');
+  const [pvForm,   setPvForm]   = useState({show:false, ref:"", tipo:"incidencia", estado:"abierta", descripcion:"", fecha:new Date().toISOString().substring(0,10), responsable:""});
+  const [vivFiltro, setVivFiltro] = useState('');
+  const [estFiltro, setEstFiltro] = useState('');
+
+  const parseInformePosventa = (wb) => {
+    if (!wb || !wb.Sheets) return null;
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+    let headerIdx = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].some(c => c && String(c).includes('ESCRITURADAS'))) { headerIdx = i; break; }
+    }
+    if (headerIdx < 0) return null;
+    const viviendas = [];
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      const ref = row[1] ? String(row[1]).trim() : null;
+      if (!ref || ref === 'ESCRITURADAS' || ref === 'VIVIENDAS' || ref === ' ') continue;
+      const estado  = row[13] ? String(row[13]).trim() : 'SIN ESTADO';
+      const repasos = row[14] ? String(row[14]).trim() : null;
+      viviendas.push({
+        ref, estado,
+        repasos: repasos && repasos !== 'None' ? repasos : null,
+        propietario: row[17] ? String(row[17]).trim() : null,
+        llave:  row[16] || null,
+        alarma: row[15] || null,
+        parte:  row[11] || null,
+        visita: row[10] || null,
+        fechaEscrit: row[6] ? String(row[6]).substring(0,10) : null,
+      });
+    }
+    const finalizadas  = viviendas.filter(v => v.estado === 'FINALIZADA').length;
+    const pteTerminar  = viviendas.filter(v => v.estado === 'PTE TERMINAR').length;
+    const pteEntrar    = viviendas.filter(v => v.estado === 'PENDIENTE DE ENTRAR').length;
+    const agendar      = viviendas.filter(v => v.estado === 'AGENDAR VISITA').length;
+    const noRepasa     = viviendas.filter(v => v.estado === 'NO REPASA').length;
+    const conRepasos   = viviendas.filter(v => v.repasos).length;
+    const conAlarma    = viviendas.filter(v => v.alarma && String(v.alarma).trim() === 'Sí').length;
+    return {
+      total: viviendas.length, finalizadas, pteTerminar, pteEntrar, agendar,
+      noRepasa, conRepasos, conAlarma,
+      pctFinalizada: viviendas.length ? Math.round(finalizadas / viviendas.length * 100) : 0,
+      viviendas,
+    };
+  };
+
+  const importarInforme = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = window.XLSX.read(ev.target.result, {type:'array', cellDates:true});
+        const parsed = parseInformePosventa(wb);
+        if (!parsed) { alert('No se pudo leer el informe. Comprueba que es el formato correcto.'); return; }
+        const nuevo = {id:Date.now(), fecha:new Date().toISOString().substring(0,10), nombre:file.name, ...parsed};
+        upd(activeId, p => ({...p, posventaInformes:[...(p.posventaInformes||[]), nuevo]}));
+        setPvTab('informe');
+      } catch(err) { alert('Error al leer: ' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const addPosventa = () => {
+    if (!pvForm.descripcion.trim()) return;
+    const item = {id:Date.now(), ref:pvForm.ref, tipo:pvForm.tipo, estado:pvForm.estado,
+                  descripcion:pvForm.descripcion, fecha:pvForm.fecha, responsable:pvForm.responsable, fechaResolucion:""};
+    upd(activeId, p => ({...p, posventa:[...(p.posventa||[]), item]}));
+    setPvForm(f => ({...f, show:false, descripcion:"", ref:""}));
+  };
+  const cambiarEstadoPV = (id, nuevoEstado) => {
+    upd(activeId, p => ({...p, posventa:(p.posventa||[]).map(i =>
+      i.id === id ? {...i, estado:nuevoEstado,
+        fechaResolucion: (nuevoEstado==="resuelta"||nuevoEstado==="cerrada") ? new Date().toISOString().substring(0,10) : i.fechaResolucion
+      } : i
+    )}));
+  };
+  const eliminarPV      = (id) => upd(activeId, p => ({...p, posventa:(p.posventa||[]).filter(i => i.id !== id)}));
+  const eliminarInforme = (id) => upd(activeId, p => ({...p, posventaInformes:(p.posventaInformes||[]).filter(i => i.id !== id)}));
+
+  const abiertas  = ps.filter(i => i.estado === "abierta" || i.estado === "en-proceso");
+  const resueltas = ps.filter(i => i.estado === "resuelta" || i.estado === "cerrada");
+
+  const tabStyle = (active) => ({
+    padding:"7px 16px", fontSize:"0.8rem", fontWeight:700, fontFamily:"inherit",
+    borderRadius:8, border:"none", cursor:"pointer",
+    background: active ? "#1E2D4E" : "transparent",
+    color: active ? "#FFFFFF" : "#6B7A8A", transition:"all 0.15s",
+  });
+
+  // ── vistas ──
+  const inf  = lastInforme;
+  const prev = prevInforme;
+  const vivsFiltradas = inf ? (inf.viviendas||[]).filter(v => {
+    const matchRef = !vivFiltro || v.ref.toLowerCase().includes(vivFiltro.toLowerCase()) ||
+                     (v.propietario && v.propietario.toLowerCase().includes(vivFiltro.toLowerCase()));
+    const matchEst = !estFiltro || v.estado === estFiltro;
+    return matchRef && matchEst;
+  }) : [];
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16}}>
+        <div style={{fontWeight:700, fontSize:"0.92rem"}}>Posventa — {proj.name}</div>
+        <div style={{display:"flex", gap:8, alignItems:"center"}}>
+          <label style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",background:"#4ca99a",color:"#fff",borderRadius:8,fontSize:"0.8rem",fontWeight:700,cursor:"pointer"}}>
+            ↑ Importar informe Excel
+            <input type="file" accept=".xlsx,.xlsm" onChange={importarInforme} style={{display:"none"}}/>
+          </label>
+          <button onClick={()=>setPvForm(f=>({...f,show:!f.show}))} style={{padding:"6px 14px",background:"#1E2D4E",color:"#fff",border:"none",borderRadius:8,fontSize:"0.8rem",fontWeight:700,cursor:"pointer"}}>
+            + Incidencia manual
+          </button>
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:4,background:"#F0EEE9",borderRadius:10,padding:4,marginBottom:16,width:"fit-content"}}>
+        {informes.length > 0 && <button style={tabStyle(pvTab==='informe')} onClick={()=>setPvTab('informe')}>📊 Informes ({informes.length})</button>}
+        <button style={tabStyle(pvTab==='manual')} onClick={()=>setPvTab('manual')}>🔧 Incidencias manuales{ps.length>0?` (${ps.length})`:''}</button>
+      </div>
+
+      {/* ── VISTA INFORMES ── */}
+      {pvTab==='informe' && inf && (
+        <div>
+          {/* Cabecera del informe */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:"0.82rem",color:"#6B7A8A"}}>
+              📄 <strong style={{color:"#1E2D4E"}}>{inf.nombre}</strong> — {fmt(inf.fecha)}
+              {prev && <span> · vs {fmt(prev.fecha)}</span>}
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {informes.map((inf2,i) => (
+                <span key={inf2.id} style={{fontSize:"0.7rem",background:i===0?"#1E2D4E":"#F0EEE9",color:i===0?"#fff":"#6B7A8A",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontWeight:700}} onClick={()=>eliminarInforme(inf2.id)} title="Eliminar informe">✕ {fmt(inf2.fecha)}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* KPIs */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+            {[
+              {l:"Escrituradas",      v:inf.total,        p:prev?.total,        mejor:null},
+              {l:"Finalizadas",       v:inf.finalizadas,  p:prev?.finalizadas,  mejor:true,  pct:inf.pctFinalizada+"%"},
+              {l:"Pte. terminar",     v:inf.pteTerminar,  p:prev?.pteTerminar,  mejor:false},
+              {l:"Pte. de entrar",    v:inf.pteEntrar,    p:prev?.pteEntrar,    mejor:false},
+              {l:"Agendar visita",    v:inf.agendar,      p:prev?.agendar,      mejor:false},
+              {l:"Con repasos",       v:inf.conRepasos,   p:prev?.conRepasos,   mejor:false},
+              {l:"Sin repasos",       v:inf.noRepasa,     p:prev?.noRepasa,     mejor:null},
+              {l:"Con alarma activa", v:inf.conAlarma,    p:prev?.conAlarma,    mejor:null},
+            ].map(k => {
+              const d = k.p != null ? k.v - k.p : null;
+              const clr = d===null||d===0 ? "#6B7A8A" : k.mejor===true ? (d>0?"#4ca99a":"#e05a5a") : k.mejor===false ? (d<0?"#4ca99a":"#e05a5a") : "#6B7A8A";
+              return (
+                <div key={k.l} style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"12px 14px"}}>
+                  <div style={{fontSize:"0.60rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:5}}>{k.l}</div>
+                  <div style={{fontSize:"1.3rem",fontWeight:800,color:"#1E2D4E"}}>{k.v}{k.pct&&<span style={{fontSize:"0.75rem",color:"#4ca99a",marginLeft:4}}>{k.pct}</span>}</div>
+                  {d!==null && <div style={{fontSize:"0.7rem",fontWeight:700,color:clr,marginTop:2}}>{d>0?"+":""}{d} vs anterior</div>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Barra progreso */}
+          {inf.total > 0 && (()=>{
+            const pct = inf.pctFinalizada;
+            const pctPrev = prev && prev.total ? Math.round(prev.finalizadas/prev.total*100) : null;
+            return (
+              <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"14px 18px",marginBottom:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                  <span style={{fontSize:"0.78rem",fontWeight:700,color:"#1E2D4E"}}>Progreso finalización posventa</span>
+                  <span style={{fontSize:"0.78rem",fontWeight:800,color:"#4ca99a"}}>{pct}%
+                    {pctPrev!=null&&pct!==pctPrev&&<span style={{color:"#4ca99a",fontSize:"0.68rem"}}> (+{pct-pctPrev}pp vs anterior)</span>}
+                  </span>
+                </div>
+                <div style={{height:10,background:"#F0EEE9",borderRadius:5,overflow:"hidden",position:"relative"}}>
+                  {pctPrev!=null&&<div style={{position:"absolute",top:0,left:0,height:"100%",width:pctPrev+"%",background:"#DDD8CF",borderRadius:5}}/>}
+                  <div style={{position:"absolute",top:0,left:0,height:"100%",width:pct+"%",background:"#4ca99a",borderRadius:5}}/>
+                </div>
+                <div style={{display:"flex",gap:16,marginTop:8,fontSize:"0.68rem",color:"#6B7A8A"}}>
+                  <span>🟢 Final.: {inf.finalizadas}</span>
+                  <span>🔴 Pte. terminar: {inf.pteTerminar}</span>
+                  <span>🟡 Pte. entrar: {inf.pteEntrar}</span>
+                  <span>🟠 Agendar: {inf.agendar}</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Comparativa */}
+          {prev && (
+            <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"14px 18px",marginBottom:14}}>
+              <div style={{fontWeight:700,fontSize:"0.78rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>
+                Comparativa {fmt(prev.fecha)} → {fmt(inf.fecha)}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                {[
+                  {l:"Nuevas escrituradas",  v:inf.total-prev.total,         pos:null},
+                  {l:"Finalizadas ganadas",  v:inf.finalizadas-prev.finalizadas, pos:true},
+                  {l:"Pte. terminar",        v:inf.pteTerminar-prev.pteTerminar, pos:false},
+                  {l:"Pte. de entrar",       v:inf.pteEntrar-prev.pteEntrar,     pos:false},
+                  {l:"Nuevas a agendar",     v:inf.agendar-prev.agendar,         pos:false},
+                  {l:"Repasos pendientes",   v:inf.conRepasos-prev.conRepasos,   pos:false},
+                ].map(x => {
+                  const c = x.pos===null||x.v===0 ? "#6B7A8A" : x.pos ? (x.v>0?"#4ca99a":"#e05a5a") : (x.v<0?"#4ca99a":"#e05a5a");
+                  return (
+                    <div key={x.l} style={{background:"#F0EEE9",borderRadius:8,padding:"10px 14px"}}>
+                      <div style={{fontSize:"0.62rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{x.l}</div>
+                      <div style={{fontSize:"1.1rem",fontWeight:800,color:c}}>{x.v>0?"+":""}{x.v}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Tabla filtrable */}
+          <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden"}}>
+            <div style={{padding:"12px 16px",borderBottom:"1px solid #DDD8CF",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{fontWeight:700,fontSize:"0.82rem",flex:1}}>Detalle por vivienda</span>
+              <input value={vivFiltro} onChange={e=>setVivFiltro(e.target.value)} placeholder="Buscar ref. o propietario..." style={{padding:"5px 10px",border:"1px solid #DDD8CF",borderRadius:7,fontSize:"0.78rem",fontFamily:"inherit",outline:"none",width:190}}/>
+              <select value={estFiltro} onChange={e=>setEstFiltro(e.target.value)} style={{padding:"5px 10px",border:"1px solid #DDD8CF",borderRadius:7,fontSize:"0.78rem",fontFamily:"inherit",outline:"none"}}>
+                <option value="">Todos los estados</option>
+                {Object.keys(ESTADOS_COLOR).map(k=><option key={k} value={k}>{k}</option>)}
+              </select>
+              <span style={{fontSize:"0.72rem",color:"#6B7A8A"}}>{vivsFiltradas.length} viviendas</span>
+            </div>
+            <div style={{overflowX:"auto",maxHeight:480,overflowY:"auto"}}>
+              <div style={{display:"grid",gridTemplateColumns:"0.9fr 1fr 1.1fr 2.5fr 1fr 0.7fr",minWidth:700,padding:"8px 16px",background:"#F0EEE9",fontSize:"0.60rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",position:"sticky",top:0,zIndex:1}}>
+                {["Ref.","Estado","Propietario","Repasos pendientes","Llave","Alarma"].map(h=><div key={h}>{h}</div>)}
+              </div>
+              {vivsFiltradas.map((v,i) => {
+                const ec = ESTADOS_COLOR[v.estado] || ESTADOS_COLOR['SIN ESTADO'];
+                return (
+                  <div key={v.ref+i} style={{display:"grid",gridTemplateColumns:"0.9fr 1fr 1.1fr 2.5fr 1fr 0.7fr",minWidth:700,padding:"8px 16px",borderBottom:i<vivsFiltradas.length-1?"1px solid #E8E2D8":"none",alignItems:"start",fontSize:"0.77rem"}}>
+                    <div style={{fontWeight:700}}>{v.ref}</div>
+                    <div><span style={{background:ec.bg,color:ec.c,borderRadius:5,padding:"2px 6px",fontSize:"0.65rem",fontWeight:700,whiteSpace:"nowrap"}}>{v.estado}</span></div>
+                    <div style={{color:"#6B7A8A",fontSize:"0.72rem"}}>{v.propietario||"—"}</div>
+                    <div style={{color:v.repasos?"#e05a5a":"#4ca99a",fontSize:"0.72rem",lineHeight:1.4}}>{v.repasos||<span style={{color:"#4ca99a",fontWeight:700}}>✓ Sin repasos</span>}</div>
+                    <div style={{fontSize:"0.70rem",color:v.llave&&String(v.llave).includes('RECOGIDA')?"#4ca99a":"#ddb96a"}}>{v.llave||"—"}</div>
+                    <div style={{fontSize:"0.70rem",color:v.alarma==='Sí'?"#4ca99a":"#6B7A8A"}}>{v.alarma||"—"}</div>
+                  </div>
+                );
+              })}
+              {vivsFiltradas.length===0&&<div style={{padding:"30px",textAlign:"center",color:"#6B7A8A",fontSize:"0.82rem"}}>Sin resultados</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pvTab==='informe' && !inf && (
+        <div style={{textAlign:"center",padding:"50px 20px",background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",color:"#6B7A8A"}}>
+          <div style={{fontSize:"2rem",marginBottom:8}}>📊</div>
+          <div style={{fontWeight:700,color:"#1E2D4E",marginBottom:6}}>Sin informes importados</div>
+          <div style={{fontSize:"0.82rem"}}>Importa el Excel «Control Viviendas Escrituradas vs Finalizadas»</div>
+        </div>
+      )}
+
+      {/* ── VISTA INCIDENCIAS MANUALES ── */}
+      {pvTab==='manual' && (
+        <div>
+          {pvForm.show && (
+            <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"18px 20px",marginBottom:16}}>
+              <div style={{fontWeight:700,fontSize:"0.82rem",marginBottom:12,color:"#1E2D4E"}}>Nueva incidencia / solicitud</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                {[
+                  {l:"Ref. vivienda",  k:"ref",         type:"text",   ph:"B5-401..."},
+                  {l:"Fecha",         k:"fecha",        type:"date",   ph:""},
+                  {l:"Responsable",   k:"responsable",  type:"text",   ph:"Nombre..."},
+                ].map(f=>(
+                  <div key={f.k}>
+                    <div style={{fontSize:"0.65rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{f.l}</div>
+                    <input type={f.type} value={pvForm[f.k]} placeholder={f.ph} onChange={e=>setPvForm(p=>({...p,[f.k]:e.target.value}))} style={{padding:"7px 10px",border:"1px solid #DDD8CF",borderRadius:7,fontSize:"0.82rem",fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+                <div>
+                  <div style={{fontSize:"0.65rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Tipo</div>
+                  <select value={pvForm.tipo} onChange={e=>setPvForm(p=>({...p,tipo:e.target.value}))} style={{padding:"7px 10px",border:"1px solid #DDD8CF",borderRadius:7,fontSize:"0.82rem",fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}}>
+                    {Object.entries(POSVENTA_TIPOS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:"0.65rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Estado</div>
+                  <select value={pvForm.estado} onChange={e=>setPvForm(p=>({...p,estado:e.target.value}))} style={{padding:"7px 10px",border:"1px solid #DDD8CF",borderRadius:7,fontSize:"0.82rem",fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"}}>
+                    {Object.entries(POSVENTA_ESTADO).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:"0.65rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Descripción</div>
+                <textarea value={pvForm.descripcion} onChange={e=>setPvForm(p=>({...p,descripcion:e.target.value}))} placeholder="Describe la incidencia..." rows={2} style={{padding:"7px 10px",border:"1px solid #DDD8CF",borderRadius:7,fontSize:"0.82rem",fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={addPosventa} style={{padding:"7px 16px",background:"#1E2D4E",color:"#fff",border:"none",borderRadius:8,fontSize:"0.8rem",fontWeight:700,cursor:"pointer"}}>Guardar</button>
+                <button onClick={()=>setPvForm(f=>({...f,show:false}))} style={{padding:"7px 16px",background:"#F0EEE9",color:"#6B7A8A",border:"none",borderRadius:8,fontSize:"0.8rem",fontWeight:700,cursor:"pointer"}}>Cancelar</button>
+              </div>
+            </div>
+          )}
+          {ps.length > 0 ? (
+            <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",overflow:"hidden"}}>
+              <div style={{padding:"12px 18px",borderBottom:"1px solid #DDD8CF",fontWeight:700,fontSize:"0.86rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>Incidencias registradas</span>
+                <span style={{fontSize:"0.72rem",color:"#6B7A8A",fontWeight:400}}>{ps.length} total · {abiertas.length} abiertas · {resueltas.length} resueltas</span>
+              </div>
+              <div style={{overflowX:"auto"}}>
+                <div style={{display:"grid",gridTemplateColumns:"0.7fr 0.8fr 0.9fr 0.9fr 2fr 0.9fr 0.8fr 36px",minWidth:700,padding:"8px 16px",background:"#F0EEE9",fontSize:"0.60rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>
+                  {["Fecha","Ref","Tipo","Estado","Descripción","Responsable","F. Resol.",""].map(h=><div key={h}>{h}</div>)}
+                </div>
+                {[...ps].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)).map((item,i) => {
+                  const tp = POSVENTA_TIPOS[item.tipo] || POSVENTA_TIPOS.otro;
+                  return (
+                    <div key={item.id} style={{display:"grid",gridTemplateColumns:"0.7fr 0.8fr 0.9fr 0.9fr 2fr 0.9fr 0.8fr 36px",minWidth:700,padding:"10px 16px",borderBottom:i<ps.length-1?"1px solid #E8E2D8":"none",alignItems:"center",fontSize:"0.78rem"}}>
+                      <div style={{color:"#6B7A8A"}}>{fmt(item.fecha)}</div>
+                      <div style={{fontWeight:600}}>{item.ref||"—"}</div>
+                      <div><span style={{background:tp.bg,color:tp.color,borderRadius:5,padding:"2px 7px",fontSize:"0.65rem",fontWeight:700}}>{tp.label}</span></div>
+                      <div>
+                        <select value={item.estado} onChange={e=>cambiarEstadoPV(item.id,e.target.value)} style={{background:(POSVENTA_ESTADO[item.estado]?.color||"#6B7A8A")+"18",border:"1px solid "+(POSVENTA_ESTADO[item.estado]?.color||"#6B7A8A")+"44",color:POSVENTA_ESTADO[item.estado]?.color||"#1E2D4E",borderRadius:5,padding:"2px 6px",fontSize:"0.65rem",fontWeight:700,fontFamily:"inherit",cursor:"pointer"}}>
+                          {Object.entries(POSVENTA_ESTADO).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                      </div>
+                      <div style={{color:"#1E2D4E",lineHeight:1.4,fontSize:"0.75rem"}}>{item.descripcion}</div>
+                      <div style={{color:"#6B7A8A",fontSize:"0.74rem"}}>{item.responsable||"—"}</div>
+                      <div style={{color:"#6B7A8A",fontSize:"0.70rem"}}>{item.fechaResolucion?fmt(item.fechaResolucion):"—"}</div>
+                      <button onClick={()=>eliminarPV(item.id)} style={{background:"none",border:"none",color:"#e05a5a",cursor:"pointer",fontSize:"0.75rem",padding:"2px 4px",fontFamily:"inherit"}}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            !pvForm.show && (
+              <div style={{textAlign:"center",padding:"50px 20px",background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",color:"#6B7A8A"}}>
+                <div style={{fontSize:"2rem",marginBottom:8}}>🔧</div>
+                <div style={{fontWeight:700,color:"#1E2D4E",marginBottom:6}}>Sin incidencias manuales</div>
+                <div style={{fontSize:"0.82rem"}}>Añade incidencias individuales o importa el informe Excel</div>
+              </div>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 export default function Overview(){
   const [loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("ov_auth")==="1");
@@ -1503,6 +1882,7 @@ export default function Overview(){
     {id:"master",l:"Master Comercial"+(proj&&proj.master?" OK":"")},
     {id:"marketing",l:"Marketing"+(proj&&proj.marketing?" OK":"")},
     {id:"comercial",l:"Comercial"},
+    {id:"posventa",l:"Posventa"+(proj&&proj.posventa&&proj.posventa.length>0?" ("+proj.posventa.length+")":"")},
     {id:"equipo",l:"Equipo"},
     {id:"blockers",l:"Alertas"+(proj&&proj.blockers.length>0?" ("+proj.blockers.length+")":"")},
     {id:"seguimiento",l:"Seguimiento"+(segPendientes>0?" ("+segPendientes+")":"")},
@@ -2394,19 +2774,38 @@ export default function Overview(){
                 const m=proj.master;
                 const absorcionPct=st.total?Math.round((st.vendidas+st.reservadas)/st.total*100):0;
                 const absorcionColor=absorcionPct>60?"#4ca99a":absorcionPct>30?"#ddb96a":"#e05a5a";
-                // Master-derived metrics
-                const ingresosCom=m?m.ventas.filter(v=>v.status==="reservada"||v.status==="vendida").reduce((a,v)=>a+v.precio,0):st.ingresosVR;
+                // Fuente de datos: Master Comercial si existe, sino viviendas standalone
+                const ingresosCom=m
+                  ?m.ventas.filter(v=>v.status==="reservada"||v.status==="vendida").reduce((a,v)=>a+v.precio,0)
+                  :st.ingresosVR;
                 const comisionTotal=m?m.ventas.reduce((a,v)=>a+(v.comision||0),0):0;
-                const rescisiones=m?m.rescisiones.length:0;
-                const conRepricing=m?m.ventas.filter(v=>v.incremento>0):[];
-                const incrementoMedio=conRepricing.length?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length):0;
-                // Agencias breakdown
+                const rescisiones=m
+                  ?m.rescisiones.length
+                  :activeVivs.filter(v=>v.estado==="rescindida").length;
+                const conRepricing=m
+                  ?m.ventas.filter(v=>v.incremento>0)
+                  :activeVivs.filter(v=>v.precioOrigen&&v.precio&&v.precio!==v.precioOrigen&&v.precio>v.precioOrigen);
+                const incrementoMedio=conRepricing.length
+                  ?(m
+                    ?Math.round(conRepricing.reduce((a,v)=>a+v.incremento,0)/conRepricing.length)
+                    :Math.round(conRepricing.reduce((a,v)=>a+(v.precio-v.precioOrigen),0)/conRepricing.length))
+                  :0;
+                const incrementoTotal=conRepricing.length
+                  ?(m
+                    ?conRepricing.reduce((a,v)=>a+v.incremento,0)
+                    :conRepricing.reduce((a,v)=>a+(v.precio-v.precioOrigen),0))
+                  :0;
+                // Agencias: del Master si existe; si no, de las notas de viviendas (campo agencia si existe)
                 const agencias={};
-                if(m) m.ventas.filter(v=>v.agencia&&(v.status==="reservada"||v.status==="vendida")).forEach(v=>{agencias[v.agencia]=(agencias[v.agencia]||0)+1;});
+                if(m){
+                  m.ventas.filter(v=>v.agencia&&(v.status==="reservada"||v.status==="vendida")).forEach(v=>{agencias[v.agencia]=(agencias[v.agencia]||0)+1;});
+                } else {
+                  activeVivs.filter(v=>(v.estado==="reservada"||v.estado==="vendida")&&v.agencia).forEach(v=>{agencias[v.agencia]=(agencias[v.agencia]||0)+1;});
+                }
                 const agList=Object.entries(agencias).sort((a,b)=>b[1]-a[1]);
                 return (
                   <div>
-                    <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales{m?" - datos del Master Comercial":""}</div>
+                    <div style={{fontWeight:700,fontSize:"0.92rem",marginBottom:18}}>Metricas comerciales{m?" — Master Comercial":activeVivs.length>0?" — Viviendas importadas":""}</div>
 
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
                       {[
@@ -2418,6 +2817,7 @@ export default function Overview(){
                         {label:"Ingresos comprometidos",val:fmtEur(ingresosCom),color:"#4ca99a"},
                         {label:"Rescisiones",val:rescisiones,color:rescisiones>0?"#e05a5a":"#6B7A8A"},
                         {label:"Incremento medio repricing",val:incrementoMedio>0?fmtEur(incrementoMedio):"-",color:"#ddb96a"},
+                        {label:"Incremento total repricing",val:incrementoTotal>0?fmtEur(incrementoTotal):"-",color:"#c9a86c"},
                       ].map(k=>(
                         <div key={k.label} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"14px 16px"}}>
                           <div style={{fontSize:"0.62rem",color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:700,marginBottom:6}}>{k.label}</div>
@@ -2483,6 +2883,8 @@ export default function Overview(){
                   </div>
                 );
               })()}
+
+              {tab==="posventa"&&<PosventaTab proj={proj} activeId={activeId} upd={upd} fmt={fmt}/>}
 
               {tab==="equipo"&&(
                 <div>
