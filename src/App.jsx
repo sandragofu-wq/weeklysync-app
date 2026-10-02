@@ -869,9 +869,11 @@ const MasterTab = ({proj, activeId, upd, handleMasterFile, fmt, fmtEur, VIV_ESTA
         </div>
         <div style={{maxHeight:400,overflowY:"auto"}}>
           {ventas.map((v,i)=>{
-            // Recalcular status desde statusExcel si existe (corrige datos importados con parser antiguo)
-            const statusExcelMap={"reserva":"reservada","reservado":"reservada","libre":"disponible","disponible":"disponible","escritura":"vendida","escriturado":"vendida","vendida":"vendida","baja":"rescindida","rescision":"rescindida","rescindida":"rescindida","bloqueado":"no-venta","bloqueado promotor":"no-venta"};
-            const sKeyFromExcel=v.statusExcel&&v.statusExcel!=="—"?statusExcelMap[(v.statusExcel||"").toLowerCase().trim()]:null;
+            // Determinar sKey: el status ya calculado por el parser es fiable (nuevo import)
+            // Para imports antiguos sin statusExcel, usar status tal cual
+            const statusExcelMap={"reserva":"reservada","reservado":"reservada","cv":"reservada","libre":"disponible","disponible":"disponible","escritura":"vendida","escriturado":"vendida","vendida":"vendida","baja":"rescindida","rescision":"rescindida","rescindida":"rescindida"};
+            const rawExcel=(v.statusExcel||"").toLowerCase().trim();
+            const sKeyFromExcel=rawExcel&&rawExcel!=="—"?(statusExcelMap[rawExcel]||(rawExcel.includes("bloqueado")?"no-venta":null)):null;
             const sKey=sKeyFromExcel||v.status||"disponible";
             const vs=VIV_ESTADOS[sKey]||VIV_ESTADOS.disponible;
             const inc=Number(v.incremento)||0;
