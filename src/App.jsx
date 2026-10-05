@@ -983,35 +983,41 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     // Palabras clave que indican fila de resumen (no vivienda real)
     const SUMMARY_KEYWORDS = ['TOTAL','VIVIENDAS','ESCRITURADAS','FORMULARIO','RELLENAN','TECNICA','FINALIZADAS','PENDIENTE','REPASAN'];
     const isResumenRow = (ref) => SUMMARY_KEYWORDS.some(kw => ref.toUpperCase().includes(kw));
-    const viviendas = [];
-    for (let i = headerIdx + 1; i < rows.length; i++) {
-      const row = rows[i];
-      const ref = row[1] ? String(row[1]).trim() : null;
-      // Filtrar filas vacías, de cabecera duplicada o de resumen al pie
-      if (!ref || ref === ' ' || ref === 'ACTUALIZAR') continue;
-      // Las referencias reales de vivienda siempre tienen patrón Bx-NNN, PK-NNN, TR-NNN o similar
-      // Las filas de resumen son texto largo — las descartamos
-      if (ref.length > 20 || isResumenRow(ref)) continue;
+    const viviendas = []; // solo viviendas (no PK ni TR)
+    const parkings  = []; // parkings (PK-)
+    const trasteros = []; // trasteros (TR-)
+    const refsVistas = new Set(); // para deduplicar — el Excel tiene referencias duplicadas al final
+    const parseItem = (row, ref) => {
       const estado  = row[13] ? String(row[13]).trim() : 'SIN ESTADO';
       const repasos = row[14] ? String(row[14]).trim() : null;
-      // col 8 = FORMULARIO ("Completado" / "-" / null)
       const formulario = row[8] ? String(row[8]).trim() : null;
-      const tieneFormulario = formulario && formulario !== '-' && formulario !== 'None';
-      // col 10 = VISITA REALIZADA ("Sí" / "-" / null / fecha)
+      const tieneFormulario = !!(formulario && formulario !== '-' && formulario !== 'None');
       const visitaVal = row[10] ? String(row[10]).trim() : null;
-      const tieneVisita = visitaVal && visitaVal !== '-' && visitaVal !== 'None' && visitaVal !== '';
-      viviendas.push({
+      const tieneVisita = !!(visitaVal && visitaVal !== '-' && visitaVal !== 'None' && visitaVal !== '');
+      return {
         ref, estado,
         repasos: repasos && repasos !== 'None' ? repasos : null,
         propietario: row[17] ? String(row[17]).trim() : null,
-        llave:  row[16] || null,
-        alarma: row[15] || null,
-        parte:  row[11] || null,
-        formulario: tieneFormulario,   // nuevo campo booleano
-        visita: tieneVisita,           // booleano (antes era el valor crudo)
-        visitaRaw: row[10] || null,    // valor original por si se necesita
+        llave:   row[16] || null,
+        alarma:  row[15] || null,
+        parte:   row[11] || null,
+        formulario: tieneFormulario,
+        visita:  tieneVisita,
         fechaEscrit: row[6] ? String(row[6]).substring(0,10) : null,
-      });
+      };
+    };
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      const ref = row[1] ? String(row[1]).trim() : null;
+      if (!ref || ref === ' ' || ref === 'ACTUALIZAR') continue;
+      if (ref.length > 20 || isResumenRow(ref)) continue;
+      if (refsVistas.has(ref)) continue;
+      refsVistas.add(ref);
+      const refU = ref.toUpperCase();
+      const item = parseItem(row, ref);
+      if (refU.startsWith('PK-') || refU.startsWith('PARK')) parkings.push(item);
+      else if (refU.startsWith('TR-') || refU.startsWith('TRAST')) trasteros.push(item);
+      else viviendas.push(item);
     }
     // Estados: normalizar variantes del Excel
     // "PENDIENTE TERMINAR" y "PTE TERMINAR" → ambos tratados como pteTerminar
@@ -1041,14 +1047,22 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     };
     viviendas.filter(esPteTerminar).forEach(v=>{ const k=mesKey(mesEscrit(v)); pteTerminarPorMes[k]++; });
     viviendas.filter(v=>v.estado==='PENDIENTE DE ENTRAR').forEach(v=>{ const k=mesKey(mesEscrit(v)); pteEntrarPorMes[k]++; });
+    // "total" = viviendas escrituradas (con fecha de escritura, excluyendo PK y TR)
+    const escrituradas = viviendas.filter(v => v.fechaEscrit).length;
     return {
-      total: viviendas.length, finalizadas, pteTerminar, pteEntrar, agendar,
+      total: escrituradas,
+      totalViviendas: viviendas.length,         // todas las viviendas (incluye sin fecha)
+      totalParkings: parkings.filter(v=>v.fechaEscrit).length,
+      totalTrasteros: trasteros.filter(v=>v.fechaEscrit).length,
+      finalizadas, pteTerminar, pteEntrar, agendar,
       noRepasa, conRepasos, conAlarma,
       visitasRealizadas, visitasPendientes: viviendas.length - visitasRealizadas,
       conFormulario, sinFormulario, sinFormularioFinaliz,
       pteTerminarPorMes, pteEntrarPorMes,
-      pctFinalizada: viviendas.length ? Math.round(finalizadas / viviendas.length * 100) : 0,
-      viviendas,
+      pctFinalizada: escrituradas ? Math.round(finalizadas / escrituradas * 100) : 0,
+      viviendas,     // solo viviendas (sin PK ni TR)
+      parkings,
+      trasteros,
     };
   };
 
