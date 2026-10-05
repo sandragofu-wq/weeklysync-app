@@ -1369,7 +1369,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
         parte:   row[11] || null,
         formulario: tieneFormulario,
         visita:  tieneVisita,
-        fechaEscrit: row[6] != null ? row[6] : null,  // Date object con cellDates:true, o cadena según versión XLSX
+        fechaEscrit: row[6] != null ? (row[6] instanceof Date ? row[6].toISOString().substring(0,7) : String(row[6]).substring(0,7)) : null,
       };
     };
     for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -1405,15 +1405,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     const finalizadasConForm = viviendas.filter(v => v.estado === 'FINALIZADA' && v.formulario).length;
     // Desglose por mes de escritura para pteTerminar y pteEntrar
     // Claves: mar=03 abr=04 may=05 jun=06 jul=07 ago=08 sep=09 oct=10
-    const mesEscrit = (v) => {
-      if(!v.fechaEscrit) return null;
-      // fechaEscrit puede ser Date object (cellDates:true) o string "2026-03-24..."
-      if(v.fechaEscrit instanceof Date) {
-        const mm = String(v.fechaEscrit.getMonth()+1).padStart(2,'0');
-        return v.fechaEscrit.getFullYear()+'-'+mm;
-      }
-      return String(v.fechaEscrit).substring(0,7);
-    };
+    const mesEscrit = (v) => { if(!v.fechaEscrit) return null; return v.fechaEscrit.substring(0,7); };
     const pteTerminarPorMes = {mar:0,abr:0,may:0,jun:0,jul:0,ago:0,sep:0,oct:0,otro:0};
     const pteEntrarPorMes   = {mar:0,abr:0,may:0,jun:0,jul:0,ago:0,sep:0,oct:0,otro:0};
     const mesKey = (mes) => {
