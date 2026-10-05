@@ -1552,61 +1552,165 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
           {/* ── TABLA 1: Resumen de la promoción ── */}
           {(()=>{
             const sinClasificar = inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa);
-            const visitasReal = inf.visitasRealizadas ?? inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa;
-            const visitasPend = inf.visitasPendientes ?? (inf.total - visitasReal);
-            const conForm = inf.conFormulario ?? visitasReal;
-            const sinForm = inf.sinFormulario ?? (inf.total - conForm);
+            const conForm = inf.conFormulario ?? 0;
             const sinFormFin = inf.sinFormularioFinaliz ?? 0;
+            // Finalizadas totales = finalizadas con formulario + finalizadas sin formulario
+            const totFinalizadas = inf.finalizadas + sinFormFin;
+            // Con formulario finalizadas = inf.finalizadas
+            // Con formulario NO finalizadas = conForm - inf.finalizadas
+            const conFormNoFin = Math.max(0, conForm - inf.finalizadas);
+            // Sin finalizar sin formulario = total - totFinalizadas - conFormNoFin
+            const sinFinSinForm = Math.max(0, inf.total - totFinalizadas - conFormNoFin);
+            // Visitas pendientes = total - (finalizadas con form + sinFormFin + conFormNoFin)
+            const visitasPend = inf.visitasPendientes ?? Math.max(0, inf.total - (conForm + sinFormFin));
+
+            // Cálculo retraso medio incidencias manuales
+            const hoy = new Date();
+            const incAbiertas = ps.filter(i => i.estado === 'abierta' || i.estado === 'en-proceso');
+            const retrasos = incAbiertas.map(i => {
+              if (!i.fecha) return null;
+              const dias = Math.floor((hoy - new Date(i.fecha)) / 86400000);
+              return dias > 0 ? dias : 0;
+            }).filter(d => d !== null);
+            const retrasoMedio = retrasos.length ? Math.round(retrasos.reduce((a,b)=>a+b,0)/retrasos.length) : 0;
+            const maxRetraso = retrasos.length ? Math.max(...retrasos) : 0;
+
+            const StatCell = ({label, value, sub, color}) => (
+              <div style={{background:"#F8F7F4",borderRadius:8,padding:"10px 14px",flex:1,minWidth:110}}>
+                <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{label}</div>
+                <div style={{fontSize:"1.4rem",fontWeight:800,color:color||"#1E2D4E",lineHeight:1}}>{value}</div>
+                {sub&&<div style={{fontSize:"0.68rem",color:"#6B7A8A",marginTop:3}}>{sub}</div>}
+              </div>
+            );
+            const SubRow = ({dot, label, value, color}) => (
+              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:"0.75rem",padding:"3px 0"}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:dot,flexShrink:0,display:"inline-block"}}/>
+                <span style={{color:"#6B7A8A",flex:1}}>{label}</span>
+                <span style={{fontWeight:700,color:color||"#1E2D4E"}}>{value}</span>
+              </div>
+            );
+
             return (
-              <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:14}}>
-                <div style={{padding:"10px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Resumen de la promoción</div>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.82rem"}}>
-                  <tbody>
-                    {/* Fila 1: Viviendas de la promoción */}
-                    <tr style={{borderBottom:"1px solid #E8E2D8"}}>
-                      <td style={{padding:"10px 16px",fontWeight:600,color:"#1E2D4E"}}>Viviendas de la promoción</td>
-                      <td style={{padding:"10px 16px",fontWeight:800,color:"#1E2D4E",textAlign:"right"}}>{inf.total}</td>
-                      <td colSpan={2}/>
-                    </tr>
-                    {/* Fila 2: Escrituradas (= total en posventa) */}
-                    <tr style={{borderBottom:"1px solid #E8E2D8"}}>
-                      <td style={{padding:"10px 16px",fontWeight:600,color:"#1E2D4E"}}>Viviendas escrituradas</td>
-                      <td style={{padding:"10px 16px",fontWeight:800,color:"#1E2D4E",textAlign:"right"}}>{inf.total}</td>
-                      <td colSpan={2}/>
-                    </tr>
-                    {/* Fila 3: Con formulario → visitas realizadas → desglose estados */}
-                    <tr style={{borderBottom:"1px solid #E8E2D8",verticalAlign:"top"}}>
-                      <td style={{padding:"10px 16px",fontWeight:600,color:"#1E2D4E"}}>Viviendas con formulario de posventa</td>
-                      <td style={{padding:"10px 16px",fontWeight:800,color:"#1E2D4E",textAlign:"right"}}>{conForm}</td>
-                      <td style={{padding:"10px 16px",color:"#6B7A8A",fontWeight:500,borderLeft:"1px solid #E8E2D8"}}>
-                        <div style={{fontWeight:600,color:"#1E2D4E",marginBottom:4}}>Visitas de posventa <span style={{color:"#4ca99a",fontWeight:800}}>{visitasReal}</span></div>
-                        <div style={{display:"flex",flexDirection:"column",gap:3,paddingLeft:8,fontSize:"0.74rem"}}>
-                          <div>🟢 Viviendas finalizadas <strong style={{color:"#1E2D4E"}}>{inf.finalizadas}</strong></div>
-                          <div>🔴 Viviendas pendientes de finalizar <strong style={{color:"#1E2D4E"}}>{inf.pteTerminar}</strong></div>
-                          <div>🟡 Viviendas pendientes de inicio <strong style={{color:"#1E2D4E"}}>{inf.pteEntrar}</strong></div>
-                          <div>⬜ Viviendas que no repasan <strong style={{color:"#1E2D4E"}}>{inf.noRepasa}</strong></div>
+              <div style={{marginBottom:14}}>
+                {/* Bloque 1: totales */}
+                <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
+                  <div style={{padding:"8px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Resumen de la promoción</div>
+                  <div style={{padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <StatCell label="Viviendas totales" value={inf.totalViviendas ?? inf.total} />
+                    <StatCell label="Escrituradas" value={inf.total} color="#1E2D4E"/>
+                  </div>
+                </div>
+
+                {/* Bloque 2: Finalizadas */}
+                <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
+                  <div style={{padding:"8px 16px",background:"rgba(76,169,154,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#4ca99a",display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:"#4ca99a",display:"inline-block"}}/>
+                    Viviendas finalizadas — <span style={{fontSize:"0.9rem",fontWeight:800}}>{totFinalizadas}</span>
+                  </div>
+                  <div style={{padding:"10px 16px",display:"flex",gap:16,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:160}}>
+                      <SubRow dot="#4ca99a" label="Con formulario de posventa" value={inf.finalizadas} color="#4ca99a"/>
+                      <SubRow dot="#B0BBC6" label="Sin formulario (finalizadas)" value={sinFormFin} color="#6B7A8A"/>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloque 3: Sin finalizar */}
+                <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
+                  <div style={{padding:"8px 16px",background:"rgba(221,185,106,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#c9a86c",display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:"#ddb96a",display:"inline-block"}}/>
+                    Viviendas sin finalizar — <span style={{fontSize:"0.9rem",fontWeight:800}}>{inf.total - totFinalizadas}</span>
+                  </div>
+                  <div style={{padding:"10px 16px",display:"flex",gap:16,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:160}}>
+                      <div style={{fontSize:"0.72rem",fontWeight:700,color:"#1E2D4E",marginBottom:4}}>Con formulario</div>
+                      <SubRow dot="#e05a5a" label="Pendientes de terminar" value={inf.pteTerminar} color="#e05a5a"/>
+                      <SubRow dot="#ddb96a" label="Pendientes de iniciar visita" value={inf.pteEntrar} color="#c9a86c"/>
+                    </div>
+                    <div style={{flex:1,minWidth:160}}>
+                      <div style={{fontSize:"0.72rem",fontWeight:700,color:"#1E2D4E",marginBottom:4}}>Sin formulario</div>
+                      <SubRow dot="#B0BBC6" label="Sin formulario (no finalizadas)" value={sinFinSinForm} color="#6B7A8A"/>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bloque 4: Sin clasificar + No repasan + Pendientes agendar */}
+                <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
+                  <div style={{padding:"8px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Otros estados</div>
+                  <div style={{padding:"10px 16px",display:"flex",gap:10,flexWrap:"wrap"}}>
+                    {sinClasificar > 0 && (
+                      <div style={{flex:1,minWidth:130}}>
+                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Sin clasificar</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:"#e05a5a"}}>{sinClasificar}</div>
+                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>estado desconocido</div>
+                      </div>
+                    )}
+                    <div style={{flex:1,minWidth:130}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>No desean actuación</div>
+                      <div style={{fontSize:"1.3rem",fontWeight:800,color:"#7c5cfc"}}>{inf.noRepasa}</div>
+                      <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>no repasan</div>
+                    </div>
+                    <div style={{flex:1,minWidth:130}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Visitas pendientes</div>
+                      <div style={{fontSize:"1.3rem",fontWeight:800,color:"#ddb96a"}}>{visitasPend}</div>
+                      <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>de {inf.total} escrituradas</div>
+                    </div>
+                    {inf.agendar > 0 && (
+                      <div style={{flex:1,minWidth:130}}>
+                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Pendientes de agendar</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:"#f5924e"}}>{inf.agendar}</div>
+                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>visita sin fecha</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bloque 5: Retraso medio incidencias manuales */}
+                {ps.length > 0 && (
+                  <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
+                    <div style={{padding:"8px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Retraso medio — incidencias manuales</div>
+                    <div style={{padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-start"}}>
+                      <div style={{flex:1,minWidth:130}}>
+                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Incidencias abiertas</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:"#e05a5a"}}>{incAbiertas.length}</div>
+                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>de {ps.length} totales</div>
+                      </div>
+                      <div style={{flex:1,minWidth:130}}>
+                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Retraso medio</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:retrasoMedio>30?"#e05a5a":retrasoMedio>14?"#ddb96a":"#4ca99a"}}>{retrasoMedio} días</div>
+                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>desde apertura</div>
+                      </div>
+                      <div style={{flex:1,minWidth:130}}>
+                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Más antigua</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:maxRetraso>30?"#e05a5a":maxRetraso>14?"#ddb96a":"#4ca99a"}}>{maxRetraso} días</div>
+                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>sin resolver</div>
+                      </div>
+                      {retrasos.length > 0 && (
+                        <div style={{flex:2,minWidth:200}}>
+                          <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Distribución por antigüedad</div>
+                          {[
+                            {label:"≤ 7 días",  min:0,  max:7,  color:"#4ca99a"},
+                            {label:"8–14 días", min:8,  max:14, color:"#ddb96a"},
+                            {label:"15–30 días",min:15, max:30, color:"#f5924e"},
+                            {label:"> 30 días", min:31, max:Infinity, color:"#e05a5a"},
+                          ].map(b => {
+                            const n = retrasos.filter(d => d >= b.min && d <= b.max).length;
+                            const pct = retrasos.length ? Math.round(n/retrasos.length*100) : 0;
+                            return (
+                              <div key={b.label} style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                                <div style={{fontSize:"0.68rem",color:"#6B7A8A",width:70,flexShrink:0}}>{b.label}</div>
+                                <div style={{flex:1,height:6,background:"#F0EEE9",borderRadius:3,overflow:"hidden"}}>
+                                  <div style={{width:pct+"%",height:"100%",background:b.color,borderRadius:3,transition:"width 0.3s"}}/>
+                                </div>
+                                <div style={{fontSize:"0.68rem",fontWeight:700,color:"#1E2D4E",width:18,textAlign:"right"}}>{n}</div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        {sinClasificar>0&&<div style={{marginTop:6,fontSize:"0.70rem",color:"#e05a5a",fontWeight:600}}>⚠ {sinClasificar} sin clasificar</div>}
-                      </td>
-                      <td style={{padding:"10px 16px",color:"#6B7A8A",fontWeight:500,borderLeft:"1px solid #E8E2D8",verticalAlign:"top"}}>
-                        <div style={{fontWeight:600,color:"#1E2D4E",marginBottom:4}}>Visitas pendientes <span style={{color:"#ddb96a",fontWeight:800}}>{visitasPend}</span></div>
-                        {inf.agendar>0&&<div style={{fontSize:"0.74rem",paddingLeft:8}}>🟠 Agendar visita <strong style={{color:"#1E2D4E"}}>{inf.agendar}</strong></div>}
-                      </td>
-                    </tr>
-                    {/* Fila 4: Sin formulario finalizadas */}
-                    <tr style={{borderBottom:"1px solid #E8E2D8"}}>
-                      <td style={{padding:"10px 16px",color:"#6B7A8A"}}>Viviendas sin formulario de posventa finalizadas</td>
-                      <td style={{padding:"10px 16px",fontWeight:700,color:"#1E2D4E",textAlign:"right"}}>{sinFormFin}</td>
-                      <td colSpan={2}/>
-                    </tr>
-                    {/* Fila 5: Sin formulario */}
-                    <tr>
-                      <td style={{padding:"10px 16px",color:"#6B7A8A"}}>Viviendas sin formulario</td>
-                      <td style={{padding:"10px 16px",fontWeight:700,color:"#1E2D4E",textAlign:"right"}}>{sinForm}</td>
-                      <td colSpan={2}/>
-                    </tr>
-                  </tbody>
-                </table>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
