@@ -933,6 +933,303 @@ class ErrorBoundary extends React.Component {
 }
 
 
+// ─── CRONOGRAMA TAB ──────────────────────────────────────────────────────────
+const CronogramaTab = ({proj, activeId, upd}) => {
+  const cron = proj.cronograma || null;
+  const fileRef = useRef();
+
+  const parseCronogramaExcel = (wb) => {
+    // Buscar la hoja 'Planificación(2)' o 'Planificación(2)'
+    const sheetName = wb.SheetNames.find(n => n.includes('Planificaci') && n.includes('2')) || wb.SheetNames.find(n => n.includes('Planif'));
+    if (!sheetName) { alert('No se encontró la hoja Planificación(2)'); return null; }
+    const ws = wb.Sheets[sheetName];
+    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+
+    const toDate = (v) => {
+      if (!v) return null;
+      if (typeof v === 'string' && v.match(/\d{4}-\d{2}-\d{2}/)) return v.substring(0,10);
+      // Número serial de Excel
+      if (!isNaN(Number(v))) {
+        const d = window.XLSX.SSF.parse_date_code(Number(v));
+        if (d) return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+      }
+      return null;
+    };
+
+    const FASES = ['Compra Parcela','Planeamiento','Proyecto Básico','Solicitud LOM','Salida a Ventas','Obtención de Licencia','Proyecto de Ejecución','Licitación','Construcción','Gestión documental','Escrituración','Postventa'];
+    const tabla1 = []; // Planificación Inicial (filas 4-16)
+    const tabla2 = []; // Planificación Real (filas 21-33)
+
+    // Detectar las dos tablas por título
+    let t1Start = -1, t2Start = -1;
+    for (let i = 0; i < Math.min(rows.length, 40); i++) {
+      const rowStr = rows[i] ? rows[i].join(' ') : '';
+      if (rowStr.includes('INICIAL') && rowStr.includes('PLANIF') && t1Start < 0) t1Start = i + 2;
+      if (!rowStr.includes('INICIAL') && rowStr.includes('PLANIF') && rowStr.includes('ELVIRIA') && t2Start < 0 && t1Start >= 0) t2Start = i + 2;
+    }
+    if (t1Start < 0) t1Start = 4;
+    if (t2Start < 0) t2Start = 21;
+
+    const parseTabla = (startIdx) => {
+      const result = [];
+      for (let i = startIdx; i < Math.min(startIdx + 14, rows.length); i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const fase = row[2] ? String(row[2]).trim() : null;
+        if (!fase || fase === 'FASE' || fase.includes('Inicio del proyecto')) continue;
+        const inicio = toDate(row[3]);
+        const fin    = toDate(row[4]);
+        const dur    = row[5] ? parseInt(row[5]) : null;
+        if (fase && (inicio || fin)) result.push({ fase, inicio, fin, duracion: dur });
+      }
+      return result;
+    };
+
+    const t1 = parseTabla(t1Start);
+    const t2 = parseTabla(t2Start);
+
+    return { inicial: t1, real: t2, fecha: new Date().toISOString().substring(0,10), source: sheetName };
+  };
+
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const wb = window.XLSX.read(ev.target.result, {type:'binary', cellDates:false});
+      const parsed = parseCronogramaExcel(wb);
+      if (parsed) upd(activeId, p => ({...p, cronograma: parsed}));
+    };
+    reader.readAsBinaryString(f);
+    e.target.value = '';
+  };
+
+  // Gantt SVG helpers
+  const GanttChart = ({inicial, real}) => {
+    if (!inicial || !real) return null;
+    // Combinar todas las fases para determinar eje de tiempo
+    const allDates = [...inicial, ...real].flatMap(f => [f.inicio, f.fin]).filter(Boolean).map(d => new Date(d).getTime());
+    if (!allDates.length) return null;
+    const minT = Math.min(...allDates);
+    const maxT = Math.max(...allDates);
+    const span = maxT - minT;
+    const W = 680, H_BAND = 30, PAD_LEFT = 170, PAD_RIGHT = 20, PAD_TOP = 36;
+    const chartW = W - PAD_LEFT - PAD_RIGHT;
+    const fases = inicial.map(f => f.fase);
+    const totalH = fases.length * H_BAND * 2 + PAD_TOP + 20;
+
+    const tx = (dateStr) => {
+      if (!dateStr) return null;
+      return PAD_LEFT + ((new Date(dateStr).getTime() - minT) / span) * chartW;
+    };
+    const bw = (inicio, fin) => {
+      const x1 = tx(inicio), x2 = tx(fin);
+      if (!x1 || !x2) return 0;
+      return Math.max(x2 - x1, 4);
+    };
+
+    // Etiquetas de año para el eje X
+    const years = [];
+    const startY = new Date(minT).getFullYear();
+    const endY   = new Date(maxT).getFullYear();
+    for (let y = startY; y <= endY; y++) {
+      const ts = new Date(`${y}-01-01`).getTime();
+      if (ts >= minT && ts <= maxT) years.push({y, x: PAD_LEFT + ((ts - minT) / span) * chartW});
+    }
+
+    return (
+      <div style={{overflowX:'auto', marginTop:16}}>
+        <svg width={W} height={totalH} style={{fontFamily:'inherit', fontSize:11}}>
+          {/* Fondo alterno */}
+          {fases.map((f, i) => (
+            <rect key={i} x={0} y={PAD_TOP + i * H_BAND * 2} width={W} height={H_BAND * 2}
+              fill={i % 2 === 0 ? 'rgba(30,45,78,0.03)' : 'transparent'} />
+          ))}
+          {/* Líneas de año */}
+          {years.map(({y, x}) => (
+            <g key={y}>
+              <line x1={x} y1={PAD_TOP} x2={x} y2={totalH - 10} stroke="#DDD8CF" strokeWidth={1} strokeDasharray="3,3"/>
+              <text x={x+3} y={PAD_TOP - 6} fill="#6B7A8A" fontSize={10}>{y}</text>
+            </g>
+          ))}
+          {/* Hoy */}
+          {(() => { const hoyX = tx(new Date().toISOString().substring(0,10)); return hoyX ? (
+            <g>
+              <line x1={hoyX} y1={PAD_TOP} x2={hoyX} y2={totalH - 10} stroke="#e05a5a" strokeWidth={1.5}/>
+              <text x={hoyX+3} y={PAD_TOP - 6} fill="#e05a5a" fontSize={10} fontWeight={700}>HOY</text>
+            </g>
+          ) : null; })()}
+          {/* Barras */}
+          {fases.map((fase, i) => {
+            const fI = inicial.find(f => f.fase === fase);
+            const fR = real.find(f => f.fase === fase);
+            const y1 = PAD_TOP + i * H_BAND * 2 + 3;
+            const y2 = y1 + H_BAND - 4;
+            return (
+              <g key={fase}>
+                <text x={PAD_LEFT - 6} y={y1 + 10} textAnchor="end" fill="#1E2D4E" fontSize={10.5} fontWeight={500}>{fase.replace('Gestión documental DR-LPO','Gestión doc.')}</text>
+                {/* Barra inicial */}
+                {fI && fI.inicio && fI.fin && (
+                  <rect x={tx(fI.inicio)} y={y1} width={bw(fI.inicio, fI.fin)} height={H_BAND - 7}
+                    fill="rgba(76,169,154,0.25)" stroke="#4ca99a" strokeWidth={1} rx={3}/>
+                )}
+                {/* Barra real */}
+                {fR && fR.inicio && fR.fin && (
+                  <rect x={tx(fR.inicio)} y={y2} width={bw(fR.inicio, fR.fin)} height={H_BAND - 7}
+                    fill="rgba(224,90,90,0.22)" stroke="#e05a5a" strokeWidth={1} rx={3}/>
+                )}
+              </g>
+            );
+          })}
+          {/* Leyenda */}
+          <g transform={`translate(${PAD_LEFT}, ${totalH - 14})`}>
+            <rect x={0} y={0} width={12} height={10} fill="rgba(76,169,154,0.25)" stroke="#4ca99a" strokeWidth={1} rx={2}/>
+            <text x={16} y={9} fill="#1E2D4E" fontSize={10}>Planificación original</text>
+            <rect x={145} y={0} width={12} height={10} fill="rgba(224,90,90,0.22)" stroke="#e05a5a" strokeWidth={1} rx={2}/>
+            <text x={161} y={9} fill="#1E2D4E" fontSize={10}>Planificación actual</text>
+          </g>
+        </svg>
+      </div>
+    );
+  };
+
+  const fmtFecha = (d) => {
+    if (!d) return '—';
+    const [y, m] = d.split('-');
+    const meses = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `${meses[parseInt(m)]} ${y}`;
+  };
+
+  const diffMeses = (d1, d2) => {
+    if (!d1 || !d2) return null;
+    const a = new Date(d1), b = new Date(d2);
+    return Math.round((b - a) / (1000 * 60 * 60 * 24 * 30));
+  };
+
+  return (
+    <div>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18}}>
+        <div style={{fontWeight:700, fontSize:'0.92rem'}}>Cronograma — {proj.name}</div>
+        <button onClick={() => fileRef.current.click()}
+          style={{padding:'7px 16px', background:'#1E2D4E', color:'#fff', border:'none', borderRadius:8, fontSize:'0.8rem', fontWeight:700, cursor:'pointer'}}>
+          {cron ? '↑ Actualizar cronograma' : '↑ Importar cronograma'}
+        </button>
+        <input ref={fileRef} type="file" accept=".xlsx" style={{display:'none'}} onChange={handleFile}/>
+      </div>
+
+      {!cron && (
+        <div style={{textAlign:'center', padding:'60px 20px', color:'#6B7A8A', fontSize:'0.88rem'}}>
+          <div style={{fontSize:'2rem', marginBottom:12}}>📅</div>
+          <div>Importa el Excel de cronograma (pestaña Planificación(2))</div>
+          <div style={{fontSize:'0.78rem', marginTop:6}}>Se extraerán las tablas de planificación inicial vs. real</div>
+        </div>
+      )}
+
+      {cron && (
+        <div>
+          <div style={{fontSize:'0.75rem', color:'#6B7A8A', marginBottom:20}}>
+            Importado el {cron.fecha} · Hoja: {cron.source}
+          </div>
+
+          {/* Gráfico Gantt */}
+          <div style={{background:'#fff', borderRadius:12, border:'1px solid #E8E3DA', padding:'18px 20px', marginBottom:20}}>
+            <div style={{fontWeight:700, fontSize:'0.82rem', marginBottom:4}}>Cronograma Real vs. Original</div>
+            <GanttChart inicial={cron.inicial} real={cron.real}/>
+          </div>
+
+          {/* Tablas comparativas */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
+            {/* Tabla Inicial */}
+            <div style={{background:'#fff', borderRadius:12, border:'1px solid #E8E3DA', padding:'16px 18px'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+                <div style={{width:10, height:10, borderRadius:2, background:'#4ca99a'}}/>
+                <span style={{fontWeight:700, fontSize:'0.82rem'}}>Planificación Original</span>
+              </div>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.77rem'}}>
+                <thead>
+                  <tr style={{borderBottom:'2px solid #E8E3DA'}}>
+                    <th style={{textAlign:'left', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Fase</th>
+                    <th style={{textAlign:'center', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Inicio</th>
+                    <th style={{textAlign:'center', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Fin</th>
+                    <th style={{textAlign:'center', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Meses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(cron.inicial || []).map((f, i) => (
+                    <tr key={i} style={{borderBottom:'1px solid #F0EEE9'}}>
+                      <td style={{padding:'6px 6px', fontWeight:500, color:'#1E2D4E'}}>{f.fase}</td>
+                      <td style={{padding:'6px 6px', textAlign:'center', color:'#6B7A8A'}}>{fmtFecha(f.inicio)}</td>
+                      <td style={{padding:'6px 6px', textAlign:'center', color:'#6B7A8A'}}>{fmtFecha(f.fin)}</td>
+                      <td style={{padding:'6px 6px', textAlign:'center', fontWeight:600, color:'#1E2D4E'}}>{f.duracion || diffMeses(f.inicio, f.fin) || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tabla Real */}
+            <div style={{background:'#fff', borderRadius:12, border:'1px solid #E8E3DA', padding:'16px 18px'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+                <div style={{width:10, height:10, borderRadius:2, background:'#e05a5a'}}/>
+                <span style={{fontWeight:700, fontSize:'0.82rem'}}>Planificación Actual</span>
+              </div>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.77rem'}}>
+                <thead>
+                  <tr style={{borderBottom:'2px solid #E8E3DA'}}>
+                    <th style={{textAlign:'left', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Fase</th>
+                    <th style={{textAlign:'center', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Inicio</th>
+                    <th style={{textAlign:'center', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Fin</th>
+                    <th style={{textAlign:'center', padding:'5px 6px', color:'#6B7A8A', fontWeight:600}}>Meses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(cron.real || []).map((f, i) => {
+                    const orig = (cron.inicial || []).find(x => x.fase === f.fase);
+                    const delay = (orig && orig.fin && f.fin) ? diffMeses(orig.fin, f.fin) : null;
+                    const isDelayed = delay && delay > 0;
+                    return (
+                      <tr key={i} style={{borderBottom:'1px solid #F0EEE9'}}>
+                        <td style={{padding:'6px 6px', fontWeight:500, color:'#1E2D4E'}}>{f.fase}</td>
+                        <td style={{padding:'6px 6px', textAlign:'center', color:'#6B7A8A'}}>{fmtFecha(f.inicio)}</td>
+                        <td style={{padding:'6px 6px', textAlign:'center', color: isDelayed ? '#e05a5a' : '#6B7A8A', fontWeight: isDelayed ? 700 : 400}}>
+                          {fmtFecha(f.fin)}{isDelayed ? ` (+${delay}m)` : ''}
+                        </td>
+                        <td style={{padding:'6px 6px', textAlign:'center', fontWeight:600, color:'#1E2D4E'}}>{f.duracion || diffMeses(f.inicio, f.fin) || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Resumen de desviaciones */}
+          <div style={{background:'#fff', borderRadius:12, border:'1px solid #E8E3DA', padding:'16px 18px'}}>
+            <div style={{fontWeight:700, fontSize:'0.82rem', marginBottom:12}}>Desviaciones vs. Planificación Original</div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:10}}>
+              {(cron.real || []).map((f, i) => {
+                const orig = (cron.inicial || []).find(x => x.fase === f.fase);
+                const delay = (orig && orig.fin && f.fin) ? diffMeses(orig.fin, f.fin) : null;
+                if (delay === null) return null;
+                const color = delay > 0 ? '#e05a5a' : delay < 0 ? '#4ca99a' : '#6B7A8A';
+                const bg    = delay > 0 ? 'rgba(224,90,90,0.07)' : delay < 0 ? 'rgba(76,169,154,0.07)' : 'rgba(107,122,138,0.07)';
+                return (
+                  <div key={i} style={{background:bg, borderRadius:8, padding:'10px 12px'}}>
+                    <div style={{fontSize:'0.72rem', color:'#6B7A8A', marginBottom:4}}>{f.fase}</div>
+                    <div style={{fontWeight:700, fontSize:'0.9rem', color}}>
+                      {delay === 0 ? 'En plazo' : delay > 0 ? `+${delay} meses` : `${delay} meses`}
+                    </div>
+                  </div>
+                );
+              }).filter(Boolean)}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── POSVENTA TAB ────────────────────────────────────────────────────────────
 const PosventaTab = ({proj, activeId, upd, fmt}) => {
   const ps = proj.posventa || [];
@@ -1723,7 +2020,7 @@ export default function Overview(){
           const p=JSON.parse(s);
           if(Array.isArray(p)&&p.length>0){
             if(key!=="ov11"){try{localStorage.setItem("ov11",s);}catch{}}
-            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
+            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,cronograma:x.cronograma||null}));
           }
         }
       }catch{}
@@ -1784,6 +2081,7 @@ export default function Overview(){
         bp:mergeObj(cloud.bp,local.bp),
         marketing:mergeObj(cloud.marketing,local.marketing),
         master:mergeObj(cloud.master,local.master),
+        cronograma:mergeObj(cloud.cronograma,local.cronograma),
         // Texto: conservar el más largo
         resumenSemanal:(cloud.resumenSemanal||"").length>=(local.resumenSemanal||"").length?cloud.resumenSemanal:local.resumenSemanal,
       };
@@ -2339,6 +2637,7 @@ export default function Overview(){
     {id:"master",l:"Master Comercial"+(proj&&proj.master?" OK":"")},
     {id:"marketing",l:"Marketing"+(proj&&proj.marketing?" OK":"")},
     {id:"comercial",l:"Comercial"},
+    {id:"cronograma",l:"Cronograma"+(proj&&proj.cronograma?" ✓":"")},
     {id:"posventa",l:"Posventa"+(proj&&proj.posventa&&proj.posventa.length>0?" ("+proj.posventa.length+")":"")},
     {id:"equipo",l:"Equipo"},
     {id:"blockers",l:"Alertas"+(proj&&proj.blockers.length>0?" ("+proj.blockers.length+")":"")},
@@ -3341,6 +3640,7 @@ export default function Overview(){
                 );
               })()}
 
+              {tab==="cronograma"&&<CronogramaTab proj={proj} activeId={activeId} upd={upd}/>}
               {tab==="posventa"&&<PosventaTab proj={proj} activeId={activeId} upd={upd} fmt={fmt}/>}
 
               {tab==="equipo"&&(
