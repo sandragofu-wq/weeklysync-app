@@ -943,9 +943,11 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
   const ESTADOS_COLOR = {
     'FINALIZADA':          {c:'#4ca99a', bg:'rgba(76,169,154,0.12)'},
     'PTE TERMINAR':        {c:'#e05a5a', bg:'rgba(224,90,90,0.12)'},
+    'PENDIENTE TERMINAR':  {c:'#e05a5a', bg:'rgba(224,90,90,0.12)'},  // alias del Excel
     'PENDIENTE DE ENTRAR': {c:'#ddb96a', bg:'rgba(221,185,106,0.12)'},
     'AGENDAR VISITA':      {c:'#f5924e', bg:'rgba(245,146,78,0.12)'},
     'NO REPASA':           {c:'#7c5cfc', bg:'rgba(124,92,252,0.12)'},
+    'NO REPASAN':          {c:'#7c5cfc', bg:'rgba(124,92,252,0.12)'},  // alias del Excel
     'SIN ESTADO':          {c:'#6B7A8A', bg:'rgba(107,122,138,0.12)'},
   };
   const POSVENTA_TIPOS = {
@@ -978,13 +980,26 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
       if (rows[i].some(c => c && String(c).includes('ESCRITURADAS'))) { headerIdx = i; break; }
     }
     if (headerIdx < 0) return null;
+    // Palabras clave que indican fila de resumen (no vivienda real)
+    const SUMMARY_KEYWORDS = ['TOTAL','VIVIENDAS','ESCRITURADAS','FORMULARIO','RELLENAN','TECNICA','FINALIZADAS','PENDIENTE','REPASAN'];
+    const isResumenRow = (ref) => SUMMARY_KEYWORDS.some(kw => ref.toUpperCase().includes(kw));
     const viviendas = [];
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       const ref = row[1] ? String(row[1]).trim() : null;
-      if (!ref || ref === 'ESCRITURADAS' || ref === 'VIVIENDAS' || ref === ' ') continue;
+      // Filtrar filas vacías, de cabecera duplicada o de resumen al pie
+      if (!ref || ref === ' ' || ref === 'ACTUALIZAR') continue;
+      // Las referencias reales de vivienda siempre tienen patrón Bx-NNN, PK-NNN, TR-NNN o similar
+      // Las filas de resumen son texto largo — las descartamos
+      if (ref.length > 20 || isResumenRow(ref)) continue;
       const estado  = row[13] ? String(row[13]).trim() : 'SIN ESTADO';
       const repasos = row[14] ? String(row[14]).trim() : null;
+      // col 8 = FORMULARIO ("Completado" / "-" / null)
+      const formulario = row[8] ? String(row[8]).trim() : null;
+      const tieneFormulario = formulario && formulario !== '-' && formulario !== 'None';
+      // col 10 = VISITA REALIZADA ("Sí" / "-" / null / fecha)
+      const visitaVal = row[10] ? String(row[10]).trim() : null;
+      const tieneVisita = visitaVal && visitaVal !== '-' && visitaVal !== 'None' && visitaVal !== '';
       viviendas.push({
         ref, estado,
         repasos: repasos && repasos !== 'None' ? repasos : null,
@@ -992,29 +1007,39 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
         llave:  row[16] || null,
         alarma: row[15] || null,
         parte:  row[11] || null,
-        visita: row[10] || null,
+        formulario: tieneFormulario,   // nuevo campo booleano
+        visita: tieneVisita,           // booleano (antes era el valor crudo)
+        visitaRaw: row[10] || null,    // valor original por si se necesita
         fechaEscrit: row[6] ? String(row[6]).substring(0,10) : null,
       });
     }
+    // Estados: normalizar variantes del Excel
+    // "PENDIENTE TERMINAR" y "PTE TERMINAR" → ambos tratados como pteTerminar
+    const esPteTerminar = (v) => v.estado === 'PENDIENTE TERMINAR' || v.estado === 'PTE TERMINAR';
     const finalizadas  = viviendas.filter(v => v.estado === 'FINALIZADA').length;
-    const pteTerminar  = viviendas.filter(v => v.estado === 'PTE TERMINAR').length;
+    const pteTerminar  = viviendas.filter(esPteTerminar).length;
     const pteEntrar    = viviendas.filter(v => v.estado === 'PENDIENTE DE ENTRAR').length;
     const agendar      = viviendas.filter(v => v.estado === 'AGENDAR VISITA').length;
-    const noRepasa     = viviendas.filter(v => v.estado === 'NO REPASA').length;
+    const noRepasa     = viviendas.filter(v => v.estado === 'NO REPASA' || v.estado === 'NO REPASAN').length;
     const conRepasos   = viviendas.filter(v => v.repasos).length;
     const conAlarma    = viviendas.filter(v => v.alarma && String(v.alarma).trim() === 'Sí').length;
-    // Visitas: col visita (10) — tiene fecha o texto si se realizó
-    const visitasRealizadas = viviendas.filter(v => v.visita && String(v.visita).trim() && String(v.visita).trim() !== 'None').length;
-    const conFormulario = viviendas.filter(v => v.parte && String(v.parte).trim() && String(v.parte).trim() !== 'None').length;
-    const sinFormulario = viviendas.length - conFormulario;
-    // "Sin formulario finalizadas": viviendas que NO tienen formulario pero su estado es FINALIZADA
-    const sinFormularioFinaliz = viviendas.filter(v => v.estado === 'FINALIZADA' && !(v.parte && String(v.parte).trim() && String(v.parte).trim() !== 'None')).length;
+    // Con formulario: col 8 = "Completado" (o cualquier valor distinto de "-"/vacío)
+    const visitasRealizadas = viviendas.filter(v => v.visita).length;
+    const conFormulario     = viviendas.filter(v => v.formulario).length;
+    const sinFormulario     = viviendas.length - conFormulario;
+    // Sin formulario pero finalizadas (visitadas por correo, sin parte)
+    const sinFormularioFinaliz = viviendas.filter(v => v.estado === 'FINALIZADA' && !v.formulario).length;
     // Desglose por mes de escritura para pteTerminar y pteEntrar
-    const mesEscrit = (v) => { if(!v.fechaEscrit) return null; return v.fechaEscrit.substring(0,7); }; // "YYYY-MM"
-    const pteTerminarPorMes = {jul:0, ago:0, sep:0, oct:0, otro:0};
-    const pteEntrarPorMes   = {jul:0, ago:0, sep:0, oct:0, otro:0};
-    const mesKey = (mes) => { if(!mes) return 'otro'; const m=mes.split('-')[1]; return m==='07'?'jul':m==='08'?'ago':m==='09'?'sep':m==='10'?'oct':'otro'; };
-    viviendas.filter(v=>v.estado==='PTE TERMINAR').forEach(v=>{ const k=mesKey(mesEscrit(v)); pteTerminarPorMes[k]++; });
+    // Claves: mar=03 abr=04 may=05 jun=06 jul=07 ago=08 sep=09 oct=10
+    const mesEscrit = (v) => { if(!v.fechaEscrit) return null; return v.fechaEscrit.substring(0,7); };
+    const pteTerminarPorMes = {mar:0,abr:0,may:0,jun:0,jul:0,ago:0,sep:0,oct:0,otro:0};
+    const pteEntrarPorMes   = {mar:0,abr:0,may:0,jun:0,jul:0,ago:0,sep:0,oct:0,otro:0};
+    const mesKey = (mes) => {
+      if(!mes) return 'otro';
+      const m = mes.split('-')[1];
+      return m==='03'?'mar':m==='04'?'abr':m==='05'?'may':m==='06'?'jun':m==='07'?'jul':m==='08'?'ago':m==='09'?'sep':m==='10'?'oct':'otro';
+    };
+    viviendas.filter(esPteTerminar).forEach(v=>{ const k=mesKey(mesEscrit(v)); pteTerminarPorMes[k]++; });
     viviendas.filter(v=>v.estado==='PENDIENTE DE ENTRAR').forEach(v=>{ const k=mesKey(mesEscrit(v)); pteEntrarPorMes[k]++; });
     return {
       total: viviendas.length, finalizadas, pteTerminar, pteEntrar, agendar,
@@ -1097,7 +1122,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
   // ── vistas ──
   const inf  = lastInforme;
   const prev = prevInforme;
-  const ESTADO_ORDER = {'FINALIZADA':0,'PTE TERMINAR':1,'PENDIENTE DE ENTRAR':2,'RESCISIÓN':3,'SIN ESTADO':4};
+  const ESTADO_ORDER = {'FINALIZADA':0,'PTE TERMINAR':1,'PENDIENTE TERMINAR':1,'PENDIENTE DE ENTRAR':2,'RESCISIÓN':3,'SIN ESTADO':4};
   const vivsFiltradas = inf ? (inf.viviendas||[]).filter(v => {
     const matchRef = !vivFiltro || v.ref.toLowerCase().includes(vivFiltro.toLowerCase()) ||
                      (v.propietario && v.propietario.toLowerCase().includes(vivFiltro.toLowerCase()));
@@ -1292,6 +1317,10 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
           {/* ── TABLA 3: Estado actual con desglose por mes ── */}
           {(inf.pteTerminar > 0 || inf.pteEntrar > 0) && (()=>{
             const meses = [
+              {key:'mar', label:'Desde marzo'},
+              {key:'abr', label:'Desde abril'},
+              {key:'may', label:'Desde mayo'},
+              {key:'jun', label:'Desde junio'},
               {key:'jul', label:'Desde julio'},
               {key:'ago', label:'Desde agosto'},
               {key:'sep', label:'Desde septiembre'},
