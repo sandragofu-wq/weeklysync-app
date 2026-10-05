@@ -1329,11 +1329,21 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
 
   const parseInformePosventa = (wb) => {
     if (!wb || !wb.Sheets) return null;
-    const ws = wb.Sheets[wb.SheetNames[0]];
+    // Buscar la hoja de viviendas — puede no ser la primera
+    const sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('ESCRIT') || n.toUpperCase().includes('VIVIEN'))
+                   || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
     const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
     let headerIdx = -1;
-    for (let i = 0; i < rows.length; i++) {
-      if (rows[i].some(c => c && String(c).includes('ESCRITURADAS'))) { headerIdx = i; break; }
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      const rowStr = (rows[i]||[]).map(c => c ? String(c).toUpperCase() : '').join(' ');
+      if (rowStr.includes('ESCRIT') && rowStr.includes('VIV')) { headerIdx = i; break; }
+    }
+    // fallback: buscar cualquier fila con "ESCRITURADA"
+    if (headerIdx < 0) {
+      for (let i = 0; i < Math.min(rows.length, 15); i++) {
+        if ((rows[i]||[]).some(c => c && String(c).toUpperCase().includes('ESCRITURADA'))) { headerIdx = i; break; }
+      }
     }
     if (headerIdx < 0) return null;
     // Palabras clave que indican fila de resumen (no vivienda real)
@@ -1359,7 +1369,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
         parte:   row[11] || null,
         formulario: tieneFormulario,
         visita:  tieneVisita,
-        fechaEscrit: row[6] ? String(row[6]).substring(0,10) : null,
+        fechaEscrit: row[6] != null ? row[6] : null,  // Date object con cellDates:true, o cadena según versión XLSX
       };
     };
     for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -1391,6 +1401,8 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     const sinFormulario     = viviendas.length - conFormulario;
     // Sin formulario pero finalizadas (visitadas por correo, sin parte)
     const sinFormularioFinaliz = viviendas.filter(v => v.estado === 'FINALIZADA' && !v.formulario).length;
+    // Finalizadas con formulario y sin formulario por separado
+    const finalizadasConForm = viviendas.filter(v => v.estado === 'FINALIZADA' && v.formulario).length;
     // Desglose por mes de escritura para pteTerminar y pteEntrar
     // Claves: mar=03 abr=04 may=05 jun=06 jul=07 ago=08 sep=09 oct=10
     const mesEscrit = (v) => { if(!v.fechaEscrit) return null; return v.fechaEscrit.substring(0,7); };
@@ -1403,14 +1415,16 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     };
     viviendas.filter(esPteTerminar).forEach(v=>{ const k=mesKey(mesEscrit(v)); pteTerminarPorMes[k]++; });
     viviendas.filter(v=>v.estado==='PENDIENTE DE ENTRAR').forEach(v=>{ const k=mesKey(mesEscrit(v)); pteEntrarPorMes[k]++; });
-    // "total" = viviendas escrituradas (con fecha de escritura, excluyendo PK y TR)
-    const escrituradas = viviendas.filter(v => v.fechaEscrit).length;
+    // "total" = viviendas con fecha de escritura (fuente de verdad)
+    // Las 4 viviendas sin fecha no están escrituradas todavía → no cuentan
+    // NOTA: con cellDates:true, row[6] es un Date object — comprobar != null, no la cadena
+    const escrituradas = viviendas.filter(v => v.fechaEscrit != null).length;
     return {
       total: escrituradas,
-      totalViviendas: viviendas.length,         // todas las viviendas (incluye sin fecha)
-      totalParkings: parkings.filter(v=>v.fechaEscrit).length,
-      totalTrasteros: trasteros.filter(v=>v.fechaEscrit).length,
-      finalizadas, pteTerminar, pteEntrar, agendar,
+      totalViviendas: viviendas.length,  // todas las únicas parseadas (incluye las sin fecha)
+      totalParkings: parkings.filter(v=>v.fechaEscrit != null).length,
+      totalTrasteros: trasteros.filter(v=>v.fechaEscrit != null).length,
+      finalizadas, finalizadasConForm, pteTerminar, pteEntrar, agendar,
       noRepasa, conRepasos, conAlarma,
       visitasRealizadas, visitasPendientes: viviendas.length - visitasRealizadas,
       conFormulario, sinFormulario, sinFormularioFinaliz,
@@ -1554,11 +1568,13 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
             const sinClasificar = inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa);
             const conForm = inf.conFormulario ?? 0;
             const sinFormFin = inf.sinFormularioFinaliz ?? 0;
-            // Finalizadas totales = finalizadas con formulario + finalizadas sin formulario
-            const totFinalizadas = inf.finalizadas + sinFormFin;
-            // Con formulario finalizadas = inf.finalizadas
-            // Con formulario NO finalizadas = conForm - inf.finalizadas
-            const conFormNoFin = Math.max(0, conForm - inf.finalizadas);
+            // inf.finalizadas = TOTAL FINALIZADA (con + sin formulario) = 187
+            // inf.finalizadasConForm = las 149 con formulario
+            // sinFormFin = las 38 sin formulario (subconjunto de inf.finalizadas)
+            const totFinalizadas = inf.finalizadas; // 187 (ya incluye ambas, no sumar)
+            const finConForm = inf.finalizadasConForm ?? (inf.finalizadas - sinFormFin);
+            // Con formulario NO finalizadas = conForm - finalizadasConForm
+            const conFormNoFin = Math.max(0, conForm - finConForm);
             // Sin finalizar sin formulario = total - totFinalizadas - conFormNoFin
             const sinFinSinForm = Math.max(0, inf.total - totFinalizadas - conFormNoFin);
             // Visitas pendientes = total - (finalizadas con form + sinFormFin + conFormNoFin)
@@ -1609,7 +1625,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                   </div>
                   <div style={{padding:"10px 16px",display:"flex",gap:16,flexWrap:"wrap"}}>
                     <div style={{flex:1,minWidth:160}}>
-                      <SubRow dot="#4ca99a" label="Con formulario de posventa" value={inf.finalizadas} color="#4ca99a"/>
+                      <SubRow dot="#4ca99a" label="Con formulario de posventa" value={finConForm} color="#4ca99a"/>
                       <SubRow dot="#B0BBC6" label="Sin formulario (finalizadas)" value={sinFormFin} color="#6B7A8A"/>
                     </div>
                   </div>
