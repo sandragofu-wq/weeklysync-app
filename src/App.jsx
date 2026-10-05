@@ -1611,9 +1611,41 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                 {/* Bloque 1: totales */}
                 <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
                   <div style={{padding:"8px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Resumen de la promoción</div>
-                  <div style={{padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap"}}>
-                    <StatCell label="Viviendas totales" value={inf.totalViviendas ?? inf.total} />
-                    <StatCell label="Escrituradas" value={inf.total} color="#1E2D4E"/>
+                  <div style={{padding:"12px 16px",display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    {/* Total promoción: editable manualmente */}
+                    <div style={{background:"#F8F7F4",borderRadius:8,padding:"10px 14px",flex:1,minWidth:110}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Viviendas totales</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <input
+                          type="number"
+                          defaultValue={proj.posventaTotalUnidades ?? ''}
+                          placeholder={String(inf.totalViviendas ?? inf.total)}
+                          onBlur={e => {
+                            const v = parseInt(e.target.value,10);
+                            if(!isNaN(v) && v > 0) upd(activeId,'posventaTotalUnidades',v);
+                          }}
+                          style={{width:64,fontSize:"1.4rem",fontWeight:800,color:"#1E2D4E",lineHeight:1,border:"none",background:"transparent",outline:"none",padding:0}}
+                        />
+                        <span title="Edita el total de la promoción" style={{fontSize:"0.65rem",color:"#9BA8B4",cursor:"text"}}>✎</span>
+                      </div>
+                    </div>
+                    {/* Escrituradas: editable manualmente */}
+                    <div style={{background:"#F8F7F4",borderRadius:8,padding:"10px 14px",flex:1,minWidth:110}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Escrituradas</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <input
+                          type="number"
+                          defaultValue={proj.posventaEscrituradas ?? ''}
+                          placeholder={String(inf.total)}
+                          onBlur={e => {
+                            const v = parseInt(e.target.value,10);
+                            if(!isNaN(v) && v > 0) upd(activeId,'posventaEscrituradas',v);
+                          }}
+                          style={{width:64,fontSize:"1.4rem",fontWeight:800,color:"#1E2D4E",lineHeight:1,border:"none",background:"transparent",outline:"none",padding:0}}
+                        />
+                        <span title="Edita el número de escrituradas" style={{fontSize:"0.65rem",color:"#9BA8B4",cursor:"text"}}>✎</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
