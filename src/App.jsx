@@ -1405,7 +1405,15 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     const finalizadasConForm = viviendas.filter(v => v.estado === 'FINALIZADA' && v.formulario).length;
     // Desglose por mes de escritura para pteTerminar y pteEntrar
     // Claves: mar=03 abr=04 may=05 jun=06 jul=07 ago=08 sep=09 oct=10
-    const mesEscrit = (v) => { if(!v.fechaEscrit) return null; return v.fechaEscrit.substring(0,7); };
+    const mesEscrit = (v) => {
+      if(!v.fechaEscrit) return null;
+      // fechaEscrit puede ser Date object (cellDates:true) o string "2026-03-24..."
+      if(v.fechaEscrit instanceof Date) {
+        const mm = String(v.fechaEscrit.getMonth()+1).padStart(2,'0');
+        return v.fechaEscrit.getFullYear()+'-'+mm;
+      }
+      return String(v.fechaEscrit).substring(0,7);
+    };
     const pteTerminarPorMes = {mar:0,abr:0,may:0,jun:0,jul:0,ago:0,sep:0,oct:0,otro:0};
     const pteEntrarPorMes   = {mar:0,abr:0,may:0,jun:0,jul:0,ago:0,sep:0,oct:0,otro:0};
     const mesKey = (mes) => {
@@ -1565,7 +1573,9 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
 
           {/* ── TABLA 1: Resumen de la promoción ── */}
           {(()=>{
-            const sinClasificar = inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa);
+            // Valores editables manualmente tienen prioridad sobre los del parser
+            const totalEscrit = proj.posventaEscrituradas ?? inf.total;
+            const sinClasificar = totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa);
             const conForm = inf.conFormulario ?? 0;
             const sinFormFin = inf.sinFormularioFinaliz ?? 0;
             // inf.finalizadas = TOTAL FINALIZADA (con + sin formulario) = 187
@@ -1575,10 +1585,10 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
             const finConForm = inf.finalizadasConForm ?? (inf.finalizadas - sinFormFin);
             // Con formulario NO finalizadas = conForm - finalizadasConForm
             const conFormNoFin = Math.max(0, conForm - finConForm);
-            // Sin finalizar sin formulario = total - totFinalizadas - conFormNoFin
-            const sinFinSinForm = Math.max(0, inf.total - totFinalizadas - conFormNoFin);
-            // Visitas pendientes = total - (finalizadas con form + sinFormFin + conFormNoFin)
-            const visitasPend = inf.visitasPendientes ?? Math.max(0, inf.total - (conForm + sinFormFin));
+            // Sin finalizar sin formulario = total escrituradas - totFinalizadas - conFormNoFin
+            const sinFinSinForm = Math.max(0, totalEscrit - totFinalizadas - conFormNoFin);
+            // Visitas pendientes
+            const visitasPend = inf.visitasPendientes ?? Math.max(0, totalEscrit - (conForm + sinFormFin));
 
             // Cálculo retraso medio incidencias manuales
             const hoy = new Date();
@@ -1667,7 +1677,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                 <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
                   <div style={{padding:"8px 16px",background:"rgba(221,185,106,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#c9a86c",display:"flex",alignItems:"center",gap:6}}>
                     <span style={{width:8,height:8,borderRadius:"50%",background:"#ddb96a",display:"inline-block"}}/>
-                    Viviendas sin finalizar — <span style={{fontSize:"0.9rem",fontWeight:800}}>{inf.total - totFinalizadas}</span>
+                    Viviendas sin finalizar — <span style={{fontSize:"0.9rem",fontWeight:800}}>{totalEscrit - totFinalizadas}</span>
                   </div>
                   <div style={{padding:"10px 16px",display:"flex",gap:16,flexWrap:"wrap"}}>
                     <div style={{flex:1,minWidth:160}}>
