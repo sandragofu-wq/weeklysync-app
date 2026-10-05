@@ -1003,9 +1003,25 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     const noRepasa     = viviendas.filter(v => v.estado === 'NO REPASA').length;
     const conRepasos   = viviendas.filter(v => v.repasos).length;
     const conAlarma    = viviendas.filter(v => v.alarma && String(v.alarma).trim() === 'Sí').length;
+    // Visitas: col visita (10) — tiene fecha o texto si se realizó
+    const visitasRealizadas = viviendas.filter(v => v.visita && String(v.visita).trim() && String(v.visita).trim() !== 'None').length;
+    const conFormulario = viviendas.filter(v => v.parte && String(v.parte).trim() && String(v.parte).trim() !== 'None').length;
+    const sinFormulario = viviendas.length - conFormulario;
+    // "Sin formulario finalizadas": viviendas que NO tienen formulario pero su estado es FINALIZADA
+    const sinFormularioFinaliz = viviendas.filter(v => v.estado === 'FINALIZADA' && !(v.parte && String(v.parte).trim() && String(v.parte).trim() !== 'None')).length;
+    // Desglose por mes de escritura para pteTerminar y pteEntrar
+    const mesEscrit = (v) => { if(!v.fechaEscrit) return null; return v.fechaEscrit.substring(0,7); }; // "YYYY-MM"
+    const pteTerminarPorMes = {jul:0, ago:0, sep:0, oct:0, otro:0};
+    const pteEntrarPorMes   = {jul:0, ago:0, sep:0, oct:0, otro:0};
+    const mesKey = (mes) => { if(!mes) return 'otro'; const m=mes.split('-')[1]; return m==='07'?'jul':m==='08'?'ago':m==='09'?'sep':m==='10'?'oct':'otro'; };
+    viviendas.filter(v=>v.estado==='PTE TERMINAR').forEach(v=>{ const k=mesKey(mesEscrit(v)); pteTerminarPorMes[k]++; });
+    viviendas.filter(v=>v.estado==='PENDIENTE DE ENTRAR').forEach(v=>{ const k=mesKey(mesEscrit(v)); pteEntrarPorMes[k]++; });
     return {
       total: viviendas.length, finalizadas, pteTerminar, pteEntrar, agendar,
       noRepasa, conRepasos, conAlarma,
+      visitasRealizadas, visitasPendientes: viviendas.length - visitasRealizadas,
+      conFormulario, sinFormulario, sinFormularioFinaliz,
+      pteTerminarPorMes, pteEntrarPorMes,
       pctFinalizada: viviendas.length ? Math.round(finalizadas / viviendas.length * 100) : 0,
       viviendas,
     };
@@ -1138,13 +1154,189 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
             </div>
           </div>
 
-          {/* KPIs */}
+          {/* ── TABLA 1: Resumen de la promoción ── */}
+          {(()=>{
+            const sinClasificar = inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa);
+            const visitasReal = inf.visitasRealizadas ?? inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa;
+            const visitasPend = inf.visitasPendientes ?? (inf.total - visitasReal);
+            const conForm = inf.conFormulario ?? visitasReal;
+            const sinForm = inf.sinFormulario ?? (inf.total - conForm);
+            const sinFormFin = inf.sinFormularioFinaliz ?? 0;
+            return (
+              <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:14}}>
+                <div style={{padding:"10px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Resumen de la promoción</div>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.82rem"}}>
+                  <tbody>
+                    {/* Fila 1: Viviendas de la promoción */}
+                    <tr style={{borderBottom:"1px solid #E8E2D8"}}>
+                      <td style={{padding:"10px 16px",fontWeight:600,color:"#1E2D4E"}}>Viviendas de la promoción</td>
+                      <td style={{padding:"10px 16px",fontWeight:800,color:"#1E2D4E",textAlign:"right"}}>{inf.total}</td>
+                      <td colSpan={2}/>
+                    </tr>
+                    {/* Fila 2: Escrituradas (= total en posventa) */}
+                    <tr style={{borderBottom:"1px solid #E8E2D8"}}>
+                      <td style={{padding:"10px 16px",fontWeight:600,color:"#1E2D4E"}}>Viviendas escrituradas</td>
+                      <td style={{padding:"10px 16px",fontWeight:800,color:"#1E2D4E",textAlign:"right"}}>{inf.total}</td>
+                      <td colSpan={2}/>
+                    </tr>
+                    {/* Fila 3: Con formulario → visitas realizadas → desglose estados */}
+                    <tr style={{borderBottom:"1px solid #E8E2D8",verticalAlign:"top"}}>
+                      <td style={{padding:"10px 16px",fontWeight:600,color:"#1E2D4E"}}>Viviendas con formulario de posventa</td>
+                      <td style={{padding:"10px 16px",fontWeight:800,color:"#1E2D4E",textAlign:"right"}}>{conForm}</td>
+                      <td style={{padding:"10px 16px",color:"#6B7A8A",fontWeight:500,borderLeft:"1px solid #E8E2D8"}}>
+                        <div style={{fontWeight:600,color:"#1E2D4E",marginBottom:4}}>Visitas de posventa <span style={{color:"#4ca99a",fontWeight:800}}>{visitasReal}</span></div>
+                        <div style={{display:"flex",flexDirection:"column",gap:3,paddingLeft:8,fontSize:"0.74rem"}}>
+                          <div>🟢 Viviendas finalizadas <strong style={{color:"#1E2D4E"}}>{inf.finalizadas}</strong></div>
+                          <div>🔴 Viviendas pendientes de finalizar <strong style={{color:"#1E2D4E"}}>{inf.pteTerminar}</strong></div>
+                          <div>🟡 Viviendas pendientes de inicio <strong style={{color:"#1E2D4E"}}>{inf.pteEntrar}</strong></div>
+                          <div>⬜ Viviendas que no repasan <strong style={{color:"#1E2D4E"}}>{inf.noRepasa}</strong></div>
+                        </div>
+                        {sinClasificar>0&&<div style={{marginTop:6,fontSize:"0.70rem",color:"#e05a5a",fontWeight:600}}>⚠ {sinClasificar} sin clasificar</div>}
+                      </td>
+                      <td style={{padding:"10px 16px",color:"#6B7A8A",fontWeight:500,borderLeft:"1px solid #E8E2D8",verticalAlign:"top"}}>
+                        <div style={{fontWeight:600,color:"#1E2D4E",marginBottom:4}}>Visitas pendientes <span style={{color:"#ddb96a",fontWeight:800}}>{visitasPend}</span></div>
+                        {inf.agendar>0&&<div style={{fontSize:"0.74rem",paddingLeft:8}}>🟠 Agendar visita <strong style={{color:"#1E2D4E"}}>{inf.agendar}</strong></div>}
+                      </td>
+                    </tr>
+                    {/* Fila 4: Sin formulario finalizadas */}
+                    <tr style={{borderBottom:"1px solid #E8E2D8"}}>
+                      <td style={{padding:"10px 16px",color:"#6B7A8A"}}>Viviendas sin formulario de posventa finalizadas</td>
+                      <td style={{padding:"10px 16px",fontWeight:700,color:"#1E2D4E",textAlign:"right"}}>{sinFormFin}</td>
+                      <td colSpan={2}/>
+                    </tr>
+                    {/* Fila 5: Sin formulario */}
+                    <tr>
+                      <td style={{padding:"10px 16px",color:"#6B7A8A"}}>Viviendas sin formulario</td>
+                      <td style={{padding:"10px 16px",fontWeight:700,color:"#1E2D4E",textAlign:"right"}}>{sinForm}</td>
+                      <td colSpan={2}/>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+
+          {/* ── TABLA 2: Evolutivo histórico (tabla) ── */}
+          {informes.length >= 2 && (()=>{
+            const cronologico=[...informes].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+            const delta=(curr,prev,key)=>{ if(prev==null) return null; const c=curr[key]??0; const p=prev[key]??0; return c-p; };
+            const varTotal=(key)=>{ const last=cronologico[cronologico.length-1]; const first=cronologico[0]; return (last[key]??0)-(first[key]??0); };
+            const rows2=[
+              {l:"Cuestionarios recibidos",       key:"conFormulario",    mejor:true},
+              {l:"Visitas realizadas",             key:"visitasRealizadas",mejor:true},
+              {l:"Pendientes de visita",           key:"visitasPendientes",mejor:false},
+              {l:"Viviendas totalmente resueltas", key:"finalizadas",      mejor:true},
+              {l:"Pendientes parciales",           key:"pteTerminar",      mejor:false},
+              {l:"Pendientes de iniciar",          key:"pteEntrar",        mejor:false},
+              {l:"No desean actuación",            key:"noRepasa",         mejor:null},
+            ];
+            const sinClasifKey = (inf2) => inf2.total-(inf2.finalizadas+inf2.pteTerminar+inf2.pteEntrar+inf2.agendar+(inf2.noRepasa||0));
+            return (
+              <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:14}}>
+                <div style={{padding:"10px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Evolutivo histórico por informe</div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.78rem",minWidth:520}}>
+                    <thead>
+                      <tr style={{background:"#F8F7F4"}}>
+                        <th style={{padding:"8px 14px",textAlign:"left",fontWeight:700,color:"#1E2D4E",fontSize:"0.72rem",borderBottom:"2px solid #DDD8CF"}}>Indicador / Fecha informe</th>
+                        {cronologico.map(x=>(
+                          <th key={x.id} style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:"#1E2D4E",fontSize:"0.72rem",borderBottom:"2px solid #DDD8CF",whiteSpace:"nowrap"}}>
+                            <div>{fmt(x.fecha)}</div>
+                          </th>
+                        ))}
+                        <th style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:"#1E2D4E",fontSize:"0.72rem",borderBottom:"2px solid #DDD8CF",borderLeft:"2px solid #DDD8CF"}}>Variación total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows2.map((row,ri)=>{
+                        const vt=varTotal(row.key);
+                        const clrTotal = vt===0||row.mejor===null ? "#6B7A8A" : row.mejor===true ? (vt>0?"#4ca99a":"#e05a5a") : (vt<0?"#4ca99a":"#e05a5a");
+                        return (
+                          <tr key={row.l} style={{borderBottom:ri<rows2.length-1?"1px solid #E8E2D8":"none",background:ri%2===0?"#fff":"#FAFAF8"}}>
+                            <td style={{padding:"9px 14px",color:"#1E2D4E",fontWeight:500}}>{row.l}</td>
+                            {cronologico.map((x,ci)=>{
+                              const val = x[row.key] ?? 0;
+                              const prevX = ci>0 ? cronologico[ci-1] : null;
+                              const d = prevX!=null ? val-(prevX[row.key]??0) : null;
+                              const clr = d===null||d===0 ? "#6B7A8A" : row.mejor===true?(d>0?"#4ca99a":"#e05a5a"):(d<0?"#4ca99a":"#e05a5a");
+                              return (
+                                <td key={x.id} style={{padding:"9px 12px",textAlign:"center",fontWeight:600,color:"#1E2D4E"}}>
+                                  {val}
+                                  {d!==null&&d!==0&&<span style={{display:"block",fontSize:"0.64rem",color:clr,fontWeight:700}}>{d>0?"+":""}{d}</span>}
+                                </td>
+                              );
+                            })}
+                            <td style={{padding:"9px 12px",textAlign:"center",fontWeight:800,color:clrTotal,borderLeft:"2px solid #DDD8CF"}}>{vt>0?"+":""}{vt}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Editor de fechas */}
+                <div style={{padding:"10px 16px",borderTop:"1px solid #E8E2D8",display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {cronologico.map((x)=>(
+                    <div key={x.id} style={{display:"flex",flexDirection:"column",gap:2,background:"#F8F7F4",borderRadius:7,padding:"5px 8px",fontSize:"0.67rem",minWidth:100}}>
+                      <div style={{color:"#6B7A8A",fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}} title={x.nombre}>{x.nombre.substring(0,18)}{x.nombre.length>18?"…":""}</div>
+                      <input type="date" defaultValue={x.fecha}
+                        style={{border:"1px solid #DDD8CF",borderRadius:5,padding:"2px 4px",fontSize:"0.67rem",fontFamily:"inherit",outline:"none",color:"#1E2D4E",background:"#fff"}}
+                        onChange={e=>{const v=e.target.value;if(v) upd(activeId,p=>({...p,posventaInformes:(p.posventaInformes||[]).map(inf2=>inf2.id===x.id?{...inf2,fecha:v}:inf2)}));}}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── TABLA 3: Estado actual con desglose por mes ── */}
+          {(inf.pteTerminar > 0 || inf.pteEntrar > 0) && (()=>{
+            const meses = [
+              {key:'jul', label:'Desde julio'},
+              {key:'ago', label:'Desde agosto'},
+              {key:'sep', label:'Desde septiembre'},
+              {key:'oct', label:'Desde octubre'},
+              {key:'otro', label:'Otro mes'},
+            ];
+            const pm1 = inf.pteTerminarPorMes || {};
+            const pm2 = inf.pteEntrarPorMes   || {};
+            const mesesConDatos = meses.filter(m=>(pm1[m.key]||0)>0||(pm2[m.key]||0)>0);
+            if(!mesesConDatos.length) return null;
+            return (
+              <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:14}}>
+                <div style={{padding:"10px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Estado actual — desglose por periodo</div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:"0.80rem",minWidth:400}}>
+                    <thead>
+                      <tr style={{background:"#F8F7F4",borderBottom:"2px solid #DDD8CF"}}>
+                        <th style={{padding:"8px 14px",textAlign:"left",fontWeight:700,color:"#1E2D4E",fontSize:"0.72rem"}}>Estado actual</th>
+                        <th style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:"#1E2D4E",fontSize:"0.72rem"}}>Total</th>
+                        {mesesConDatos.map(m=><th key={m.key} style={{padding:"8px 12px",textAlign:"center",fontWeight:700,color:"#6B7A8A",fontSize:"0.72rem"}}>{m.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{borderBottom:"1px solid #E8E2D8"}}>
+                        <td style={{padding:"9px 14px",color:"#1E2D4E",fontWeight:500}}>Pendientes de terminar</td>
+                        <td style={{padding:"9px 12px",textAlign:"center",fontWeight:700,color:"#e05a5a"}}>{inf.pteTerminar}</td>
+                        {mesesConDatos.map(m=><td key={m.key} style={{padding:"9px 12px",textAlign:"center",color:"#6B7A8A",fontWeight:600}}>{pm1[m.key]||0}</td>)}
+                      </tr>
+                      <tr>
+                        <td style={{padding:"9px 14px",color:"#1E2D4E",fontWeight:500}}>Pendientes de iniciar</td>
+                        <td style={{padding:"9px 12px",textAlign:"center",fontWeight:700,color:"#ddb96a"}}>{inf.pteEntrar}</td>
+                        {mesesConDatos.map(m=><td key={m.key} style={{padding:"9px 12px",textAlign:"center",color:"#6B7A8A",fontWeight:600}}>{pm2[m.key]||0}</td>)}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* KPIs secundarios */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
             {[
               {l:"Escrituradas",      v:inf.total,        p:prev?.total,        mejor:null},
               {l:"Finalizadas",       v:inf.finalizadas,  p:prev?.finalizadas,  mejor:true,  pct:inf.pctFinalizada+"%"},
-              {l:"Pte. terminar",     v:inf.pteTerminar,  p:prev?.pteTerminar,  mejor:false},
-              {l:"Pte. de entrar",    v:inf.pteEntrar,    p:prev?.pteEntrar,    mejor:false},
               {l:"Agendar visita",    v:inf.agendar,      p:prev?.agendar,      mejor:false},
               {l:"Con repasos",       v:inf.conRepasos,   p:prev?.conRepasos,   mejor:false},
               {l:"Sin clasificar",    v:inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa), p:prev?(prev.total-(prev.finalizadas+prev.pteTerminar+prev.pteEntrar+prev.agendar+(prev.noRepasa||0))):null, mejor:false},
@@ -1268,19 +1460,6 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
               <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",padding:"16px 18px",marginBottom:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                   <div style={{fontWeight:700,fontSize:"0.78rem",color:"#1E2D4E"}}>Evolutivo histórico posventa ({informes.length} informes)</div>
-                </div>
-
-                {/* Editor de fechas por informe */}
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,paddingBottom:10,borderBottom:"1px solid #E8E2D8"}}>
-                  {cronologico.map((x)=>(
-                    <div key={x.id} style={{display:"flex",flexDirection:"column",gap:2,background:"#F8F7F4",borderRadius:7,padding:"5px 8px",fontSize:"0.67rem",minWidth:100}}>
-                      <div style={{color:"#6B7A8A",fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:120}} title={x.nombre}>{x.nombre.substring(0,18)}{x.nombre.length>18?"…":""}</div>
-                      <input type="date" defaultValue={x.fecha}
-                        style={{border:"1px solid #DDD8CF",borderRadius:5,padding:"2px 4px",fontSize:"0.67rem",fontFamily:"inherit",outline:"none",color:"#1E2D4E",background:"#fff"}}
-                        onChange={e=>{const v=e.target.value;if(v) upd(activeId,p=>({...p,posventaInformes:(p.posventaInformes||[]).map(inf2=>inf2.id===x.id?{...inf2,fecha:v}:inf2)}));}}
-                      />
-                    </div>
-                  ))}
                 </div>
 
                 {/* Gráfica */}
