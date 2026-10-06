@@ -2743,27 +2743,44 @@ export default function Overview(){
               });
             }
           } else if(isCuadroTarifa){
-            // Cuadro Tarifa (Almayate y similares): Codigo, Tipología, PRECIO/TARIFA VIGENTE, Estado
+            // Cuadro Tarifa (Almayate y similares): solo leer hoja SEGUIMIENTO (no TARIFA para evitar duplicados)
+            const snNorm=norm(sheetName);
+            if(snNorm!=="seguimiento"&&wb.SheetNames.some(s=>norm(s)==="seguimiento")) return;
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
             const iCod=(()=>{const e=headers.findIndex(h=>h==="codigo");return e>=0?e:headers.findIndex(h=>h.includes("cod")&&h.length<8);})();
             const iTipo=headers.findIndex(h=>h==="tipologia");
             const iSup=headers.findIndex(h=>h.includes("total")&&(h.includes("construid")||h.includes("m2")));
             const iSupUtil=headers.findIndex(h=>h.includes("util")&&h.includes("interior")&&!h.includes("ext"));
             const iPrecioA=headers.findIndex(h=>h==="precio");
-            const iPrecioB=headers.findIndex(h=>h.includes("tarifa")&&h.includes("vigente")&&!h.includes("anejos"));
+            const iPrecioB=headers.findIndex(h=>h.includes("tarifavigente")||( h.includes("tarifa")&&h.includes("vigente")));
             const iPrecio=iPrecioA>=0?iPrecioA:(iPrecioB>=0?iPrecioB:-1);
-            const iEstado=headers.findIndex(h=>h==="estado");
+            // Estado: buscar col con header "estado", o si no existe buscar primera col que tenga solo L/R/V/B en datos
+            let iEstado=headers.findIndex(h=>h==="estado");
+            if(iEstado<0){
+              // buscar col donde los valores son solo letras de estado (L,R,V,B) — típicamente col 45 en Almayate
+              const estadoLetras=new Set(["l","r","v","b","libre","reservado","vendido","bloqueado","reservada","vendida"]);
+              for(let ci=headers.length-1;ci>=20;ci--){
+                const sample=rows.slice(hdrIdx+1,hdrIdx+6).map(row=>String((row||[])[ci]||"").trim().toLowerCase()).filter(Boolean);
+                if(sample.length>0&&sample.every(s=>estadoLetras.has(s))){iEstado=ci;break;}
+              }
+            }
             const iBloque=headers.findIndex(h=>h==="bloque");
             const iPiso=headers.findIndex(h=>h==="piso");
             const iDorm=headers.findIndex(h=>h.includes("dorm"));
             const iTipoRow=headers.findIndex(h=>h==="tipo");
+            // Vinculaciones
+            const iTrastero=headers.findIndex(h=>h.includes("trastero")&&(h.includes("vinc")||h.includes("n")));
+            const iGaraje=headers.findIndex(h=>h.includes("garaje")&&(h.includes("vinc")||h.includes("n"))&&!h.includes("2"));
+            const iGaraje2=headers.findIndex(h=>h.includes("garaje")&&h.includes("2"));
+            const iPrecioTrastero=headers.findIndex(h=>h.includes("precio")&&h.includes("trastero"));
+            const iPrecioGaraje=headers.findIndex(h=>h.includes("precio")&&h.includes("garaje")&&!h.includes("2")&&!h.includes("extra"));
             const estadoMapCT={"l":"disponible","libre":"disponible","r":"reservada","reservado":"reservada","reservada":"reservada","v":"vendida","vendido":"vendida","vendida":"vendida","b":"no-venta","bloqueado":"no-venta"};
-            const priceCol=iPrecio>=0?iPrecio:31;
+            const priceCol=iPrecio>=0?iPrecio:29;
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
               const cod=String(r[iCod>=0?iCod:3]||"").trim();
               if(!cod||cod.length<3) continue;
-              // Solo importar viviendas (tipo V), no trasteros (T) ni garajes (G) ni locales (L)
+              // Solo viviendas tipo V
               const tipoRaw=iTipoRow>=0?String(r[iTipoRow]||"").trim().toUpperCase():"";
               if(tipoRaw&&tipoRaw!=="V"&&tipoRaw!=="V = VIVIENDA") continue;
               const precio=typeof r[priceCol]==="number"?r[priceCol]:parseFloat(String(r[priceCol]||"").replace(/[^0-9.]/g,""))||0;
@@ -2772,12 +2789,24 @@ export default function Overview(){
               const supTotal=parseFloat(String(r[iSup>=0?iSup:19]||"").replace(",","."))||0;
               const supUtil=parseFloat(String(r[iSupUtil>=0?iSupUtil:12]||"").replace(",","."))||0;
               const sup=supUtil||supTotal;
-              const rawEst=String(r[iEstado>=0?iEstado:44]||"").trim().toLowerCase();
+              const rawEst=iEstado>=0?String(r[iEstado]||"").trim().toLowerCase():"";
               const estado=estadoMapCT[rawEst]||"disponible";
               const bloque=iBloque>=0?String(r[iBloque]||"").trim():"";
               const piso=iPiso>=0?String(r[iPiso]||"").trim():"";
               const dorm=iDorm>=0?String(r[iDorm]||"").trim():"";
-              const notas=[bloque?"Bloque: "+bloque:"",piso?"Piso: "+piso:""].filter(Boolean).join(" | ");
+              // Vinculaciones
+              const trastero=iTrastero>=0?String(r[iTrastero]||"").trim():"";
+              const garaje=iGaraje>=0?String(r[iGaraje]||"").trim():"";
+              const garaje2=iGaraje2>=0?String(r[iGaraje2]||"").trim():"";
+              const pTrastero=iPrecioTrastero>=0?Number(r[iPrecioTrastero])||0:0;
+              const pGaraje=iPrecioGaraje>=0?Number(r[iPrecioGaraje])||0:0;
+              const fmtE=v=>v>0?new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v):"";
+              const vinculaciones=[
+                trastero&&trastero!=="-"&&trastero!=="0"?"Trastero: "+trastero+(pTrastero?" ("+fmtE(pTrastero)+")":""):"",
+                garaje&&garaje!=="-"&&garaje!=="0"?"Garaje: "+garaje+(pGaraje?" ("+fmtE(pGaraje)+")":""):"",
+                garaje2&&garaje2!=="-"&&garaje2!=="0"?"Garaje 2: "+garaje2:"",
+              ].filter(Boolean).join(" | ");
+              const notas=[bloque?"Bloque: "+bloque:"",piso?"Piso: "+piso:"",vinculaciones].filter(Boolean).join(" | ");
               allVvs.push({id:Date.now()+Math.random(),ref:cod,tipologia:tipo||(dorm?dorm+" dorm.":"-"),planta:piso?piso:"-",superficie:sup,precio,estado,notas});
             }
           } else if(isNvoga){
