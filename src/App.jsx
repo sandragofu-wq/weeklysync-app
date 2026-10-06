@@ -2686,7 +2686,10 @@ export default function Overview(){
         const multi=wb.SheetNames.length>1;
         const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta"};
         const norm=s=>String(s||"").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 .]/g,"").trim();
-        wb.SheetNames.forEach(sheetName=>{
+        // Si hay hoja SEGUIMIENTO, leer solo esa (evita duplicados con TARIFA u otras hojas del mismo Cuadro Tarifa)
+        const _hasSeg=wb.SheetNames.some(s=>norm(s)==="seguimiento");
+        const _sheetsToRead=_hasSeg?wb.SheetNames.filter(s=>norm(s)==="seguimiento"):wb.SheetNames;
+        _sheetsToRead.forEach(sheetName=>{
           const ws=wb.Sheets[sheetName];if(!ws) return;
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
@@ -2743,9 +2746,7 @@ export default function Overview(){
               });
             }
           } else if(isCuadroTarifa){
-            // Cuadro Tarifa (Almayate y similares): solo leer hoja SEGUIMIENTO (no TARIFA para evitar duplicados)
-            const snNorm=norm(sheetName);
-            if(snNorm!=="seguimiento"&&wb.SheetNames.some(s=>norm(s)==="seguimiento")) return;
+            // Cuadro Tarifa (Almayate y similares)
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
             const iCod=(()=>{const e=headers.findIndex(h=>h==="codigo");return e>=0?e:headers.findIndex(h=>h.includes("cod")&&h.length<8);})();
             const iTipo=headers.findIndex(h=>h==="tipologia");
