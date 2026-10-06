@@ -482,12 +482,17 @@ const parseSheetFin = (rows, sheetName) => {
     if(t5u.includes("CONTRATA")||t5u.includes("HARD")){if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=estatico?nv(r,32):nv(r,37);}}
-    if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
     // B.09 sub-epígrafes: B.09-1 Material Comercial, B.09-2 Agentes Externos, B.09-3 Master Broker
+    // Busca en cualquier columna de la fila (t1-t5) — el código/texto puede estar en columnas distintas según BP
     const t3u=t3.toUpperCase();const t4u=t4.toUpperCase();
-    if((t3u.includes("MATERIAL COMERCIAL")||t4u.includes("MATERIAL COMERCIAL")||t3u.includes("B.09-1")||t4u.includes("B.09-1"))&&!f.materialComercial){f.materialComercial=estatico?nv(r,32):nv(r,37)||nv(r,32);}
-    if((t3u.includes("AGENTES EXTERNOS")||t4u.includes("AGENTES EXTERNOS")||t3u.includes("B.09-2")||t4u.includes("B.09-2"))&&!f.agentesExternos){f.agentesExternos=estatico?nv(r,32):nv(r,37)||nv(r,32);}
-    if((t3u.includes("MASTER BROKER")||t4u.includes("MASTER BROKER")||t3u.includes("B.09-3")||t4u.includes("B.09-3"))&&!f.masterBrokerBP){f.masterBrokerBP=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    const anyRowText=[tv(r,1).toUpperCase(),tv(r,2).toUpperCase(),t3u,t4u,t5u];
+    const rowHas=s=>anyRowText.some(t=>t.includes(s));
+    // Sub-epígrafes primero (más específicos) antes que el total B.09
+    if((rowHas("MATERIAL COMERCIAL")||rowHas("B.09-1"))&&!f.materialComercial){f.materialComercial=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    else if((rowHas("AGENTES EXTERNOS")||rowHas("B.09-2"))&&!f.agentesExternos){f.agentesExternos=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    else if((rowHas("MASTER BROKER")||rowHas("B.09-3"))&&!f.masterBrokerBP){f.masterBrokerBP=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    // B.09 total COMERCIALIZACIÓN — solo si no es ya un sub-epígrafe
+    if(t5u.includes("COMERCIALIZACI")&&!rowHas("B.09-1")&&!rowHas("B.09-2")&&!rowHas("B.09-3")&&!rowHas("MATERIAL COMERCIAL")&&!rowHas("AGENTES EXTERNOS")&&!rowHas("MASTER BROKER")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=estatico?nv(r,32):nv(r,37);}
     if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=estatico?nv(r,32):nv(r,37);}
@@ -2467,7 +2472,7 @@ export default function Overview(){
           } else if(isCuadroTarifa){
             // Cuadro Tarifa (Almayate y similares): Codigo, Tipología, PRECIO/TARIFA VIGENTE, Estado
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
-            const iCod=headers.findIndex(h=>h==="codigo"||h.includes("cod")&&h.length<8);
+            const iCod=(()=>{const e=headers.findIndex(h=>h==="codigo");return e>=0?e:headers.findIndex(h=>h.includes("cod")&&h.length<8);})();
             const iTipo=headers.findIndex(h=>h==="tipologia");
             const iSup=headers.findIndex(h=>h.includes("total")&&(h.includes("construid")||h.includes("m2")));
             const iSupUtil=headers.findIndex(h=>h.includes("util")&&h.includes("interior")&&!h.includes("ext"));
