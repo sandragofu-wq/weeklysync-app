@@ -2476,17 +2476,23 @@ export default function Overview(){
             const iTipo=headers.findIndex(h=>h==="tipologia");
             const iSup=headers.findIndex(h=>h.includes("total")&&(h.includes("construid")||h.includes("m2")));
             const iSupUtil=headers.findIndex(h=>h.includes("util")&&h.includes("interior")&&!h.includes("ext"));
-            const iPrecio=headers.findIndex(h=>h==="precio")||headers.findIndex(h=>h.includes("tarifa")&&h.includes("vigente")&&!h.includes("anejos"));
+            const iPrecioA=headers.findIndex(h=>h==="precio");
+            const iPrecioB=headers.findIndex(h=>h.includes("tarifa")&&h.includes("vigente")&&!h.includes("anejos"));
+            const iPrecio=iPrecioA>=0?iPrecioA:(iPrecioB>=0?iPrecioB:-1);
             const iEstado=headers.findIndex(h=>h==="estado");
             const iBloque=headers.findIndex(h=>h==="bloque");
             const iPiso=headers.findIndex(h=>h==="piso");
             const iDorm=headers.findIndex(h=>h.includes("dorm"));
+            const iTipoRow=headers.findIndex(h=>h==="tipo");
             const estadoMapCT={"l":"disponible","libre":"disponible","r":"reservada","reservado":"reservada","reservada":"reservada","v":"vendida","vendido":"vendida","vendida":"vendida","b":"no-venta","bloqueado":"no-venta"};
             const priceCol=iPrecio>=0?iPrecio:31;
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
               const cod=String(r[iCod>=0?iCod:3]||"").trim();
               if(!cod||cod.length<3) continue;
+              // Solo importar viviendas (tipo V), no trasteros (T) ni garajes (G) ni locales (L)
+              const tipoRaw=iTipoRow>=0?String(r[iTipoRow]||"").trim().toUpperCase():"";
+              if(tipoRaw&&tipoRaw!=="V"&&tipoRaw!=="V = VIVIENDA") continue;
               const precio=typeof r[priceCol]==="number"?r[priceCol]:parseFloat(String(r[priceCol]||"").replace(/[^0-9.]/g,""))||0;
               if(!precio||precio<1000) continue;
               const tipo=String(r[iTipo>=0?iTipo:4]||"").trim();
