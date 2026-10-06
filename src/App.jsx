@@ -1061,15 +1061,94 @@ const CronogramaTab = ({proj, activeId, upd}) => {
     return { inicial: t1, real: t2, fecha: new Date().toISOString().substring(0,10), source: sheetName };
   };
 
+  // Parser de la hoja 'Seguimiento PM' del Master PM Excel
+  const parseSeguimientoPM = (wb) => {
+    const shName = wb.SheetNames.find(n => n.toLowerCase().includes('seguimiento') && n.toLowerCase().includes('pm'))
+                || wb.SheetNames.find(n => n.toLowerCase().includes('seguimiento'));
+    if (!shName) return null;
+    const ws = wb.Sheets[shName];
+    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+
+    const toDateStr = (v) => {
+      if (v == null || v === '') return null;
+      if (v instanceof Date) {
+        const y=v.getFullYear(),m=v.getMonth()+1,d=v.getDate();
+        if (isNaN(y)||y<1900) return null;
+        return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      }
+      if (typeof v==='number' && v>1000) {
+        try {
+          const base=new Date(Date.UTC(1899,11,30));
+          const d2=new Date(base.getTime()+v*86400000);
+          if(!isNaN(d2.getTime())&&d2.getUTCFullYear()>1900)
+            return `${d2.getUTCFullYear()}-${String(d2.getUTCMonth()+1).padStart(2,'0')}-${String(d2.getUTCDate()).padStart(2,'0')}`;
+        } catch(e){}
+      }
+      if (typeof v==='string') {
+        const m1=v.match(/(\d{4})-(\d{2})-(\d{2})/); if(m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+        const m2=v.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if(m2){const yr=m2[3].length===2?'20'+m2[3]:m2[3];return `${yr}-${String(m2[2]).padStart(2,'0')}-${String(m2[1]).padStart(2,'0')}`;}
+      }
+      return null;
+    };
+
+    // Buscar fila de cabecera (contiene 'Hito' o 'hito')
+    let headerRow = 9; // default: fila 10 (0-indexed 9)
+    for (let i=0;i<Math.min(rows.length,20);i++){
+      const r=rows[i]||[];
+      if(r.some(c=>c&&String(c).toLowerCase().trim()==='hito')){headerRow=i;break;}
+    }
+
+    const hitos = [];
+    for (let i=headerRow+1;i<rows.length;i++){
+      const r=rows[i]||[];
+      const num=r[2];
+      if(num==null) continue;
+      const hito=r[5]?String(r[5]).trim():'';
+      if(!hito) continue;
+      hitos.push({
+        num: String(num).trim(),
+        macrofase: r[3]?String(r[3]).trim():'',
+        fase: r[4]?String(r[4]).trim():'',
+        hito,
+        tipo: r[6]?String(r[6]).trim():'',
+        clave: r[7]?String(r[7]).trim():'',
+        criticidad: r[8]?String(r[8]).trim():'',
+        fechaBase: toDateStr(r[9]),
+        fechaForecast: toDateStr(r[10]),
+        fechaReal: toDateStr(r[11]),
+        fechaLimite: toDateStr(r[12]),
+        desvBase: r[13]!=null?Number(r[13]):null,
+        holgura: r[14]!=null?Number(r[14]):null,
+        diasForecast: r[15]!=null?Number(r[15]):null,
+        estado: r[16]?String(r[16]).trim():'',   // 'Completado','En curso','No iniciado','No aplica'
+        salud: r[17]?String(r[17]).trim():'',    // 'Verde','Ámbar','Rojo','Cerrado','Sin fecha','N/A'
+        responsable: r[18]?String(r[18]).trim():'',
+        proximaAccion: r[19]?String(r[19]).trim():'',
+        responsableAccion: r[20]?String(r[20]).trim():'',
+        fechaCompromiso: toDateStr(r[21]),
+        impacta: r[22]?String(r[22]).trim():'',
+        comentarios: r[23]?String(r[23]).trim():'',
+        ultimaActualizacion: toDateStr(r[24]),
+      });
+    }
+    return {hitos, fecha: new Date().toISOString().substring(0,10), source: shName};
+  };
+
   const handleFile = (e) => {
     const f = e.target.files[0];
     if (!f) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      // cellDates:true hace que SheetJS convierta seriales a objetos Date automáticamente
-      const wb = window.XLSX.read(ev.target.result, {type:'binary', cellDates:true});
+      const wb = window.XLSX.read(ev.target.result, {type:'binary', cellFormula:false, cellDates:true});
       const parsed = parseCronogramaExcel(wb);
-      if (parsed) upd(activeId, p => ({...p, cronograma: parsed}));
+      const segPM = parseSeguimientoPM(wb);
+      upd(activeId, p => ({
+        ...p,
+        ...(parsed ? {cronograma: parsed} : {}),
+        ...(segPM  ? {seguimientoPM: segPM} : {}),
+      }));
+      if (!parsed && !segPM) alert('No se encontraron hojas de Planificación o Seguimiento PM en el archivo.');
     };
     reader.readAsBinaryString(f);
     e.target.value = '';
@@ -2250,7 +2329,7 @@ export default function Overview(){
           const p=JSON.parse(s);
           if(Array.isArray(p)&&p.length>0){
             if(key!=="ov11"){try{localStorage.setItem("ov11",s);}catch{}}
-            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,cronograma:x.cronograma||null}));
+            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,cronograma:x.cronograma||null,seguimientoPM:x.seguimientoPM||null}));
           }
         }
       }catch{}
@@ -2312,6 +2391,7 @@ export default function Overview(){
         marketing:mergeObj(cloud.marketing,local.marketing),
         master:mergeObj(cloud.master,local.master),
         cronograma:mergeObj(cloud.cronograma,local.cronograma),
+        seguimientoPM:mergeObj(cloud.seguimientoPM,local.seguimientoPM),
         // Texto: conservar el más largo
         resumenSemanal:(cloud.resumenSemanal||"").length>=(local.resumenSemanal||"").length?cloud.resumenSemanal:local.resumenSemanal,
       };
@@ -2353,7 +2433,7 @@ export default function Overview(){
 
   const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
   const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
-  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
+  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,cronograma:null,seguimientoPM:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
   const delP=useCallback(id=>{if(!confirm("Eliminar esta promocion?")) return;save(prev=>prev.filter(p=>p.id!==id));setView("dashboard");setActiveId(null);},[]);
 
   const cycleHito=useCallback(idx=>{upd(activeId,p=>{const h=[...p.hitos];const cur=h[idx].estado;const next=HITO_CYCLE[(HITO_CYCLE.indexOf(cur)+1)%HITO_CYCLE.length];h[idx]={...h[idx],estado:next,fechaReal:next==="completado"?new Date().toISOString().split("T")[0]:h[idx].fechaReal};return {...p,hitos:h};});},[activeId,upd]);
@@ -2408,7 +2488,7 @@ export default function Overview(){
     reader.onload=ev=>{
       if(!window.XLSX){alert("SheetJS cargando, espera 2s.");return;}
       try{
-        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const wb=window.XLSX.read(ev.target.result,{type:"binary",cellFormula:false,cellDates:true});
         const allVvs=[];
         const multi=wb.SheetNames.length>1;
         const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta"};
@@ -3084,6 +3164,51 @@ export default function Overview(){
                         </div>
                       </div>
                     )}
+
+                    {/* Cronograma PM — hitos del Master PM Excel */}
+                    {(()=>{
+                      const seg = p.seguimientoPM;
+                      if (!seg || !seg.hitos || seg.hitos.length === 0) return null;
+                      const hitos = seg.hitos;
+                      const total = hitos.length;
+                      const completados = hitos.filter(h => h.estado === 'Completado').length;
+                      const enCurso    = hitos.filter(h => h.estado === 'En curso').length;
+                      const rojos      = hitos.filter(h => h.salud === 'Rojo').length;
+                      const ambar      = hitos.filter(h => h.salud === 'Ámbar').length;
+                      const pctCron    = Math.round(completados / total * 100);
+                      // Próximos 3 hitos no completados
+                      const proximos = hitos.filter(h => h.estado !== 'Completado' && h.estado !== 'No aplica' && h.fechaForecast).sort((a,b) => (a.fechaForecast||'').localeCompare(b.fechaForecast||'')).slice(0,3);
+                      const RAG_COLOR = {Verde:'#4ca99a', Ámbar:'#ddb96a', Rojo:'#e05a5a', Cerrado:'#4ca99a', 'Sin fecha':'#aaa', 'N/A':'#aaa'};
+                      return (
+                        <div style={{marginBottom:12,background:"#F7F6F3",borderRadius:10,padding:"10px 12px"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <div style={{fontSize:"0.62rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Cronograma PM</div>
+                            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                              {rojos>0&&<span style={{fontSize:"0.59rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.1)",borderRadius:6,padding:"1px 6px"}}>🔴 {rojos}</span>}
+                              {ambar>0&&<span style={{fontSize:"0.59rem",fontWeight:700,color:"#c9a86c",background:"rgba(201,168,108,0.1)",borderRadius:6,padding:"1px 6px"}}>🟡 {ambar}</span>}
+                              <span style={{fontSize:"0.59rem",fontWeight:700,color:"#4ca99a"}}>{completados}/{total}</span>
+                            </div>
+                          </div>
+                          {/* Barra progreso cronograma */}
+                          <div style={{height:4,background:"#DDD8CF",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+                            <div style={{width:pctCron+"%",background:"#4ca99a",height:"100%",transition:"width 0.4s"}}/>
+                          </div>
+                          {/* Próximos hitos */}
+                          {proximos.length>0&&(
+                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                              {proximos.map((h,i)=>(
+                                <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                                  <div style={{width:6,height:6,borderRadius:"50%",background:RAG_COLOR[h.salud]||"#aaa",flexShrink:0}}/>
+                                  <div style={{fontSize:"0.61rem",color:"#1E2D4E",fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.hito}</div>
+                                  <div style={{fontSize:"0.59rem",color:"#6B7A8A",flexShrink:0,marginLeft:4}}>{h.fechaForecast||""}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {proximos.length===0&&<div style={{fontSize:"0.61rem",color:"#4ca99a"}}>✓ Todos los hitos completados</div>}
+                        </div>
+                      );
+                    })()}
 
                     {/* Footer */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:10,borderTop:"1px solid #EAE6DF"}}>
@@ -3972,6 +4097,86 @@ export default function Overview(){
                       <div style={{fontSize:"0.74rem",color:"#6B7A8A",marginTop:2}}>Checklist de control extraído de la ficha de seguimiento — {seguimientoItems.filter(t=>t.done).length}/{seguimientoItems.length} completados</div>
                     </div>
                   </div>
+
+                  {/* Hitos PM del Master Excel */}
+                  {(()=>{
+                    const seg = proj.seguimientoPM;
+                    if (!seg || !seg.hitos || seg.hitos.length === 0) return null;
+                    const hitos = seg.hitos;
+                    const total = hitos.length;
+                    const completados = hitos.filter(h=>h.estado==='Completado').length;
+                    const enCurso    = hitos.filter(h=>h.estado==='En curso').length;
+                    const noIniciado = hitos.filter(h=>h.estado==='No iniciado').length;
+                    const rojos      = hitos.filter(h=>h.salud==='Rojo').length;
+                    const ambar      = hitos.filter(h=>h.salud==='Ámbar').length;
+                    const pctCron    = Math.round(completados/total*100);
+                    const RAG_COLOR  = {Verde:'#4ca99a',Ámbar:'#ddb96a',Rojo:'#e05a5a',Cerrado:'#4ca99a','Sin fecha':'#aaa','N/A':'#aaa'};
+                    const RAG_EMOJI  = {Verde:'🟢',Ámbar:'🟡',Rojo:'🔴',Cerrado:'✅','Sin fecha':'⚪','N/A':'⚫'};
+                    const ESTADO_CLR = {'Completado':'#4ca99a','En curso':'#c9a86c','No iniciado':'#aaa','No aplica':'#DDD8CF'};
+                    // Agrupar por macrofase
+                    const macrofases = [...new Set(hitos.map(h=>h.macrofase||'Sin macrofase'))];
+                    return (
+                      <div style={{marginBottom:20}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                          <div style={{fontWeight:700,fontSize:"0.88rem"}}>Hitos Master PM — {seg.source||''}</div>
+                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                            {rojos>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.1)",borderRadius:8,padding:"2px 8px"}}>🔴 {rojos} rojo{rojos>1?'s':''}</span>}
+                            {ambar>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#c9a86c",background:"rgba(201,168,108,0.1)",borderRadius:8,padding:"2px 8px"}}>🟡 {ambar} ámbar</span>}
+                            <span style={{fontSize:"0.65rem",color:"#6B7A8A"}}>{completados}/{total} completados · {pctCron}%</span>
+                          </div>
+                        </div>
+                        {/* Barra global */}
+                        <div style={{height:6,background:"#EAE6DF",borderRadius:3,overflow:"hidden",display:"flex",marginBottom:16}}>
+                          <div style={{width:pctCron+"%",background:"#4ca99a",transition:"width 0.4s"}}/>
+                          <div style={{width:Math.round(enCurso/total*100)+"%",background:"#c9a86c",transition:"width 0.4s"}}/>
+                        </div>
+                        {/* Resumen stats */}
+                        <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+                          {[{l:"Completados",v:completados,c:"#4ca99a"},{l:"En curso",v:enCurso,c:"#c9a86c"},{l:"No iniciados",v:noIniciado,c:"#aaa"}].map(s=>(
+                            <div key={s.l} style={{background:"#F7F6F3",borderRadius:8,padding:"8px 14px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:90}}>
+                              <div style={{fontWeight:800,fontSize:"1.1rem",color:s.c}}>{s.v}</div>
+                              <div style={{fontSize:"0.62rem",color:"#6B7A8A",marginTop:1}}>{s.l}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Por macrofase */}
+                        {macrofases.map(mf=>{
+                          const mfHitos = hitos.filter(h=>(h.macrofase||'Sin macrofase')===mf);
+                          const mfOk = mfHitos.filter(h=>h.estado==='Completado').length;
+                          return (
+                            <div key={mf} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",marginBottom:10,overflow:"hidden"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:"#F7F6F3",borderBottom:"1px solid #DDD8CF"}}>
+                                <div style={{fontWeight:700,fontSize:"0.82rem",flex:1}}>{mf}</div>
+                                <div style={{fontSize:"0.7rem",color:"#6B7A8A"}}>{mfOk}/{mfHitos.length}</div>
+                              </div>
+                              {mfHitos.map((h,hi)=>(
+                                <div key={hi} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 16px",borderBottom:hi<mfHitos.length-1?"1px solid #F0EEE9":"none"}}>
+                                  <div style={{fontSize:"0.88rem",flexShrink:0,marginTop:1}}>{RAG_EMOJI[h.salud]||'⚪'}</div>
+                                  <div style={{flex:1,minWidth:0}}>
+                                    <div style={{fontSize:"0.79rem",fontWeight:600,color:"#1E2D4E",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.hito}</div>
+                                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                                      {h.fase&&<span style={{fontSize:"0.61rem",color:"#6B7A8A"}}>{h.fase}</span>}
+                                      {h.responsable&&<span style={{fontSize:"0.61rem",color:"#7c5cfc"}}>👤 {h.responsable}</span>}
+                                      {h.fechaForecast&&<span style={{fontSize:"0.61rem",color:"#c9a86c"}}>📅 {h.fechaForecast}</span>}
+                                      {h.fechaReal&&<span style={{fontSize:"0.61rem",color:"#4ca99a"}}>✓ {h.fechaReal}</span>}
+                                    </div>
+                                    {h.proximaAccion&&<div style={{fontSize:"0.63rem",color:"#6B7A8A",marginTop:3,fontStyle:"italic"}}>→ {h.proximaAccion}</div>}
+                                  </div>
+                                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
+                                    <span style={{fontSize:"0.58rem",fontWeight:700,padding:"1px 6px",borderRadius:6,background:(ESTADO_CLR[h.estado]||"#aaa")+"22",color:ESTADO_CLR[h.estado]||"#aaa",whiteSpace:"nowrap"}}>{h.estado||'-'}</span>
+                                    {h.clave&&h.clave.toLowerCase().includes('sí')&&<span style={{fontSize:"0.55rem",color:"#e05a5a",fontWeight:700}}>⭐ CLAVE</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                        <div style={{fontSize:"0.65rem",color:"#6B7A8A",marginTop:4}}>Actualizado: {seg.fecha} · {seg.source}</div>
+                      </div>
+                    );
+                  })()}
+
+                  <div style={{fontWeight:600,fontSize:"0.8rem",color:"#6B7A8A",marginBottom:10,paddingTop:4,borderTop:"1px solid #EAE6DF"}}>Checklist de control interno</div>
                   {(()=>{
                     const areas=[...new Set(seguimientoItems.map(t=>{const m=t.texto.match(/^\[([^\]]+)\]/);return m?m[1]:"OTROS";}))];
                     return areas.map(area=>{
