@@ -483,6 +483,11 @@ const parseSheetFin = (rows, sheetName) => {
     if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
+    // B.09 sub-epígrafes: B.09-1 Material Comercial, B.09-2 Agentes Externos, B.09-3 Master Broker
+    const t3u=t3.toUpperCase();const t4u=t4.toUpperCase();
+    if((t3u.includes("MATERIAL COMERCIAL")||t4u.includes("MATERIAL COMERCIAL")||t3u.includes("B.09-1")||t4u.includes("B.09-1"))&&!f.materialComercial){f.materialComercial=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    if((t3u.includes("AGENTES EXTERNOS")||t4u.includes("AGENTES EXTERNOS")||t3u.includes("B.09-2")||t4u.includes("B.09-2"))&&!f.agentesExternos){f.agentesExternos=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    if((t3u.includes("MASTER BROKER")||t4u.includes("MASTER BROKER")||t3u.includes("B.09-3")||t4u.includes("B.09-3"))&&!f.masterBrokerBP){f.masterBrokerBP=estatico?nv(r,32):nv(r,37)||nv(r,32);}
     if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=estatico?nv(r,32):nv(r,37);}
     if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=estatico?nv(r,32):nv(r,37);}
@@ -605,11 +610,13 @@ const parseBP = wb => {
       }
       if(feesFound) break;
     }
+    // Priority 1b: B.09-1 Material Comercial (sub-epígrafe del BP resumen) — más preciso que Fees sheet
+    if(!feesFound&&fin.materialComercial){fin.mktBudget=fin.materialComercial;feesFound=true;}
     // Priority 2: Cash Flow "Marketing and Sales Mgmt." (Elviria multi-negocio)
     if(!feesFound){
       if(fin.mktSalesMgmt) fin.mktBudget=fin.mktSalesMgmt;
-      // Priority 3: Total COMERCIALIZACION as last resort
-      else fin.mktBudget=fin.comercialActual||0;
+      // Priority 3: Total COMERCIALIZACION como último recurso (incluye fees comerciales)
+      else fin.mktBudget=fin.materialComercial||fin.comercialActual||0;
     }
 
     fin.viviendas=viviendas;
@@ -1567,7 +1574,8 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
           {(()=>{
             // Valores editables manualmente tienen prioridad sobre los del parser
             const totalEscrit = proj.posventaEscrituradas ?? inf.total;
-            const sinClasificar = totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa);
+            const noRepasaVal = proj.posventaNoRepasa ?? inf.noRepasa;
+            const sinClasificar = proj.posventaSinClasificar ?? (totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+noRepasaVal));
             const conForm = inf.conFormulario ?? 0;
             const sinFormFin = inf.sinFormularioFinaliz ?? 0;
             // inf.finalizadas = TOTAL FINALIZADA (con + sin formulario) = 187
@@ -1651,35 +1659,31 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                   </div>
                 </div>
 
-                {/* Bloque 2: Finalizadas */}
-                <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
-                  <div style={{padding:"8px 16px",background:"rgba(76,169,154,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#4ca99a",display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{width:8,height:8,borderRadius:"50%",background:"#4ca99a",display:"inline-block"}}/>
-                    Viviendas finalizadas — <span style={{fontSize:"0.9rem",fontWeight:800}}>{totFinalizadas}</span>
-                  </div>
-                  <div style={{padding:"10px 16px",display:"flex",gap:16,flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:160}}>
-                      <SubRow dot="#4ca99a" label="Con formulario de posventa" value={finConForm} color="#4ca99a"/>
-                      <SubRow dot="#B0BBC6" label="Sin formulario (finalizadas)" value={sinFormFin} color="#6B7A8A"/>
+                {/* Bloques 2+3: Finalizadas | Sin finalizar — en una sola fila */}
+                <div style={{display:"flex",gap:10,marginBottom:10}}>
+                  {/* Finalizadas */}
+                  <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",flex:1}}>
+                    <div style={{padding:"6px 14px",background:"rgba(76,169,154,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#4ca99a",display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:"#4ca99a",display:"inline-block"}}/>
+                      Viviendas finalizadas — <span style={{fontSize:"0.88rem",fontWeight:800}}>{totFinalizadas}</span>
+                    </div>
+                    <div style={{padding:"8px 14px"}}>
+                      <SubRow dot="#4ca99a" label="Con formulario" value={finConForm} color="#4ca99a"/>
+                      <SubRow dot="#B0BBC6" label="Sin formulario" value={sinFormFin} color="#6B7A8A"/>
                     </div>
                   </div>
-                </div>
-
-                {/* Bloque 3: Sin finalizar */}
-                <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
-                  <div style={{padding:"8px 16px",background:"rgba(221,185,106,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#c9a86c",display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{width:8,height:8,borderRadius:"50%",background:"#ddb96a",display:"inline-block"}}/>
-                    Viviendas sin finalizar — <span style={{fontSize:"0.9rem",fontWeight:800}}>{totalEscrit - totFinalizadas}</span>
-                  </div>
-                  <div style={{padding:"10px 16px",display:"flex",gap:16,flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:160}}>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,color:"#1E2D4E",marginBottom:4}}>Con formulario</div>
-                      <SubRow dot="#e05a5a" label="Pendientes de terminar" value={inf.pteTerminar} color="#e05a5a"/>
-                      <SubRow dot="#ddb96a" label="Pendientes de iniciar visita" value={inf.pteEntrar} color="#c9a86c"/>
+                  {/* Sin finalizar */}
+                  <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",flex:1}}>
+                    <div style={{padding:"6px 14px",background:"rgba(221,185,106,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#c9a86c",display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:"#ddb96a",display:"inline-block"}}/>
+                      Sin finalizar — <span style={{fontSize:"0.88rem",fontWeight:800}}>{totalEscrit - totFinalizadas}</span>
                     </div>
-                    <div style={{flex:1,minWidth:160}}>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,color:"#1E2D4E",marginBottom:4}}>Sin formulario</div>
-                      <SubRow dot="#B0BBC6" label="Sin formulario (no finalizadas)" value={sinFinSinForm} color="#6B7A8A"/>
+                    <div style={{padding:"8px 14px"}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>Con formulario</div>
+                      <SubRow dot="#e05a5a" label="Pte. terminar" value={inf.pteTerminar} color="#e05a5a"/>
+                      <SubRow dot="#ddb96a" label="Pte. iniciar visita" value={inf.pteEntrar} color="#c9a86c"/>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",marginTop:5,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>Sin formulario</div>
+                      <SubRow dot="#B0BBC6" label="No finalizadas" value={sinFinSinForm} color="#6B7A8A"/>
                     </div>
                   </div>
                 </div>
@@ -1688,22 +1692,30 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                 <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",marginBottom:10}}>
                   <div style={{padding:"8px 16px",background:"#F0EEE9",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#6B7A8A"}}>Otros estados</div>
                   <div style={{padding:"10px 16px",display:"flex",gap:10,flexWrap:"wrap"}}>
-                    {sinClasificar > 0 && (
-                      <div style={{flex:1,minWidth:130}}>
-                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Sin clasificar</div>
-                        <div style={{fontSize:"1.3rem",fontWeight:800,color:"#e05a5a"}}>{sinClasificar}</div>
-                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>estado desconocido</div>
+                    <div style={{flex:1,minWidth:130}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Sin clasificar</div>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <input type="number" defaultValue={proj.posventaSinClasificar ?? ''} placeholder={String(Math.max(0,totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+noRepasaVal)))}
+                          onBlur={e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)&&v>=0) upd(activeId,'posventaSinClasificar',v);}}
+                          style={{width:52,fontSize:"1.3rem",fontWeight:800,color:"#e05a5a",border:"none",background:"transparent",outline:"none",padding:0}}/>
+                        <span style={{fontSize:"0.65rem",color:"#9BA8B4"}}>✎</span>
                       </div>
-                    )}
+                      <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>estado desconocido</div>
+                    </div>
                     <div style={{flex:1,minWidth:130}}>
                       <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>No desean actuación</div>
-                      <div style={{fontSize:"1.3rem",fontWeight:800,color:"#7c5cfc"}}>{inf.noRepasa}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <input type="number" defaultValue={proj.posventaNoRepasa ?? ''} placeholder={String(noRepasaVal)}
+                          onBlur={e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)&&v>=0) upd(activeId,'posventaNoRepasa',v);}}
+                          style={{width:52,fontSize:"1.3rem",fontWeight:800,color:"#7c5cfc",border:"none",background:"transparent",outline:"none",padding:0}}/>
+                        <span style={{fontSize:"0.65rem",color:"#9BA8B4"}}>✎</span>
+                      </div>
                       <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>no repasan</div>
                     </div>
                     <div style={{flex:1,minWidth:130}}>
                       <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Visitas pendientes</div>
                       <div style={{fontSize:"1.3rem",fontWeight:800,color:"#ddb96a"}}>{visitasPend}</div>
-                      <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>de {inf.total} escrituradas</div>
+                      <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>de {totalEscrit} escrituradas</div>
                     </div>
                     {inf.agendar > 0 && (
                       <div style={{flex:1,minWidth:130}}>
@@ -2400,13 +2412,15 @@ export default function Overview(){
           const ws=wb.Sheets[sheetName];if(!ws) return;
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
-          let isNvoga=false,isMedHills=false,hdrIdx=-1;
+          let isNvoga=false,isMedHills=false,isCuadroTarifa=false,hdrIdx=-1;
           for(let i=0;i<Math.min(rows.length,25);i++){
             const r=(rows[i]||[]).map(c=>norm(c));
             // MedHills Cashflow: MUST have "bloque viviendas" (multi-word) AND "precio vivienda"
             if(r.some(c=>c==="bloque viviendas"||c.includes("bloque")&&c.includes("vivend"))&&r.some(c=>c.includes("precio vivienda"))){isMedHills=true;hdrIdx=i;break;}
             // Nvoga Senior Living: has "bloque" AND ("apto" OR "tipologia") but NOT "precio vivienda"
             if(r.some(c=>c==="bloque")&&(r.some(c=>c.includes("apto"))||r.some(c=>c==="tipologia"))&&!r.some(c=>c.includes("precio vivienda"))){isNvoga=true;hdrIdx=i;break;}
+            // Cuadro Tarifa (Almayate/genérico): has "codigo" AND "tipologia" AND ("precio" OR "tarifa")
+            if(r.some(c=>c==="codigo"||c.includes("cod")&&c.length<8)&&r.some(c=>c==="tipologia")&&r.some(c=>c==="precio"||c.includes("tarifa"))){isCuadroTarifa=true;hdrIdx=i;break;}
             if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
@@ -2450,20 +2464,47 @@ export default function Overview(){
                 precio,precioOrigen:Number(r[12])||precio,estado,notas,
               });
             }
+          } else if(isCuadroTarifa){
+            // Cuadro Tarifa (Almayate y similares): Codigo, Tipología, PRECIO/TARIFA VIGENTE, Estado
+            const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
+            const iCod=headers.findIndex(h=>h==="codigo"||h.includes("cod")&&h.length<8);
+            const iTipo=headers.findIndex(h=>h==="tipologia");
+            const iSup=headers.findIndex(h=>h.includes("total")&&(h.includes("construid")||h.includes("m2")));
+            const iSupUtil=headers.findIndex(h=>h.includes("util")&&h.includes("interior")&&!h.includes("ext"));
+            const iPrecio=headers.findIndex(h=>h==="precio")||headers.findIndex(h=>h.includes("tarifa")&&h.includes("vigente")&&!h.includes("anejos"));
+            const iEstado=headers.findIndex(h=>h==="estado");
+            const iBloque=headers.findIndex(h=>h==="bloque");
+            const iPiso=headers.findIndex(h=>h==="piso");
+            const iDorm=headers.findIndex(h=>h.includes("dorm"));
+            const estadoMapCT={"l":"disponible","libre":"disponible","r":"reservada","reservado":"reservada","reservada":"reservada","v":"vendida","vendido":"vendida","vendida":"vendida","b":"no-venta","bloqueado":"no-venta"};
+            const priceCol=iPrecio>=0?iPrecio:31;
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const cod=String(r[iCod>=0?iCod:3]||"").trim();
+              if(!cod||cod.length<3) continue;
+              const precio=typeof r[priceCol]==="number"?r[priceCol]:parseFloat(String(r[priceCol]||"").replace(/[^0-9.]/g,""))||0;
+              if(!precio||precio<1000) continue;
+              const tipo=String(r[iTipo>=0?iTipo:4]||"").trim();
+              const supTotal=parseFloat(String(r[iSup>=0?iSup:19]||"").replace(",","."))||0;
+              const supUtil=parseFloat(String(r[iSupUtil>=0?iSupUtil:12]||"").replace(",","."))||0;
+              const sup=supUtil||supTotal;
+              const rawEst=String(r[iEstado>=0?iEstado:44]||"").trim().toLowerCase();
+              const estado=estadoMapCT[rawEst]||"disponible";
+              const bloque=iBloque>=0?String(r[iBloque]||"").trim():"";
+              const piso=iPiso>=0?String(r[iPiso]||"").trim():"";
+              const dorm=iDorm>=0?String(r[iDorm]||"").trim():"";
+              const notas=[bloque?"Bloque: "+bloque:"",piso?"Piso: "+piso:""].filter(Boolean).join(" | ");
+              allVvs.push({id:Date.now()+Math.random(),ref:cod,tipologia:tipo||(dorm?dorm+" dorm.":"-"),planta:piso?piso:"-",superficie:sup,precio,estado,notas});
+            }
           } else if(isNvoga){
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
-            // DEBUG
-            const dbgPriceCol=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
-            const dbgApto=headers.findIndex(h=>h.includes("apto"));
-            const dbgR17=rows[hdrIdx+1]||[];
-            alert("Nvoga debug: hdrIdx="+hdrIdx+" priceCol="+(dbgPriceCol!==-1?dbgPriceCol:18)+" aptoCol="+dbgApto+" apto0="+dbgR17[dbgApto!==-1?dbgApto:1]+" precio="+dbgR17[dbgPriceCol!==-1?dbgPriceCol:18]);
             const iBloque=headers.findIndex(h=>h==="bloque");
             const iApto=headers.findIndex(h=>h.includes("apto"));
             const iTipo=headers.findIndex(h=>h==="tipologia");
             const iPlanta=headers.findIndex(h=>h==="planta");
             const iSup=headers.findIndex(h=>h.includes("total")&&h.includes("m2"));
             const iTerraza=headers.findIndex(h=>h.includes("terraza"));
-            const iPrecio=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
+            const iPrecio=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc")||h.includes("precio total"));
             const priceCol=iPrecio!==-1?iPrecio:18;
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
@@ -2511,9 +2552,8 @@ export default function Overview(){
             }
           }
         });
-        if(!allVvs.length){alert("No se encontraron viviendas con precio. Revisa columnas de referencia y PVP.");return;}
+        if(!allVvs.length){alert("No se encontraron viviendas con precio. Revisa el formato del archivo.");return;}
         upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...allVvs]}));
-        alert("OK: "+allVvs.length+" viviendas importadas");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);
@@ -3450,6 +3490,29 @@ export default function Overview(){
                           </div>
                         )}
 
+                        {/* ── DESGLOSE B.09 COMERCIALIZACIÓN Y MARKETING ─────────── */}
+                        {(d.materialComercial||d.agentesExternos||d.masterBrokerBP)&&(
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px",marginBottom:14}}>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:4,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>B.09 · Comercialización y Marketing</div>
+                            <div style={{fontSize:"0.73rem",color:"#6B7A8A",marginBottom:12}}>Total: <strong style={{color:"#c9a86c"}}>{fmtEur(d.comercialActual||0)}</strong></div>
+                            {[
+                              {cod:"B.09-1",l:"Material Comercial",v:d.materialComercial,c:"#c9a86c",mk:true},
+                              {cod:"B.09-2",l:"Agentes Externos (Commercial Fees)",v:d.agentesExternos,c:"#f5924e",mk:false},
+                              {cod:"B.09-3",l:"Master Broker",v:d.masterBrokerBP,c:"#ddb96a",mk:false},
+                            ].filter(x=>x.v>0).map(x=>(
+                              <div key={x.cod} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #DDD8CF"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <span style={{fontSize:"0.7rem",fontWeight:700,color:x.c,background:x.c+"18",borderRadius:4,padding:"2px 6px",letterSpacing:"0.04em"}}>{x.cod}</span>
+                                  <span style={{fontSize:"0.81rem"}}>{x.l}</span>
+                                  {x.mk&&<span style={{fontSize:"0.68rem",color:"#4ca99a",background:"rgba(76,169,154,0.12)",borderRadius:4,padding:"1px 6px",fontWeight:700}}>→ Marketing</span>}
+                                </div>
+                                <span style={{fontSize:"0.82rem",fontWeight:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                              </div>
+                            ))}
+                            <div style={{fontSize:"0.71rem",color:"#6B7A8A",marginTop:8}}>Solo <strong>B.09-1</strong> se transfiere como presupuesto de marketing.</div>
+                          </div>
+                        )}
+
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                           <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 18px"}}>
                             <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Fuentes de financiacion</div>
@@ -3559,8 +3622,8 @@ export default function Overview(){
                       <div style={{fontSize:"2.5rem",marginBottom:10}}>MK</div>
                       <div style={{fontWeight:700,fontSize:"1rem",color:"#1E2D4E",marginBottom:6}}>Sin planificacion de marketing</div>
                       <div style={{fontSize:"0.8rem",marginBottom:20}}>
-                        {proj.bp&&proj.bp.comercialActual?(
-                          <span>Presupuesto del BP disponible: <strong style={{color:"#4ca99a"}}>{fmtEur(proj.bp.comercialActual)}</strong></span>
+                        {proj.bp&&(proj.bp.materialComercial||proj.bp.mktBudget||proj.bp.comercialActual)?(
+                          <span>Presupuesto B.09-1 Material Comercial del BP: <strong style={{color:"#4ca99a"}}>{fmtEur(proj.bp.materialComercial||proj.bp.mktBudget||proj.bp.comercialActual)}</strong></span>
                         ):"Importa primero el BP para ver el presupuesto disponible."}
                       </div>
                       <label style={{background:"#c9a86c",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
@@ -3570,7 +3633,7 @@ export default function Overview(){
                     </div>
                   ):(()=>{
                     const mkt=proj.marketing;
-                    const presupuestoBP=(proj.bp&&(proj.bp.mktBudget||proj.bp.comercialActual))||0;
+                    const presupuestoBP=(proj.bp&&(proj.bp.materialComercial||proj.bp.mktBudget||proj.bp.comercialActual))||0;
                     const totalPlanificado=mkt.partidas.reduce((a,p)=>a+p.total,0);
                     const pctUsado=presupuestoBP>0?Math.min(100,Math.round(totalPlanificado/presupuestoBP*100)):0;
                     const restante=presupuestoBP-totalPlanificado;
@@ -3591,7 +3654,7 @@ export default function Overview(){
                           <div style={{display:"flex",alignItems:"center",gap:12}}>
                             <div style={{fontSize:"1.5rem"}}>EUR</div>
                             <div>
-                              <div style={{fontSize:"0.7rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto destinado a Marketing (Comercializacion BP)</div>
+                              <div style={{fontSize:"0.7rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto B.09-1 Material Comercial (BP)</div>
                               <div style={{fontSize:"1.6rem",fontWeight:800,color:presupuestoBP>0?"#4ca99a":"#6B7A8A",letterSpacing:"-0.02em"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP cargado"}</div>
                               {presupuestoBP>0&&<div style={{fontSize:"0.75rem",color:"#6B7A8A",marginTop:2}}>Extraido automaticamente del Business Plan</div>}
                             </div>
