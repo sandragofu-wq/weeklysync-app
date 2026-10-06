@@ -2695,10 +2695,10 @@ export default function Overview(){
             const r=(rows[i]||[]).map(c=>norm(c));
             // MedHills Cashflow: MUST have "bloque viviendas" (multi-word) AND "precio vivienda"
             if(r.some(c=>c==="bloque viviendas"||c.includes("bloque")&&c.includes("vivend"))&&r.some(c=>c.includes("precio vivienda"))){isMedHills=true;hdrIdx=i;break;}
-            // Nvoga Senior Living: has "bloque" AND ("apto" OR "tipologia") but NOT "precio vivienda"
-            if(r.some(c=>c==="bloque")&&(r.some(c=>c.includes("apto"))||r.some(c=>c==="tipologia"))&&!r.some(c=>c.includes("precio vivienda"))){isNvoga=true;hdrIdx=i;break;}
-            // Cuadro Tarifa (Almayate/genérico): has "codigo" AND "tipologia" AND ("precio" OR "tarifa")
+            // Cuadro Tarifa (Almayate/genérico): has "codigo" AND "tipologia" AND ("precio" OR "tarifa") — ANTES de Nvoga para evitar falso positivo
             if(r.some(c=>c==="codigo"||c.includes("cod")&&c.length<8)&&r.some(c=>c==="tipologia")&&r.some(c=>c==="precio"||c.includes("tarifa"))){isCuadroTarifa=true;hdrIdx=i;break;}
+            // Nvoga Senior Living: has "bloque" AND "apto" (column name exclusivo de Nvoga) but NOT "precio vivienda"
+            if(r.some(c=>c==="bloque")&&r.some(c=>c.includes("apto"))&&!r.some(c=>c.includes("precio vivienda"))){isNvoga=true;hdrIdx=i;break;}
             if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
@@ -3286,11 +3286,6 @@ export default function Overview(){
                 const segDone=segItems.filter(t=>t.done).length;
                 const segTotal=segItems.length||1;
                 const tareasP=(p.tareas||[]).filter(t=>!(t.id&&t.id.toString().startsWith("t_atl"))&&!t.done).length;
-                // mini donut SVG — hitos
-                const r=28,cx=34,cy=34,circ=2*Math.PI*r;
-                const segHOk=(hOk/hTotal)*circ;
-                const segHCurso=(hCurso/hTotal)*circ;
-                const segHPend=circ-segHOk-segHCurso;
                 return (
                   <div key={p.id} onClick={()=>{setActiveId(p.id);setView("proyecto");setTab("hitos");}}
                     style={{background:"#FFFFFF",borderRadius:16,border:"1px solid #DDD8CF",padding:"20px",cursor:"pointer",transition:"box-shadow 0.15s,transform 0.15s"}}
@@ -3305,26 +3300,9 @@ export default function Overview(){
                       <span style={{fontSize:"0.62rem",fontWeight:700,padding:"3px 9px",borderRadius:20,background:est.bg,color:est.color,textTransform:"uppercase",whiteSpace:"nowrap",marginLeft:8}}>{est.label}</span>
                     </div>
 
-                    {/* Gráfico donut hitos + métricas */}
-                    <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:16}}>
-                      <div style={{flexShrink:0}}>
-                        <svg width="68" height="68" viewBox="0 0 68 68">
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#EAE6DF" strokeWidth="7"/>
-                          {/* completados */}
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ca99a" strokeWidth="7"
-                            strokeDasharray={segHOk+" "+(circ-segHOk)}
-                            strokeDashoffset={circ*0.25}
-                            style={{transition:"stroke-dasharray 0.4s"}}/>
-                          {/* en curso */}
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#c9a86c" strokeWidth="7"
-                            strokeDasharray={segHCurso+" "+(circ-segHCurso)}
-                            strokeDashoffset={circ*0.25-segHOk}
-                            style={{transition:"stroke-dasharray 0.4s"}}/>
-                          <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="800" fill="#1E2D4E">{hOk}/{hTotal}</text>
-                          <text x={cx} y={cy+13} textAnchor="middle" dominantBaseline="middle" fontSize="6.5" fill="#6B7A8A">hitos</text>
-                        </svg>
-                      </div>
-                      <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {/* Métricas */}
+                    <div style={{marginBottom:16}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                         {[
                           {l:"Vendidas",v:s.vendidas,sub:s.total+"uds",c:"#4ca99a"},
                           {l:"Reservadas",v:s.reservadas,sub:"",c:"#ddb96a"},
