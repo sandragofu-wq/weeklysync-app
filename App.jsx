@@ -482,7 +482,17 @@ const parseSheetFin = (rows, sheetName) => {
     if(t5u.includes("CONTRATA")||t5u.includes("HARD")){if(!f.hardPrev){f.hardPrev=nv(r,32);f.hardActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u.includes("HONORARIOS")||t5u==="SOFT COST"){if(!f.softPrev){f.softPrev=nv(r,32);f.softActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u==="GASTOS FINANCIEROS"){if(!f.financieroPrev){f.financieroPrev=nv(r,32);f.financieroActual=estatico?nv(r,32):nv(r,37);}}
-    if(t5u.includes("COMERCIALIZACI")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
+    // B.09 sub-epígrafes: B.09-1 Material Comercial, B.09-2 Agentes Externos, B.09-3 Master Broker
+    // Busca en cualquier columna de la fila (t1-t5) — el código/texto puede estar en columnas distintas según BP
+    const t3u=t3.toUpperCase();const t4u=t4.toUpperCase();
+    const anyRowText=[tv(r,1).toUpperCase(),tv(r,2).toUpperCase(),t3u,t4u,t5u];
+    const rowHas=s=>anyRowText.some(t=>t.includes(s));
+    // Sub-epígrafes primero (más específicos) antes que el total B.09
+    if((rowHas("MATERIAL COMERCIAL")||rowHas("B.09-1"))&&!f.materialComercial){f.materialComercial=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    else if((rowHas("AGENTES EXTERNOS")||rowHas("B.09-2"))&&!f.agentesExternos){f.agentesExternos=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    else if((rowHas("MASTER BROKER")||rowHas("B.09-3"))&&!f.masterBrokerBP){f.masterBrokerBP=estatico?nv(r,32):nv(r,37)||nv(r,32);}
+    // B.09 total COMERCIALIZACIÓN — solo si no es ya un sub-epígrafe
+    if(t5u.includes("COMERCIALIZACI")&&!rowHas("B.09-1")&&!rowHas("B.09-2")&&!rowHas("B.09-3")&&!rowHas("MATERIAL COMERCIAL")&&!rowHas("AGENTES EXTERNOS")&&!rowHas("MASTER BROKER")){if(!f.comercialPrev){f.comercialPrev=nv(r,32);f.comercialActual=estatico?nv(r,32):nv(r,37);}}
     if(t5u==="TOTAL GASTOS"){f.totalGastosPrev=nv(r,32);f.totalGastosActual=estatico?nv(r,32):nv(r,37);}
     if(t5u==="RESULTADO PLAN VIABILIDAD"){f.beneficioPrev=nv(r,32);f.beneficioActual=estatico?nv(r,32):nv(r,37);}
     if(t3.includes("Fondos Propios aportados")){f.fondosPropiosPrev=nv(r,32);f.fondosPropios=estatico?nv(r,32):nv(r,37);}
@@ -605,11 +615,13 @@ const parseBP = wb => {
       }
       if(feesFound) break;
     }
+    // Priority 1b: B.09-1 Material Comercial (sub-epígrafe del BP resumen) — más preciso que Fees sheet
+    if(!feesFound&&fin.materialComercial){fin.mktBudget=fin.materialComercial;feesFound=true;}
     // Priority 2: Cash Flow "Marketing and Sales Mgmt." (Elviria multi-negocio)
     if(!feesFound){
       if(fin.mktSalesMgmt) fin.mktBudget=fin.mktSalesMgmt;
-      // Priority 3: Total COMERCIALIZACION as last resort
-      else fin.mktBudget=fin.comercialActual||0;
+      // Priority 3: Total COMERCIALIZACION como último recurso (incluye fees comerciales)
+      else fin.mktBudget=fin.materialComercial||fin.comercialActual||0;
     }
 
     fin.viviendas=viviendas;
@@ -705,6 +717,199 @@ const ModalVivienda = memo(function ModalVivienda({vF,onChange,onSave,onClose,is
     <FL label="Notas"><input style={CSS.inp} value={vF.notas} onChange={e=>onChange("notas",e.target.value)}/></FL>
     <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}><Btn onClick={onClose}>Cancelar</Btn><Btn onClick={onSave} v="primary">{isEdit?"Guardar":"Anadir"}</Btn></div>
   </Modal>);
+});
+
+/* ── Modal edición hito PM ───────────────────────────────────────── */
+const TEAM_PM = ['Sandra','Sara (BSA)','Inma (BSA)','Alberto','Dirección'];
+const ModalHitoPM = memo(function ModalHitoPM({h, onSave, onClose}){
+  const [f, setF] = useState({...h});
+  const ch = (k,v) => setF(prev=>({...prev,[k]:v}));
+  return (
+    <Modal title={<span style={{fontSize:"0.82rem",fontWeight:700,color:"#1E2D4E",lineHeight:1.3}}>{h.hito}</span>} onClose={onClose}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <FL label="Estado ejecución">
+          <select style={CSS.inp} value={f.estado||''} onChange={e=>ch('estado',e.target.value)}>
+            <option value="No iniciado">No iniciado</option>
+            <option value="En curso">En curso</option>
+            <option value="Completado">Completado</option>
+            <option value="No aplica">No aplica</option>
+          </select>
+        </FL>
+        <FL label="Salud plazo (RAG)">
+          <select style={CSS.inp} value={f.salud||''} onChange={e=>ch('salud',e.target.value)}>
+            <option value="Verde">🟢 Verde</option>
+            <option value="Ámbar">🟡 Ámbar</option>
+            <option value="Rojo">🔴 Rojo</option>
+            <option value="Cerrado">✅ Cerrado</option>
+            <option value="Sin fecha">⚪ Sin fecha</option>
+            <option value="N/A">⚫ N/A</option>
+          </select>
+        </FL>
+        <FL label="Fecha Forecast"><input type="date" style={CSS.inp} value={f.fechaForecast||''} onChange={e=>ch('fechaForecast',e.target.value)}/></FL>
+        <FL label="Fecha Real"><input type="date" style={CSS.inp} value={f.fechaReal||''} onChange={e=>ch('fechaReal',e.target.value)}/></FL>
+        <FL label="Fecha Límite"><input type="date" style={CSS.inp} value={f.fechaLimite||''} onChange={e=>ch('fechaLimite',e.target.value)}/></FL>
+        <FL label="Responsable">
+          <select style={CSS.inp} value={f.responsable||''} onChange={e=>ch('responsable',e.target.value)}>
+            <option value="">-</option>
+            {TEAM_PM.map(t=><option key={t}>{t}</option>)}
+          </select>
+        </FL>
+      </div>
+      <FL label="Próxima acción">
+        <input style={CSS.inp} value={f.proximaAccion||''} onChange={e=>ch('proximaAccion',e.target.value)} placeholder="Describe la próxima acción..."/>
+      </FL>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <FL label="Responsable acción">
+          <select style={CSS.inp} value={f.responsableAccion||''} onChange={e=>ch('responsableAccion',e.target.value)}>
+            <option value="">-</option>
+            {TEAM_PM.map(t=><option key={t}>{t}</option>)}
+          </select>
+        </FL>
+        <FL label="Fecha compromiso"><input type="date" style={CSS.inp} value={f.fechaCompromiso||''} onChange={e=>ch('fechaCompromiso',e.target.value)}/></FL>
+      </div>
+      <FL label="Comentarios">
+        <textarea style={{...CSS.inp,minHeight:70,resize:"vertical"}} value={f.comentarios||''} onChange={e=>ch('comentarios',e.target.value)} placeholder="Comentarios adicionales..."/>
+      </FL>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
+        <Btn onClick={onClose}>Cancelar</Btn>
+        <Btn onClick={()=>onSave(f)} v="primary">Guardar cambios</Btn>
+      </div>
+    </Modal>
+  );
+});
+
+/* ── Componente Seguimiento PM (necesita hooks propios) ──────────── */
+const SeguimientoPMPanel = memo(function SeguimientoPMPanel({seg, onUpdateHito}){
+  const [editIdx, setEditIdx] = useState(null);
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [filtroSalud, setFiltroSalud] = useState('Todos');
+  if (!seg || !seg.hitos || seg.hitos.length === 0) return null;
+  const hitos = seg.hitos;
+  const total       = hitos.length;
+  const completados = hitos.filter(h=>h.estado==='Completado').length;
+  const enCurso     = hitos.filter(h=>h.estado==='En curso').length;
+  const noIniciado  = hitos.filter(h=>h.estado==='No iniciado').length;
+  const rojos       = hitos.filter(h=>h.salud==='Rojo').length;
+  const ambar       = hitos.filter(h=>h.salud==='Ámbar').length;
+  const pctCron     = Math.round(completados/total*100);
+  const RAG_EMOJI   = {Verde:'🟢',Ámbar:'🟡',Rojo:'🔴',Cerrado:'✅','Sin fecha':'⚪','N/A':'⚫'};
+  const ESTADO_CLR  = {'Completado':'#4ca99a','En curso':'#c9a86c','No iniciado':'#aaa','No aplica':'#DDD8CF'};
+  const macrofases  = [...new Set(hitos.map(h=>h.macrofase||'Sin macrofase'))];
+  const estadosDisp = ['Todos',...new Set(hitos.map(h=>h.estado||'').filter(Boolean))];
+  const saludesDisp = ['Todos','Rojo','Ámbar','Verde','Cerrado'];
+
+  // Filtrar hitos según los filtros activos
+  const hitosFiltrados = hitos.filter(h=>{
+    if(filtroEstado!=='Todos'&&h.estado!==filtroEstado) return false;
+    if(filtroSalud!=='Todos'&&h.salud!==filtroSalud) return false;
+    return true;
+  });
+
+  // índice global de un hito dado (para identificarlo al guardar)
+  const globalIdx = (h) => hitos.indexOf(h);
+
+  const btnStyle = (active) => ({
+    fontSize:"0.63rem",fontWeight:active?700:400,padding:"3px 10px",borderRadius:12,cursor:"pointer",border:"none",
+    background:active?"#1E2D4E":"#F0EEE9",color:active?"#fff":"#6B7A8A",transition:"all 0.15s"
+  });
+
+  return (
+    <div style={{marginBottom:20}}>
+      {editIdx !== null && (
+        <ModalHitoPM
+          h={hitos[editIdx]}
+          onSave={updated => { onUpdateHito(editIdx, updated); setEditIdx(null); }}
+          onClose={() => setEditIdx(null)}
+        />
+      )}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontWeight:700,fontSize:"0.88rem"}}>Hitos Master PM — <span style={{fontWeight:400,color:"#6B7A8A"}}>{seg.source||''}</span></div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {rojos>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.1)",borderRadius:8,padding:"2px 8px"}}>🔴 {rojos}</span>}
+          {ambar>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#c9a86c",background:"rgba(201,168,108,0.1)",borderRadius:8,padding:"2px 8px"}}>🟡 {ambar}</span>}
+          <span style={{fontSize:"0.65rem",color:"#6B7A8A"}}>{completados}/{total} · {pctCron}%</span>
+        </div>
+      </div>
+      {/* Barra global */}
+      <div style={{height:6,background:"#EAE6DF",borderRadius:3,overflow:"hidden",display:"flex",marginBottom:14}}>
+        <div style={{width:pctCron+"%",background:"#4ca99a",transition:"width 0.4s"}}/>
+        <div style={{width:Math.round(enCurso/total*100)+"%",background:"#c9a86c",transition:"width 0.4s"}}/>
+      </div>
+      {/* Stats — clicables como filtros rápidos */}
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        {[{l:"Completados",v:completados,c:"#4ca99a",e:"Completado"},{l:"En curso",v:enCurso,c:"#c9a86c",e:"En curso"},{l:"No iniciados",v:noIniciado,c:"#aaa",e:"No iniciado"}].map(s=>(
+          <div key={s.l} onClick={()=>setFiltroEstado(filtroEstado===s.e?'Todos':s.e)}
+            style={{background:filtroEstado===s.e?"#1E2D4E":"#F7F6F3",borderRadius:8,padding:"8px 14px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:90,cursor:"pointer",transition:"all 0.15s"}}>
+            <div style={{fontWeight:800,fontSize:"1.1rem",color:filtroEstado===s.e?"#fff":s.c}}>{s.v}</div>
+            <div style={{fontSize:"0.62rem",color:filtroEstado===s.e?"rgba(255,255,255,0.7)":"#6B7A8A",marginTop:1}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+      {/* Filtros */}
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:"0.63rem",color:"#6B7A8A",fontWeight:600,marginRight:4}}>Filtrar:</span>
+        {estadosDisp.map(e=>(
+          <button key={e} onClick={()=>setFiltroEstado(e)} style={btnStyle(filtroEstado===e)}>{e}</button>
+        ))}
+        <span style={{width:1,height:18,background:"#DDD8CF",margin:"0 4px",display:"inline-block"}}/>
+        {saludesDisp.map(s=>(
+          <button key={s} onClick={()=>setFiltroSalud(s)} style={btnStyle(filtroSalud===s)}>
+            {s==='Rojo'?'🔴 ':s==='Ámbar'?'🟡 ':s==='Verde'?'🟢 ':s==='Cerrado'?'✅ ':''}{s}
+          </button>
+        ))}
+        {(filtroEstado!=='Todos'||filtroSalud!=='Todos')&&(
+          <button onClick={()=>{setFiltroEstado('Todos');setFiltroSalud('Todos');}} style={{...btnStyle(false),color:"#e05a5a"}}>✕ Limpiar</button>
+        )}
+        <span style={{fontSize:"0.63rem",color:"#6B7A8A",marginLeft:"auto"}}>{hitosFiltrados.length} de {total}</span>
+      </div>
+      {/* Por macrofase — solo mostrar si hay hitos filtrados en esa macrofase */}
+      {macrofases.map(mf=>{
+        const mfHitos = hitosFiltrados.filter(h=>(h.macrofase||'Sin macrofase')===mf);
+        if(mfHitos.length===0) return null;
+        const mfOk = hitos.filter(h=>(h.macrofase||'Sin macrofase')===mf&&h.estado==='Completado').length;
+        const mfTotal = hitos.filter(h=>(h.macrofase||'Sin macrofase')===mf).length;
+        return (
+          <div key={mf} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",marginBottom:10,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:"#F7F6F3",borderBottom:"1px solid #DDD8CF"}}>
+              <div style={{fontWeight:700,fontSize:"0.82rem",flex:1}}>{mf}</div>
+              <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>{mfOk}/{mfTotal}</div>
+            </div>
+            {mfHitos.map((h,hi)=>{
+              const gIdx = globalIdx(h);
+              const estadoClr = ESTADO_CLR[h.estado]||"#aaa";
+              return (
+                <div key={hi} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"9px 16px",borderBottom:hi<mfHitos.length-1?"1px solid #F0EEE9":"none",cursor:"pointer",transition:"background 0.1s"}}
+                  onClick={()=>setEditIdx(gIdx)}
+                  onMouseEnter={e=>e.currentTarget.style.background="#F7F6F3"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <div style={{fontSize:"0.85rem",flexShrink:0,marginTop:2}}>{RAG_EMOJI[h.salud]||'⚪'}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"0.78rem",fontWeight:600,color:"#1E2D4E",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.hito}</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      {h.fase&&<span style={{fontSize:"0.6rem",color:"#6B7A8A"}}>{h.fase}</span>}
+                      {h.responsable&&<span style={{fontSize:"0.6rem",color:"#7c5cfc"}}>👤 {h.responsable}</span>}
+                      {h.fechaForecast&&<span style={{fontSize:"0.6rem",color:"#c9a86c"}}>📅 {h.fechaForecast}</span>}
+                      {h.fechaReal&&<span style={{fontSize:"0.6rem",color:"#4ca99a",fontWeight:600}}>✓ {h.fechaReal}</span>}
+                      {h.fechaLimite&&<span style={{fontSize:"0.6rem",color:"#e05a5a"}}>⚠ límite {h.fechaLimite}</span>}
+                    </div>
+                    {h.proximaAccion&&<div style={{fontSize:"0.62rem",color:"#6B7A8A",marginTop:3,fontStyle:"italic"}}>→ {h.proximaAccion}{h.responsableAccion?" ("+h.responsableAccion+")":""}</div>}
+                    {h.comentarios&&<div style={{fontSize:"0.62rem",color:"#1E2D4E",marginTop:2,background:"rgba(201,168,108,0.08)",borderRadius:4,padding:"2px 5px"}}>💬 {h.comentarios}</div>}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                    <span style={{fontSize:"0.58rem",fontWeight:700,padding:"2px 7px",borderRadius:6,background:estadoClr+"22",color:estadoClr,whiteSpace:"nowrap",border:"1px solid "+estadoClr+"44"}}>{h.estado||'-'}</span>
+                    {h.clave&&h.clave.toLowerCase().includes('sí')&&<span style={{fontSize:"0.55rem",color:"#e05a5a",fontWeight:700}}>⭐ CLAVE</span>}
+                    <span style={{fontSize:"0.55rem",color:"#B0BBC6"}}>✏ editar</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+      {hitosFiltrados.length===0&&<div style={{textAlign:"center",padding:"20px",color:"#6B7A8A",fontSize:"0.8rem"}}>No hay hitos con los filtros seleccionados</div>}
+      <div style={{fontSize:"0.63rem",color:"#6B7A8A",marginTop:4}}>Importado: {seg.fecha} · {seg.source} · Click en cualquier hito para editar</div>
+    </div>
+  );
 });
 
 const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,isOver,onDragStart,onDragEnter,onDragEnd}){
@@ -1049,15 +1254,94 @@ const CronogramaTab = ({proj, activeId, upd}) => {
     return { inicial: t1, real: t2, fecha: new Date().toISOString().substring(0,10), source: sheetName };
   };
 
+  // Parser de la hoja 'Seguimiento PM' del Master PM Excel
+  const parseSeguimientoPM = (wb) => {
+    const shName = wb.SheetNames.find(n => n.toLowerCase().includes('seguimiento') && n.toLowerCase().includes('pm'))
+                || wb.SheetNames.find(n => n.toLowerCase().includes('seguimiento'));
+    if (!shName) return null;
+    const ws = wb.Sheets[shName];
+    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+
+    const toDateStr = (v) => {
+      if (v == null || v === '') return null;
+      if (v instanceof Date) {
+        const y=v.getFullYear(),m=v.getMonth()+1,d=v.getDate();
+        if (isNaN(y)||y<1900) return null;
+        return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      }
+      if (typeof v==='number' && v>1000) {
+        try {
+          const base=new Date(Date.UTC(1899,11,30));
+          const d2=new Date(base.getTime()+v*86400000);
+          if(!isNaN(d2.getTime())&&d2.getUTCFullYear()>1900)
+            return `${d2.getUTCFullYear()}-${String(d2.getUTCMonth()+1).padStart(2,'0')}-${String(d2.getUTCDate()).padStart(2,'0')}`;
+        } catch(e){}
+      }
+      if (typeof v==='string') {
+        const m1=v.match(/(\d{4})-(\d{2})-(\d{2})/); if(m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+        const m2=v.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if(m2){const yr=m2[3].length===2?'20'+m2[3]:m2[3];return `${yr}-${String(m2[2]).padStart(2,'0')}-${String(m2[1]).padStart(2,'0')}`;}
+      }
+      return null;
+    };
+
+    // Buscar fila de cabecera (contiene 'Hito' o 'hito')
+    let headerRow = 9; // default: fila 10 (0-indexed 9)
+    for (let i=0;i<Math.min(rows.length,20);i++){
+      const r=rows[i]||[];
+      if(r.some(c=>c&&String(c).toLowerCase().trim()==='hito')){headerRow=i;break;}
+    }
+
+    const hitos = [];
+    for (let i=headerRow+1;i<rows.length;i++){
+      const r=rows[i]||[];
+      const num=r[2];
+      if(num==null) continue;
+      const hito=r[5]?String(r[5]).trim():'';
+      if(!hito) continue;
+      hitos.push({
+        num: String(num).trim(),
+        macrofase: r[3]?String(r[3]).trim():'',
+        fase: r[4]?String(r[4]).trim():'',
+        hito,
+        tipo: r[6]?String(r[6]).trim():'',
+        clave: r[7]?String(r[7]).trim():'',
+        criticidad: r[8]?String(r[8]).trim():'',
+        fechaBase: toDateStr(r[9]),
+        fechaForecast: toDateStr(r[10]),
+        fechaReal: toDateStr(r[11]),
+        fechaLimite: toDateStr(r[12]),
+        desvBase: r[13]!=null?Number(r[13]):null,
+        holgura: r[14]!=null?Number(r[14]):null,
+        diasForecast: r[15]!=null?Number(r[15]):null,
+        estado: r[16]?String(r[16]).trim():'',   // 'Completado','En curso','No iniciado','No aplica'
+        salud: r[17]?String(r[17]).trim():'',    // 'Verde','Ámbar','Rojo','Cerrado','Sin fecha','N/A'
+        responsable: r[18]?String(r[18]).trim():'',
+        proximaAccion: r[19]?String(r[19]).trim():'',
+        responsableAccion: r[20]?String(r[20]).trim():'',
+        fechaCompromiso: toDateStr(r[21]),
+        impacta: r[22]?String(r[22]).trim():'',
+        comentarios: r[23]?String(r[23]).trim():'',
+        ultimaActualizacion: toDateStr(r[24]),
+      });
+    }
+    return {hitos, fecha: new Date().toISOString().substring(0,10), source: shName};
+  };
+
   const handleFile = (e) => {
     const f = e.target.files[0];
     if (!f) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      // cellDates:true hace que SheetJS convierta seriales a objetos Date automáticamente
-      const wb = window.XLSX.read(ev.target.result, {type:'binary', cellDates:true});
+      const wb = window.XLSX.read(ev.target.result, {type:'binary', cellFormula:false, cellDates:true});
       const parsed = parseCronogramaExcel(wb);
-      if (parsed) upd(activeId, p => ({...p, cronograma: parsed}));
+      const segPM = parseSeguimientoPM(wb);
+      upd(activeId, p => ({
+        ...p,
+        ...(parsed ? {cronograma: parsed} : {}),
+        ...(segPM  ? {seguimientoPM: segPM} : {}),
+      }));
+      if (!parsed && !segPM) alert('No se encontraron hojas de Planificación o Seguimiento PM en el archivo.');
     };
     reader.readAsBinaryString(f);
     e.target.value = '';
@@ -2238,7 +2522,7 @@ export default function Overview(){
           const p=JSON.parse(s);
           if(Array.isArray(p)&&p.length>0){
             if(key!=="ov11"){try{localStorage.setItem("ov11",s);}catch{}}
-            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,cronograma:x.cronograma||null}));
+            return p.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null,cronograma:x.cronograma||null,seguimientoPM:x.seguimientoPM||null}));
           }
         }
       }catch{}
@@ -2300,6 +2584,7 @@ export default function Overview(){
         marketing:mergeObj(cloud.marketing,local.marketing),
         master:mergeObj(cloud.master,local.master),
         cronograma:mergeObj(cloud.cronograma,local.cronograma),
+        seguimientoPM:mergeObj(cloud.seguimientoPM,local.seguimientoPM),
         // Texto: conservar el más largo
         resumenSemanal:(cloud.resumenSemanal||"").length>=(local.resumenSemanal||"").length?cloud.resumenSemanal:local.resumenSemanal,
       };
@@ -2341,7 +2626,7 @@ export default function Overview(){
 
   const openNewP=useCallback(()=>{projIsEdit.current=false;setPF({name:"",zona:"Sur",estado:"planificacion",projectOwner:"",pmTecnico:"",responsableComercial:"",comercializadora:"",ubicacion:"",presupuesto:"",costeActual:"",fechaEntrega:""});setModal("proj");},[]);
   const openEditP=useCallback(()=>{if(!proj) return;projIsEdit.current=true;editId.current=proj.id;setPF({name:proj.name,zona:proj.zona,estado:proj.estado,projectOwner:proj.projectOwner||"",pmTecnico:proj.pmTecnico||"",responsableComercial:proj.responsableComercial||"",comercializadora:proj.comercializadora||"",ubicacion:proj.ubicacion||"",presupuesto:proj.presupuesto||"",costeActual:proj.costeActual||"",fechaEntrega:proj.fechaEntrega||""});setModal("proj");},[proj]);
-  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
+  const saveP=useCallback(()=>{if(!pF.name.trim()) return;if(projIsEdit.current){upd(editId.current,p=>({...p,...pF}));}else{const np={...pF,id:Date.now(),hitos:DEFAULT_HITOS.map(n=>({nombre:n,estado:"pendiente",fechaPrevista:"",fechaReal:"",notas:""})),blockers:[],tareas:[],viviendas:[],bp:null,marketing:null,master:null,cronograma:null,seguimientoPM:null,resumenSemanal:"",ultimaActualizacion:new Date().toISOString().split("T")[0]};save(prev=>[...prev,np]);setActiveId(np.id);setView("proyecto");}setModal(null);},[pF,upd]);
   const delP=useCallback(id=>{if(!confirm("Eliminar esta promocion?")) return;save(prev=>prev.filter(p=>p.id!==id));setView("dashboard");setActiveId(null);},[]);
 
   const cycleHito=useCallback(idx=>{upd(activeId,p=>{const h=[...p.hitos];const cur=h[idx].estado;const next=HITO_CYCLE[(HITO_CYCLE.indexOf(cur)+1)%HITO_CYCLE.length];h[idx]={...h[idx],estado:next,fechaReal:next==="completado"?new Date().toISOString().split("T")[0]:h[idx].fechaReal};return {...p,hitos:h};});},[activeId,upd]);
@@ -2396,7 +2681,7 @@ export default function Overview(){
     reader.onload=ev=>{
       if(!window.XLSX){alert("SheetJS cargando, espera 2s.");return;}
       try{
-        const wb=window.XLSX.read(ev.target.result,{type:"binary"});
+        const wb=window.XLSX.read(ev.target.result,{type:"binary",cellFormula:false,cellDates:true});
         const allVvs=[];
         const multi=wb.SheetNames.length>1;
         const estadoMap={"reservado":"reservada","reservada":"reservada","vendido":"vendida","vendida":"vendida","libre":"disponible","disponible":"disponible","bloqueado":"no-venta","bloqueado promotor":"no-venta"};
@@ -2405,13 +2690,15 @@ export default function Overview(){
           const ws=wb.Sheets[sheetName];if(!ws) return;
           const rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
           if(!rows||rows.length<2) return;
-          let isNvoga=false,isMedHills=false,hdrIdx=-1;
+          let isNvoga=false,isMedHills=false,isCuadroTarifa=false,hdrIdx=-1;
           for(let i=0;i<Math.min(rows.length,25);i++){
             const r=(rows[i]||[]).map(c=>norm(c));
             // MedHills Cashflow: MUST have "bloque viviendas" (multi-word) AND "precio vivienda"
             if(r.some(c=>c==="bloque viviendas"||c.includes("bloque")&&c.includes("vivend"))&&r.some(c=>c.includes("precio vivienda"))){isMedHills=true;hdrIdx=i;break;}
-            // Nvoga Senior Living: has "bloque" AND ("apto" OR "tipologia") but NOT "precio vivienda"
-            if(r.some(c=>c==="bloque")&&(r.some(c=>c.includes("apto"))||r.some(c=>c==="tipologia"))&&!r.some(c=>c.includes("precio vivienda"))){isNvoga=true;hdrIdx=i;break;}
+            // Cuadro Tarifa (Almayate/genérico): has "codigo" AND "tipologia" AND ("precio" OR "tarifa") — ANTES de Nvoga para evitar falso positivo
+            if(r.some(c=>c==="codigo"||c.includes("cod")&&c.length<8)&&r.some(c=>c==="tipologia")&&r.some(c=>c==="precio"||c.includes("tarifa"))){isCuadroTarifa=true;hdrIdx=i;break;}
+            // Nvoga Senior Living: has "bloque" AND "apto" (column name exclusivo de Nvoga) but NOT "precio vivienda"
+            if(r.some(c=>c==="bloque")&&r.some(c=>c.includes("apto"))&&!r.some(c=>c.includes("precio vivienda"))){isNvoga=true;hdrIdx=i;break;}
             if(r.some(c=>c==="num"||c==="ref"||c==="pvp"||c.includes("pvp")||c.includes("precio venta")||c.includes("precio esc")||c.includes("vivend"))){hdrIdx=i;break;}
           }
           if(hdrIdx===-1) return;
@@ -2455,20 +2742,53 @@ export default function Overview(){
                 precio,precioOrigen:Number(r[12])||precio,estado,notas,
               });
             }
+          } else if(isCuadroTarifa){
+            // Cuadro Tarifa (Almayate y similares): Codigo, Tipología, PRECIO/TARIFA VIGENTE, Estado
+            const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
+            const iCod=(()=>{const e=headers.findIndex(h=>h==="codigo");return e>=0?e:headers.findIndex(h=>h.includes("cod")&&h.length<8);})();
+            const iTipo=headers.findIndex(h=>h==="tipologia");
+            const iSup=headers.findIndex(h=>h.includes("total")&&(h.includes("construid")||h.includes("m2")));
+            const iSupUtil=headers.findIndex(h=>h.includes("util")&&h.includes("interior")&&!h.includes("ext"));
+            const iPrecioA=headers.findIndex(h=>h==="precio");
+            const iPrecioB=headers.findIndex(h=>h.includes("tarifa")&&h.includes("vigente")&&!h.includes("anejos"));
+            const iPrecio=iPrecioA>=0?iPrecioA:(iPrecioB>=0?iPrecioB:-1);
+            const iEstado=headers.findIndex(h=>h==="estado");
+            const iBloque=headers.findIndex(h=>h==="bloque");
+            const iPiso=headers.findIndex(h=>h==="piso");
+            const iDorm=headers.findIndex(h=>h.includes("dorm"));
+            const iTipoRow=headers.findIndex(h=>h==="tipo");
+            const estadoMapCT={"l":"disponible","libre":"disponible","r":"reservada","reservado":"reservada","reservada":"reservada","v":"vendida","vendido":"vendida","vendida":"vendida","b":"no-venta","bloqueado":"no-venta"};
+            const priceCol=iPrecio>=0?iPrecio:31;
+            for(let i=hdrIdx+1;i<rows.length;i++){
+              const r=rows[i];if(!r) continue;
+              const cod=String(r[iCod>=0?iCod:3]||"").trim();
+              if(!cod||cod.length<3) continue;
+              // Solo importar viviendas (tipo V), no trasteros (T) ni garajes (G) ni locales (L)
+              const tipoRaw=iTipoRow>=0?String(r[iTipoRow]||"").trim().toUpperCase():"";
+              if(tipoRaw&&tipoRaw!=="V"&&tipoRaw!=="V = VIVIENDA") continue;
+              const precio=typeof r[priceCol]==="number"?r[priceCol]:parseFloat(String(r[priceCol]||"").replace(/[^0-9.]/g,""))||0;
+              if(!precio||precio<1000) continue;
+              const tipo=String(r[iTipo>=0?iTipo:4]||"").trim();
+              const supTotal=parseFloat(String(r[iSup>=0?iSup:19]||"").replace(",","."))||0;
+              const supUtil=parseFloat(String(r[iSupUtil>=0?iSupUtil:12]||"").replace(",","."))||0;
+              const sup=supUtil||supTotal;
+              const rawEst=String(r[iEstado>=0?iEstado:44]||"").trim().toLowerCase();
+              const estado=estadoMapCT[rawEst]||"disponible";
+              const bloque=iBloque>=0?String(r[iBloque]||"").trim():"";
+              const piso=iPiso>=0?String(r[iPiso]||"").trim():"";
+              const dorm=iDorm>=0?String(r[iDorm]||"").trim():"";
+              const notas=[bloque?"Bloque: "+bloque:"",piso?"Piso: "+piso:""].filter(Boolean).join(" | ");
+              allVvs.push({id:Date.now()+Math.random(),ref:cod,tipologia:tipo||(dorm?dorm+" dorm.":"-"),planta:piso?piso:"-",superficie:sup,precio,estado,notas});
+            }
           } else if(isNvoga){
             const headers=(rows[hdrIdx]||[]).map(c=>norm(c));
-            // DEBUG
-            const dbgPriceCol=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
-            const dbgApto=headers.findIndex(h=>h.includes("apto"));
-            const dbgR17=rows[hdrIdx+1]||[];
-            alert("Nvoga debug: hdrIdx="+hdrIdx+" priceCol="+(dbgPriceCol!==-1?dbgPriceCol:18)+" aptoCol="+dbgApto+" apto0="+dbgR17[dbgApto!==-1?dbgApto:1]+" precio="+dbgR17[dbgPriceCol!==-1?dbgPriceCol:18]);
             const iBloque=headers.findIndex(h=>h==="bloque");
             const iApto=headers.findIndex(h=>h.includes("apto"));
             const iTipo=headers.findIndex(h=>h==="tipologia");
             const iPlanta=headers.findIndex(h=>h==="planta");
             const iSup=headers.findIndex(h=>h.includes("total")&&h.includes("m2"));
             const iTerraza=headers.findIndex(h=>h.includes("terraza"));
-            const iPrecio=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc"));
+            const iPrecio=headers.findIndex(h=>h.includes("esc. 1")||h.includes("esc.1")||h.includes("pricing esc")||h.includes("precio total"));
             const priceCol=iPrecio!==-1?iPrecio:18;
             for(let i=hdrIdx+1;i<rows.length;i++){
               const r=rows[i];if(!r) continue;
@@ -2516,9 +2836,8 @@ export default function Overview(){
             }
           }
         });
-        if(!allVvs.length){alert("No se encontraron viviendas con precio. Revisa columnas de referencia y PVP.");return;}
+        if(!allVvs.length){alert("No se encontraron viviendas con precio. Revisa el formato del archivo.");return;}
         upd(activeId,p=>({...p,viviendas:[...(p.viviendas||[]),...allVvs]}));
-        alert("OK: "+allVvs.length+" viviendas importadas");
       }catch(err){alert("Error: "+err.message);}
     };
     reader.readAsBinaryString(file);
@@ -2967,11 +3286,6 @@ export default function Overview(){
                 const segDone=segItems.filter(t=>t.done).length;
                 const segTotal=segItems.length||1;
                 const tareasP=(p.tareas||[]).filter(t=>!(t.id&&t.id.toString().startsWith("t_atl"))&&!t.done).length;
-                // mini donut SVG — hitos
-                const r=28,cx=34,cy=34,circ=2*Math.PI*r;
-                const segHOk=(hOk/hTotal)*circ;
-                const segHCurso=(hCurso/hTotal)*circ;
-                const segHPend=circ-segHOk-segHCurso;
                 return (
                   <div key={p.id} onClick={()=>{setActiveId(p.id);setView("proyecto");setTab("hitos");}}
                     style={{background:"#FFFFFF",borderRadius:16,border:"1px solid #DDD8CF",padding:"20px",cursor:"pointer",transition:"box-shadow 0.15s,transform 0.15s"}}
@@ -2986,26 +3300,9 @@ export default function Overview(){
                       <span style={{fontSize:"0.62rem",fontWeight:700,padding:"3px 9px",borderRadius:20,background:est.bg,color:est.color,textTransform:"uppercase",whiteSpace:"nowrap",marginLeft:8}}>{est.label}</span>
                     </div>
 
-                    {/* Gráfico donut hitos + métricas */}
-                    <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:16}}>
-                      <div style={{flexShrink:0}}>
-                        <svg width="68" height="68" viewBox="0 0 68 68">
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#EAE6DF" strokeWidth="7"/>
-                          {/* completados */}
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ca99a" strokeWidth="7"
-                            strokeDasharray={segHOk+" "+(circ-segHOk)}
-                            strokeDashoffset={circ*0.25}
-                            style={{transition:"stroke-dasharray 0.4s"}}/>
-                          {/* en curso */}
-                          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#c9a86c" strokeWidth="7"
-                            strokeDasharray={segHCurso+" "+(circ-segHCurso)}
-                            strokeDashoffset={circ*0.25-segHOk}
-                            style={{transition:"stroke-dasharray 0.4s"}}/>
-                          <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="middle" fontSize="10" fontWeight="800" fill="#1E2D4E">{hOk}/{hTotal}</text>
-                          <text x={cx} y={cy+13} textAnchor="middle" dominantBaseline="middle" fontSize="6.5" fill="#6B7A8A">hitos</text>
-                        </svg>
-                      </div>
-                      <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {/* Métricas */}
+                    <div style={{marginBottom:16}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                         {[
                           {l:"Vendidas",v:s.vendidas,sub:s.total+"uds",c:"#4ca99a"},
                           {l:"Reservadas",v:s.reservadas,sub:"",c:"#ddb96a"},
@@ -3038,6 +3335,51 @@ export default function Overview(){
                         </div>
                       </div>
                     )}
+
+                    {/* Cronograma PM — hitos del Master PM Excel */}
+                    {(()=>{
+                      const seg = p.seguimientoPM;
+                      if (!seg || !seg.hitos || seg.hitos.length === 0) return null;
+                      const hitos = seg.hitos;
+                      const total = hitos.length;
+                      const completados = hitos.filter(h => h.estado === 'Completado').length;
+                      const enCurso    = hitos.filter(h => h.estado === 'En curso').length;
+                      const rojos      = hitos.filter(h => h.salud === 'Rojo').length;
+                      const ambar      = hitos.filter(h => h.salud === 'Ámbar').length;
+                      const pctCron    = Math.round(completados / total * 100);
+                      // Próximos 3 hitos no completados
+                      const proximos = hitos.filter(h => h.estado !== 'Completado' && h.estado !== 'No aplica' && h.fechaForecast).sort((a,b) => (a.fechaForecast||'').localeCompare(b.fechaForecast||'')).slice(0,3);
+                      const RAG_COLOR = {Verde:'#4ca99a', Ámbar:'#ddb96a', Rojo:'#e05a5a', Cerrado:'#4ca99a', 'Sin fecha':'#aaa', 'N/A':'#aaa'};
+                      return (
+                        <div style={{marginBottom:12,background:"#F7F6F3",borderRadius:10,padding:"10px 12px"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <div style={{fontSize:"0.62rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Cronograma PM</div>
+                            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                              {rojos>0&&<span style={{fontSize:"0.59rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.1)",borderRadius:6,padding:"1px 6px"}}>🔴 {rojos}</span>}
+                              {ambar>0&&<span style={{fontSize:"0.59rem",fontWeight:700,color:"#c9a86c",background:"rgba(201,168,108,0.1)",borderRadius:6,padding:"1px 6px"}}>🟡 {ambar}</span>}
+                              <span style={{fontSize:"0.59rem",fontWeight:700,color:"#4ca99a"}}>{completados}/{total}</span>
+                            </div>
+                          </div>
+                          {/* Barra progreso cronograma */}
+                          <div style={{height:4,background:"#DDD8CF",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+                            <div style={{width:pctCron+"%",background:"#4ca99a",height:"100%",transition:"width 0.4s"}}/>
+                          </div>
+                          {/* Próximos hitos */}
+                          {proximos.length>0&&(
+                            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                              {proximos.map((h,i)=>(
+                                <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                                  <div style={{width:6,height:6,borderRadius:"50%",background:RAG_COLOR[h.salud]||"#aaa",flexShrink:0}}/>
+                                  <div style={{fontSize:"0.61rem",color:"#1E2D4E",fontWeight:600,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.hito}</div>
+                                  <div style={{fontSize:"0.59rem",color:"#6B7A8A",flexShrink:0,marginLeft:4}}>{h.fechaForecast||""}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {proximos.length===0&&<div style={{fontSize:"0.61rem",color:"#4ca99a"}}>✓ Todos los hitos completados</div>}
+                        </div>
+                      );
+                    })()}
 
                     {/* Footer */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:10,borderTop:"1px solid #EAE6DF"}}>
@@ -3455,6 +3797,29 @@ export default function Overview(){
                           </div>
                         )}
 
+                        {/* ── DESGLOSE B.09 COMERCIALIZACIÓN Y MARKETING ─────────── */}
+                        {(d.materialComercial||d.agentesExternos||d.masterBrokerBP)&&(
+                          <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 20px",marginBottom:14}}>
+                            <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:4,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>B.09 · Comercialización y Marketing</div>
+                            <div style={{fontSize:"0.73rem",color:"#6B7A8A",marginBottom:12}}>Total: <strong style={{color:"#c9a86c"}}>{fmtEur(d.comercialActual||0)}</strong></div>
+                            {[
+                              {cod:"B.09-1",l:"Material Comercial",v:d.materialComercial,c:"#c9a86c",mk:true},
+                              {cod:"B.09-2",l:"Agentes Externos (Commercial Fees)",v:d.agentesExternos,c:"#f5924e",mk:false},
+                              {cod:"B.09-3",l:"Master Broker",v:d.masterBrokerBP,c:"#ddb96a",mk:false},
+                            ].filter(x=>x.v>0).map(x=>(
+                              <div key={x.cod} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #DDD8CF"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <span style={{fontSize:"0.7rem",fontWeight:700,color:x.c,background:x.c+"18",borderRadius:4,padding:"2px 6px",letterSpacing:"0.04em"}}>{x.cod}</span>
+                                  <span style={{fontSize:"0.81rem"}}>{x.l}</span>
+                                  {x.mk&&<span style={{fontSize:"0.68rem",color:"#4ca99a",background:"rgba(76,169,154,0.12)",borderRadius:4,padding:"1px 6px",fontWeight:700}}>→ Marketing</span>}
+                                </div>
+                                <span style={{fontSize:"0.82rem",fontWeight:600,color:x.c}}>{fmtEurM(x.v)}</span>
+                              </div>
+                            ))}
+                            <div style={{fontSize:"0.71rem",color:"#6B7A8A",marginTop:8}}>Solo <strong>B.09-1</strong> se transfiere como presupuesto de marketing.</div>
+                          </div>
+                        )}
+
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                           <div style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",padding:"16px 18px"}}>
                             <div style={{fontWeight:700,fontSize:"0.84rem",marginBottom:12,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.07em"}}>Fuentes de financiacion</div>
@@ -3564,8 +3929,8 @@ export default function Overview(){
                       <div style={{fontSize:"2.5rem",marginBottom:10}}>MK</div>
                       <div style={{fontWeight:700,fontSize:"1rem",color:"#1E2D4E",marginBottom:6}}>Sin planificacion de marketing</div>
                       <div style={{fontSize:"0.8rem",marginBottom:20}}>
-                        {proj.bp&&proj.bp.comercialActual?(
-                          <span>Presupuesto del BP disponible: <strong style={{color:"#4ca99a"}}>{fmtEur(proj.bp.comercialActual)}</strong></span>
+                        {proj.bp&&(proj.bp.materialComercial||proj.bp.mktBudget||proj.bp.comercialActual)?(
+                          <span>Presupuesto B.09-1 Material Comercial del BP: <strong style={{color:"#4ca99a"}}>{fmtEur(proj.bp.materialComercial||proj.bp.mktBudget||proj.bp.comercialActual)}</strong></span>
                         ):"Importa primero el BP para ver el presupuesto disponible."}
                       </div>
                       <label style={{background:"#c9a86c",color:"#fff",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:"0.85rem",fontWeight:700}}>
@@ -3575,7 +3940,7 @@ export default function Overview(){
                     </div>
                   ):(()=>{
                     const mkt=proj.marketing;
-                    const presupuestoBP=(proj.bp&&(proj.bp.mktBudget||proj.bp.comercialActual))||0;
+                    const presupuestoBP=(proj.bp&&(proj.bp.materialComercial||proj.bp.mktBudget||proj.bp.comercialActual))||0;
                     const totalPlanificado=mkt.partidas.reduce((a,p)=>a+p.total,0);
                     const pctUsado=presupuestoBP>0?Math.min(100,Math.round(totalPlanificado/presupuestoBP*100)):0;
                     const restante=presupuestoBP-totalPlanificado;
@@ -3596,7 +3961,7 @@ export default function Overview(){
                           <div style={{display:"flex",alignItems:"center",gap:12}}>
                             <div style={{fontSize:"1.5rem"}}>EUR</div>
                             <div>
-                              <div style={{fontSize:"0.7rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto destinado a Marketing (Comercializacion BP)</div>
+                              <div style={{fontSize:"0.7rem",color:"#6B7A8A",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:3}}>Presupuesto B.09-1 Material Comercial (BP)</div>
                               <div style={{fontSize:"1.6rem",fontWeight:800,color:presupuestoBP>0?"#4ca99a":"#6B7A8A",letterSpacing:"-0.02em"}}>{presupuestoBP>0?fmtEur(presupuestoBP):"Sin BP cargado"}</div>
                               {presupuestoBP>0&&<div style={{fontSize:"0.75rem",color:"#6B7A8A",marginTop:2}}>Extraido automaticamente del Business Plan</div>}
                             </div>
@@ -3903,6 +4268,18 @@ export default function Overview(){
                       <div style={{fontSize:"0.74rem",color:"#6B7A8A",marginTop:2}}>Checklist de control extraído de la ficha de seguimiento — {seguimientoItems.filter(t=>t.done).length}/{seguimientoItems.length} completados</div>
                     </div>
                   </div>
+
+                  {/* Hitos PM del Master Excel — componente con hooks */}
+                  <SeguimientoPMPanel
+                    seg={proj.seguimientoPM}
+                    onUpdateHito={(idx, updated) => upd(activeId, p => {
+                      const newHitos = [...p.seguimientoPM.hitos];
+                      newHitos[idx] = {...newHitos[idx], ...updated, ultimaActualizacion: new Date().toISOString().substring(0,10)};
+                      return {...p, seguimientoPM: {...p.seguimientoPM, hitos: newHitos}};
+                    })}
+                  />
+
+                  <div style={{fontWeight:600,fontSize:"0.8rem",color:"#6B7A8A",marginBottom:10,paddingTop:4,borderTop:"1px solid #EAE6DF"}}>Checklist de control interno</div>
                   {(()=>{
                     const areas=[...new Set(seguimientoItems.map(t=>{const m=t.texto.match(/^\[([^\]]+)\]/);return m?m[1]:"OTROS";}))];
                     return areas.map(area=>{
