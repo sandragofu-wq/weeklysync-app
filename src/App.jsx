@@ -719,6 +719,199 @@ const ModalVivienda = memo(function ModalVivienda({vF,onChange,onSave,onClose,is
   </Modal>);
 });
 
+/* ── Modal edición hito PM ───────────────────────────────────────── */
+const TEAM_PM = ['Sandra','Sara (BSA)','Inma (BSA)','Alberto','Dirección'];
+const ModalHitoPM = memo(function ModalHitoPM({h, onSave, onClose}){
+  const [f, setF] = useState({...h});
+  const ch = (k,v) => setF(prev=>({...prev,[k]:v}));
+  return (
+    <Modal title={<span style={{fontSize:"0.82rem",fontWeight:700,color:"#1E2D4E",lineHeight:1.3}}>{h.hito}</span>} onClose={onClose}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <FL label="Estado ejecución">
+          <select style={CSS.inp} value={f.estado||''} onChange={e=>ch('estado',e.target.value)}>
+            <option value="No iniciado">No iniciado</option>
+            <option value="En curso">En curso</option>
+            <option value="Completado">Completado</option>
+            <option value="No aplica">No aplica</option>
+          </select>
+        </FL>
+        <FL label="Salud plazo (RAG)">
+          <select style={CSS.inp} value={f.salud||''} onChange={e=>ch('salud',e.target.value)}>
+            <option value="Verde">🟢 Verde</option>
+            <option value="Ámbar">🟡 Ámbar</option>
+            <option value="Rojo">🔴 Rojo</option>
+            <option value="Cerrado">✅ Cerrado</option>
+            <option value="Sin fecha">⚪ Sin fecha</option>
+            <option value="N/A">⚫ N/A</option>
+          </select>
+        </FL>
+        <FL label="Fecha Forecast"><input type="date" style={CSS.inp} value={f.fechaForecast||''} onChange={e=>ch('fechaForecast',e.target.value)}/></FL>
+        <FL label="Fecha Real"><input type="date" style={CSS.inp} value={f.fechaReal||''} onChange={e=>ch('fechaReal',e.target.value)}/></FL>
+        <FL label="Fecha Límite"><input type="date" style={CSS.inp} value={f.fechaLimite||''} onChange={e=>ch('fechaLimite',e.target.value)}/></FL>
+        <FL label="Responsable">
+          <select style={CSS.inp} value={f.responsable||''} onChange={e=>ch('responsable',e.target.value)}>
+            <option value="">-</option>
+            {TEAM_PM.map(t=><option key={t}>{t}</option>)}
+          </select>
+        </FL>
+      </div>
+      <FL label="Próxima acción">
+        <input style={CSS.inp} value={f.proximaAccion||''} onChange={e=>ch('proximaAccion',e.target.value)} placeholder="Describe la próxima acción..."/>
+      </FL>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <FL label="Responsable acción">
+          <select style={CSS.inp} value={f.responsableAccion||''} onChange={e=>ch('responsableAccion',e.target.value)}>
+            <option value="">-</option>
+            {TEAM_PM.map(t=><option key={t}>{t}</option>)}
+          </select>
+        </FL>
+        <FL label="Fecha compromiso"><input type="date" style={CSS.inp} value={f.fechaCompromiso||''} onChange={e=>ch('fechaCompromiso',e.target.value)}/></FL>
+      </div>
+      <FL label="Comentarios">
+        <textarea style={{...CSS.inp,minHeight:70,resize:"vertical"}} value={f.comentarios||''} onChange={e=>ch('comentarios',e.target.value)} placeholder="Comentarios adicionales..."/>
+      </FL>
+      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:18}}>
+        <Btn onClick={onClose}>Cancelar</Btn>
+        <Btn onClick={()=>onSave(f)} v="primary">Guardar cambios</Btn>
+      </div>
+    </Modal>
+  );
+});
+
+/* ── Componente Seguimiento PM (necesita hooks propios) ──────────── */
+const SeguimientoPMPanel = memo(function SeguimientoPMPanel({seg, onUpdateHito}){
+  const [editIdx, setEditIdx] = useState(null);
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [filtroSalud, setFiltroSalud] = useState('Todos');
+  if (!seg || !seg.hitos || seg.hitos.length === 0) return null;
+  const hitos = seg.hitos;
+  const total       = hitos.length;
+  const completados = hitos.filter(h=>h.estado==='Completado').length;
+  const enCurso     = hitos.filter(h=>h.estado==='En curso').length;
+  const noIniciado  = hitos.filter(h=>h.estado==='No iniciado').length;
+  const rojos       = hitos.filter(h=>h.salud==='Rojo').length;
+  const ambar       = hitos.filter(h=>h.salud==='Ámbar').length;
+  const pctCron     = Math.round(completados/total*100);
+  const RAG_EMOJI   = {Verde:'🟢',Ámbar:'🟡',Rojo:'🔴',Cerrado:'✅','Sin fecha':'⚪','N/A':'⚫'};
+  const ESTADO_CLR  = {'Completado':'#4ca99a','En curso':'#c9a86c','No iniciado':'#aaa','No aplica':'#DDD8CF'};
+  const macrofases  = [...new Set(hitos.map(h=>h.macrofase||'Sin macrofase'))];
+  const estadosDisp = ['Todos',...new Set(hitos.map(h=>h.estado||'').filter(Boolean))];
+  const saludesDisp = ['Todos','Rojo','Ámbar','Verde','Cerrado'];
+
+  // Filtrar hitos según los filtros activos
+  const hitosFiltrados = hitos.filter(h=>{
+    if(filtroEstado!=='Todos'&&h.estado!==filtroEstado) return false;
+    if(filtroSalud!=='Todos'&&h.salud!==filtroSalud) return false;
+    return true;
+  });
+
+  // índice global de un hito dado (para identificarlo al guardar)
+  const globalIdx = (h) => hitos.indexOf(h);
+
+  const btnStyle = (active) => ({
+    fontSize:"0.63rem",fontWeight:active?700:400,padding:"3px 10px",borderRadius:12,cursor:"pointer",border:"none",
+    background:active?"#1E2D4E":"#F0EEE9",color:active?"#fff":"#6B7A8A",transition:"all 0.15s"
+  });
+
+  return (
+    <div style={{marginBottom:20}}>
+      {editIdx !== null && (
+        <ModalHitoPM
+          h={hitos[editIdx]}
+          onSave={updated => { onUpdateHito(editIdx, updated); setEditIdx(null); }}
+          onClose={() => setEditIdx(null)}
+        />
+      )}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontWeight:700,fontSize:"0.88rem"}}>Hitos Master PM — <span style={{fontWeight:400,color:"#6B7A8A"}}>{seg.source||''}</span></div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {rojos>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.1)",borderRadius:8,padding:"2px 8px"}}>🔴 {rojos}</span>}
+          {ambar>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#c9a86c",background:"rgba(201,168,108,0.1)",borderRadius:8,padding:"2px 8px"}}>🟡 {ambar}</span>}
+          <span style={{fontSize:"0.65rem",color:"#6B7A8A"}}>{completados}/{total} · {pctCron}%</span>
+        </div>
+      </div>
+      {/* Barra global */}
+      <div style={{height:6,background:"#EAE6DF",borderRadius:3,overflow:"hidden",display:"flex",marginBottom:14}}>
+        <div style={{width:pctCron+"%",background:"#4ca99a",transition:"width 0.4s"}}/>
+        <div style={{width:Math.round(enCurso/total*100)+"%",background:"#c9a86c",transition:"width 0.4s"}}/>
+      </div>
+      {/* Stats — clicables como filtros rápidos */}
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        {[{l:"Completados",v:completados,c:"#4ca99a",e:"Completado"},{l:"En curso",v:enCurso,c:"#c9a86c",e:"En curso"},{l:"No iniciados",v:noIniciado,c:"#aaa",e:"No iniciado"}].map(s=>(
+          <div key={s.l} onClick={()=>setFiltroEstado(filtroEstado===s.e?'Todos':s.e)}
+            style={{background:filtroEstado===s.e?"#1E2D4E":"#F7F6F3",borderRadius:8,padding:"8px 14px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:90,cursor:"pointer",transition:"all 0.15s"}}>
+            <div style={{fontWeight:800,fontSize:"1.1rem",color:filtroEstado===s.e?"#fff":s.c}}>{s.v}</div>
+            <div style={{fontSize:"0.62rem",color:filtroEstado===s.e?"rgba(255,255,255,0.7)":"#6B7A8A",marginTop:1}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+      {/* Filtros */}
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        <span style={{fontSize:"0.63rem",color:"#6B7A8A",fontWeight:600,marginRight:4}}>Filtrar:</span>
+        {estadosDisp.map(e=>(
+          <button key={e} onClick={()=>setFiltroEstado(e)} style={btnStyle(filtroEstado===e)}>{e}</button>
+        ))}
+        <span style={{width:1,height:18,background:"#DDD8CF",margin:"0 4px",display:"inline-block"}}/>
+        {saludesDisp.map(s=>(
+          <button key={s} onClick={()=>setFiltroSalud(s)} style={btnStyle(filtroSalud===s)}>
+            {s==='Rojo'?'🔴 ':s==='Ámbar'?'🟡 ':s==='Verde'?'🟢 ':s==='Cerrado'?'✅ ':''}{s}
+          </button>
+        ))}
+        {(filtroEstado!=='Todos'||filtroSalud!=='Todos')&&(
+          <button onClick={()=>{setFiltroEstado('Todos');setFiltroSalud('Todos');}} style={{...btnStyle(false),color:"#e05a5a"}}>✕ Limpiar</button>
+        )}
+        <span style={{fontSize:"0.63rem",color:"#6B7A8A",marginLeft:"auto"}}>{hitosFiltrados.length} de {total}</span>
+      </div>
+      {/* Por macrofase — solo mostrar si hay hitos filtrados en esa macrofase */}
+      {macrofases.map(mf=>{
+        const mfHitos = hitosFiltrados.filter(h=>(h.macrofase||'Sin macrofase')===mf);
+        if(mfHitos.length===0) return null;
+        const mfOk = hitos.filter(h=>(h.macrofase||'Sin macrofase')===mf&&h.estado==='Completado').length;
+        const mfTotal = hitos.filter(h=>(h.macrofase||'Sin macrofase')===mf).length;
+        return (
+          <div key={mf} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",marginBottom:10,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:"#F7F6F3",borderBottom:"1px solid #DDD8CF"}}>
+              <div style={{fontWeight:700,fontSize:"0.82rem",flex:1}}>{mf}</div>
+              <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>{mfOk}/{mfTotal}</div>
+            </div>
+            {mfHitos.map((h,hi)=>{
+              const gIdx = globalIdx(h);
+              const estadoClr = ESTADO_CLR[h.estado]||"#aaa";
+              return (
+                <div key={hi} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"9px 16px",borderBottom:hi<mfHitos.length-1?"1px solid #F0EEE9":"none",cursor:"pointer",transition:"background 0.1s"}}
+                  onClick={()=>setEditIdx(gIdx)}
+                  onMouseEnter={e=>e.currentTarget.style.background="#F7F6F3"}
+                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                  <div style={{fontSize:"0.85rem",flexShrink:0,marginTop:2}}>{RAG_EMOJI[h.salud]||'⚪'}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"0.78rem",fontWeight:600,color:"#1E2D4E",marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.hito}</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      {h.fase&&<span style={{fontSize:"0.6rem",color:"#6B7A8A"}}>{h.fase}</span>}
+                      {h.responsable&&<span style={{fontSize:"0.6rem",color:"#7c5cfc"}}>👤 {h.responsable}</span>}
+                      {h.fechaForecast&&<span style={{fontSize:"0.6rem",color:"#c9a86c"}}>📅 {h.fechaForecast}</span>}
+                      {h.fechaReal&&<span style={{fontSize:"0.6rem",color:"#4ca99a",fontWeight:600}}>✓ {h.fechaReal}</span>}
+                      {h.fechaLimite&&<span style={{fontSize:"0.6rem",color:"#e05a5a"}}>⚠ límite {h.fechaLimite}</span>}
+                    </div>
+                    {h.proximaAccion&&<div style={{fontSize:"0.62rem",color:"#6B7A8A",marginTop:3,fontStyle:"italic"}}>→ {h.proximaAccion}{h.responsableAccion?" ("+h.responsableAccion+")":""}</div>}
+                    {h.comentarios&&<div style={{fontSize:"0.62rem",color:"#1E2D4E",marginTop:2,background:"rgba(201,168,108,0.08)",borderRadius:4,padding:"2px 5px"}}>💬 {h.comentarios}</div>}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                    <span style={{fontSize:"0.58rem",fontWeight:700,padding:"2px 7px",borderRadius:6,background:estadoClr+"22",color:estadoClr,whiteSpace:"nowrap",border:"1px solid "+estadoClr+"44"}}>{h.estado||'-'}</span>
+                    {h.clave&&h.clave.toLowerCase().includes('sí')&&<span style={{fontSize:"0.55rem",color:"#e05a5a",fontWeight:700}}>⭐ CLAVE</span>}
+                    <span style={{fontSize:"0.55rem",color:"#B0BBC6"}}>✏ editar</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+      {hitosFiltrados.length===0&&<div style={{textAlign:"center",padding:"20px",color:"#6B7A8A",fontSize:"0.8rem"}}>No hay hitos con los filtros seleccionados</div>}
+      <div style={{fontSize:"0.63rem",color:"#6B7A8A",marginTop:4}}>Importado: {seg.fecha} · {seg.source} · Click en cualquier hito para editar</div>
+    </div>
+  );
+});
+
 const HitoRow = memo(function HitoRow({h,idx,onCycle,onEdit,onDelete,isDragging,isOver,onDragStart,onDragEnter,onDragEnd}){
   const hs=HITO_EST[h.estado]||HITO_EST.pendiente;
   const borderColor=isOver?"2px solid #4f8ef7":(h.estado==="retrasado"?"1px solid rgba(224,90,90,0.4)":h.estado==="en-curso"?"1px solid rgba(201,168,108,0.25)":"1px solid #DDD8CF");
@@ -4098,83 +4291,15 @@ export default function Overview(){
                     </div>
                   </div>
 
-                  {/* Hitos PM del Master Excel */}
-                  {(()=>{
-                    const seg = proj.seguimientoPM;
-                    if (!seg || !seg.hitos || seg.hitos.length === 0) return null;
-                    const hitos = seg.hitos;
-                    const total = hitos.length;
-                    const completados = hitos.filter(h=>h.estado==='Completado').length;
-                    const enCurso    = hitos.filter(h=>h.estado==='En curso').length;
-                    const noIniciado = hitos.filter(h=>h.estado==='No iniciado').length;
-                    const rojos      = hitos.filter(h=>h.salud==='Rojo').length;
-                    const ambar      = hitos.filter(h=>h.salud==='Ámbar').length;
-                    const pctCron    = Math.round(completados/total*100);
-                    const RAG_COLOR  = {Verde:'#4ca99a',Ámbar:'#ddb96a',Rojo:'#e05a5a',Cerrado:'#4ca99a','Sin fecha':'#aaa','N/A':'#aaa'};
-                    const RAG_EMOJI  = {Verde:'🟢',Ámbar:'🟡',Rojo:'🔴',Cerrado:'✅','Sin fecha':'⚪','N/A':'⚫'};
-                    const ESTADO_CLR = {'Completado':'#4ca99a','En curso':'#c9a86c','No iniciado':'#aaa','No aplica':'#DDD8CF'};
-                    // Agrupar por macrofase
-                    const macrofases = [...new Set(hitos.map(h=>h.macrofase||'Sin macrofase'))];
-                    return (
-                      <div style={{marginBottom:20}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                          <div style={{fontWeight:700,fontSize:"0.88rem"}}>Hitos Master PM — {seg.source||''}</div>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            {rojos>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#e05a5a",background:"rgba(224,90,90,0.1)",borderRadius:8,padding:"2px 8px"}}>🔴 {rojos} rojo{rojos>1?'s':''}</span>}
-                            {ambar>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"#c9a86c",background:"rgba(201,168,108,0.1)",borderRadius:8,padding:"2px 8px"}}>🟡 {ambar} ámbar</span>}
-                            <span style={{fontSize:"0.65rem",color:"#6B7A8A"}}>{completados}/{total} completados · {pctCron}%</span>
-                          </div>
-                        </div>
-                        {/* Barra global */}
-                        <div style={{height:6,background:"#EAE6DF",borderRadius:3,overflow:"hidden",display:"flex",marginBottom:16}}>
-                          <div style={{width:pctCron+"%",background:"#4ca99a",transition:"width 0.4s"}}/>
-                          <div style={{width:Math.round(enCurso/total*100)+"%",background:"#c9a86c",transition:"width 0.4s"}}/>
-                        </div>
-                        {/* Resumen stats */}
-                        <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-                          {[{l:"Completados",v:completados,c:"#4ca99a"},{l:"En curso",v:enCurso,c:"#c9a86c"},{l:"No iniciados",v:noIniciado,c:"#aaa"}].map(s=>(
-                            <div key={s.l} style={{background:"#F7F6F3",borderRadius:8,padding:"8px 14px",display:"flex",flexDirection:"column",alignItems:"center",minWidth:90}}>
-                              <div style={{fontWeight:800,fontSize:"1.1rem",color:s.c}}>{s.v}</div>
-                              <div style={{fontSize:"0.62rem",color:"#6B7A8A",marginTop:1}}>{s.l}</div>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Por macrofase */}
-                        {macrofases.map(mf=>{
-                          const mfHitos = hitos.filter(h=>(h.macrofase||'Sin macrofase')===mf);
-                          const mfOk = mfHitos.filter(h=>h.estado==='Completado').length;
-                          return (
-                            <div key={mf} style={{background:"#FFFFFF",borderRadius:12,border:"1px solid #DDD8CF",marginBottom:10,overflow:"hidden"}}>
-                              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:"#F7F6F3",borderBottom:"1px solid #DDD8CF"}}>
-                                <div style={{fontWeight:700,fontSize:"0.82rem",flex:1}}>{mf}</div>
-                                <div style={{fontSize:"0.7rem",color:"#6B7A8A"}}>{mfOk}/{mfHitos.length}</div>
-                              </div>
-                              {mfHitos.map((h,hi)=>(
-                                <div key={hi} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 16px",borderBottom:hi<mfHitos.length-1?"1px solid #F0EEE9":"none"}}>
-                                  <div style={{fontSize:"0.88rem",flexShrink:0,marginTop:1}}>{RAG_EMOJI[h.salud]||'⚪'}</div>
-                                  <div style={{flex:1,minWidth:0}}>
-                                    <div style={{fontSize:"0.79rem",fontWeight:600,color:"#1E2D4E",marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.hito}</div>
-                                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                                      {h.fase&&<span style={{fontSize:"0.61rem",color:"#6B7A8A"}}>{h.fase}</span>}
-                                      {h.responsable&&<span style={{fontSize:"0.61rem",color:"#7c5cfc"}}>👤 {h.responsable}</span>}
-                                      {h.fechaForecast&&<span style={{fontSize:"0.61rem",color:"#c9a86c"}}>📅 {h.fechaForecast}</span>}
-                                      {h.fechaReal&&<span style={{fontSize:"0.61rem",color:"#4ca99a"}}>✓ {h.fechaReal}</span>}
-                                    </div>
-                                    {h.proximaAccion&&<div style={{fontSize:"0.63rem",color:"#6B7A8A",marginTop:3,fontStyle:"italic"}}>→ {h.proximaAccion}</div>}
-                                  </div>
-                                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0}}>
-                                    <span style={{fontSize:"0.58rem",fontWeight:700,padding:"1px 6px",borderRadius:6,background:(ESTADO_CLR[h.estado]||"#aaa")+"22",color:ESTADO_CLR[h.estado]||"#aaa",whiteSpace:"nowrap"}}>{h.estado||'-'}</span>
-                                    {h.clave&&h.clave.toLowerCase().includes('sí')&&<span style={{fontSize:"0.55rem",color:"#e05a5a",fontWeight:700}}>⭐ CLAVE</span>}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })}
-                        <div style={{fontSize:"0.65rem",color:"#6B7A8A",marginTop:4}}>Actualizado: {seg.fecha} · {seg.source}</div>
-                      </div>
-                    );
-                  })()}
+                  {/* Hitos PM del Master Excel — componente con hooks */}
+                  <SeguimientoPMPanel
+                    seg={proj.seguimientoPM}
+                    onUpdateHito={(idx, updated) => upd(activeId, p => {
+                      const newHitos = [...p.seguimientoPM.hitos];
+                      newHitos[idx] = {...newHitos[idx], ...updated, ultimaActualizacion: new Date().toISOString().substring(0,10)};
+                      return {...p, seguimientoPM: {...p.seguimientoPM, hitos: newHitos}};
+                    })}
+                  />
 
                   <div style={{fontWeight:600,fontSize:"0.8rem",color:"#6B7A8A",marginBottom:10,paddingTop:4,borderTop:"1px solid #EAE6DF"}}>Checklist de control interno</div>
                   {(()=>{
