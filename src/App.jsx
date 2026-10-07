@@ -1,35 +1,60 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 
-// ─── CLOUD STORAGE ───────────────────────────────────────────────────────────
-const JBKEY = "$2a$10$a6n7i3E/5IrfUHuOxXwrJ.vZTzL/7uOxSEt5laKErphDwS85ZETbW";
-const JBURL = "https://api.jsonbin.io/v3/b";
+// ─── CLOUD STORAGE via Firebase Firestore ────────────────────────────────────
+// Lectura y escritura para todos sin necesidad de tokens ni configuración.
+// SDK cargado via CDN en index.html (ver comentario al final del archivo).
+// Credenciales del proyecto Firebase weeklysync-d1abc:
+const FB_CONFIG = {
+  apiKey: "AIzaSyA-6RgpF9NwUUIgDf87Km4eiZzjgZKJmLs",
+  authDomain: "weeklysync-d1abc.firebaseapp.com",
+  projectId: "weeklysync-d1abc",
+  storageBucket: "weeklysync-d1abc.firebasestorage.app",
+  messagingSenderId: "230356670282",
+  appId: "1:230356670282:web:6ba45a11b08d53bd8453b3"
+};
+const FB_COLLECTION = "weeklysync";
+const FB_DOC_ID = "shared";
 
-// BIN ID FIJO - compartido por TODOS los usuarios
-const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
+// Inicializar Firebase (solo una vez)
+let _fbApp = null, _fbDb = null;
+const getFbDb = () => {
+  if(_fbDb) return _fbDb;
+  try {
+    const { initializeApp, getApps } = window.firebase_app || {};
+    const { getFirestore } = window.firebase_firestore || {};
+    if(!initializeApp||!getFirestore){ console.warn("[OV] Firebase SDK no cargado aún"); return null; }
+    if(!_fbApp){
+      const existing = getApps().find(a=>a.name==="[DEFAULT]");
+      _fbApp = existing || initializeApp(FB_CONFIG);
+    }
+    _fbDb = getFirestore(_fbApp);
+    return _fbDb;
+  } catch(e){ console.error("[OV] Firebase init error:",e.message); return null; }
+};
 
 const cloudSave = async (data) => {
-  // Unica proteccion: nunca guardar array vacio
   if(!data||!Array.isArray(data)||data.length===0) return;
-  console.log("[OV] Guardando en nube:", data.length, "proyectos...");
-  const r = await fetch(JBURL+"/"+FIXED_BIN_ID, {
-    method:"PUT",
-    headers:{"Content-Type":"application/json","X-Master-Key":JBKEY},
-    body: JSON.stringify({projects:data, ts:Date.now()})
-  });
-  if(!r.ok) { console.error("[OV] cloudSave error HTTP:",r.status); throw new Error("cloudSave HTTP "+r.status); }
-  console.log("[OV] Guardado en nube OK");
+  const db = getFbDb();
+  if(!db){ console.warn("[OV] cloudSave: Firestore no disponible"); return; }
+  console.log("[OV] Guardando en Firestore:", data.length, "proyectos...");
+  const { doc, setDoc } = window.firebase_firestore || {};
+  if(!doc||!setDoc){ throw new Error("Firebase Firestore SDK no disponible"); }
+  await setDoc(doc(db, FB_COLLECTION, FB_DOC_ID), {projects: data, ts: Date.now()});
+  console.log("[OV] Guardado en Firestore OK");
 };
 
 const cloudLoad = async () => {
+  const db = getFbDb();
+  if(!db){ console.warn("[OV] cloudLoad: Firestore no disponible"); return null; }
   try {
-    console.log("[OV] Cargando datos desde la nube...");
-    const r = await fetch(JBURL+"/"+FIXED_BIN_ID+"/latest",{
-      headers:{"X-Master-Key":JBKEY,"X-Bin-Meta":"false"}
-    });
-    if(!r.ok){console.warn("[OV] cloudLoad HTTP error:",r.status);return null;}
-    const j = await r.json();
+    console.log("[OV] Cargando datos desde Firestore...");
+    const { doc, getDoc } = window.firebase_firestore || {};
+    if(!doc||!getDoc){ return null; }
+    const snap = await getDoc(doc(db, FB_COLLECTION, FB_DOC_ID));
+    if(!snap.exists()){ console.log("[OV] Firestore: documento vacío (primera vez)"); return null; }
+    const j = snap.data();
     const result = Array.isArray(j.projects) ? j.projects : null;
-    console.log("[OV] cloudLoad OK, proyectos en nube:", result?result.length:"(none)", result?result.map(p=>p.name).join(", "):"");
+    console.log("[OV] cloudLoad OK, proyectos:", result?result.length:"(none)");
     return result;
   } catch(e){ console.error("[OV] cloudLoad error:",e.message); return null; }
 };
@@ -3312,31 +3337,8 @@ export default function Overview(){
             </div>
           )}
           {cloudStatus==="error"&&(
-            <button onClick={()=>{
-              setCloudStatus("loading");
-              setCloudSynced(false);
-              cloudLoad().then(cloudData=>{
-                if(cloudData&&Array.isArray(cloudData)&&cloudData.length>0){
-                  setProjects(prev=>{
-                    const merged=cloudData.map(cx=>{
-                      const lx=prev.find(l=>l.id===cx.id);
-                      if(!lx) return cx;
-                      const mergeArr=(a,b)=>{const aa=Array.isArray(a)?a:[];const bb=Array.isArray(b)?b:[];return aa.length>=bb.length?aa:bb;};
-                      return {...cx,hitos:mergeArr(cx.hitos,lx.hitos),blockers:mergeArr(cx.blockers,lx.blockers),viviendas:mergeArr(cx.viviendas,lx.viviendas),tareas:[...new Map([...(lx.tareas||[]),...(cx.tareas||[])].map(t=>[String(t.id),t])).values()]};
-                    });
-                    const cloudIds=new Set(cloudData.map(c=>c.id));
-                    prev.filter(l=>!cloudIds.has(l.id)).forEach(l=>merged.push(l));
-                    try{localStorage.setItem("ov11",JSON.stringify(merged));}catch{}
-                    return merged;
-                  });
-                  setCloudStatus("ok");
-                } else {
-                  setCloudStatus("error");
-                }
-                setCloudSynced(true);
-              }).catch(()=>{setCloudSynced(true);setCloudStatus("error");});
-            }} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(224,90,90,0.08)",border:"1px solid rgba(224,90,90,0.3)",color:"#e05a5a",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20,cursor:"pointer",fontFamily:"inherit"}} title="Error de conexion con la nube. Haz clic para reintentar.">
-              <div style={{width:5,height:5,background:"#e05a5a",borderRadius:"50%"}}/>Sin conexion — Reintentar
+            <button onClick={()=>{setCloudStatus("loading");setCloudSynced(false);cloudLoad().then(d=>{if(d&&d.length>0){setProjects(d);try{localStorage.setItem("ov11",JSON.stringify(d));}catch{}}setCloudSynced(true);setCloudStatus("ok");}).catch(()=>{setCloudSynced(true);setCloudStatus("error");});}} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(224,90,90,0.08)",border:"1px solid rgba(224,90,90,0.3)",color:"#e05a5a",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20,cursor:"pointer",fontFamily:"inherit"}} title="Error de conexion. Haz clic para reintentar.">
+              <div style={{width:5,height:5,background:"#e05a5a",borderRadius:"50%"}}/>Sin conexion ↺
             </button>
           )}
           <div style={{fontSize:"0.76rem",color:"#6B7A8A",textTransform:"capitalize"}}>{today}</div>
@@ -4479,6 +4481,7 @@ export default function Overview(){
           </div>
         </Modal>
       )}
+
     </div>
     </ErrorBoundary>
   );
