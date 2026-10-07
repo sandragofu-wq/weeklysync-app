@@ -1,9 +1,19 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WeeklySync</title>
+    <title>WeeklySync — Overview Real Estate</title>
+
+    <!-- Firebase SDK via CDN (Firestore cloud sync) -->
+    <script type="module">
+      import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+      import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+      // Exponer como globals para que App.jsx (UMD/React) los use
+      window.firebase_app = { initializeApp, getApps };
+      window.firebase_firestore = { getFirestore, doc, getDoc, setDoc };
+    </script>
   </head>
   <body>
     <div id="root"></div>
