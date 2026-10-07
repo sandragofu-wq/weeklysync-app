@@ -8,25 +8,30 @@ const JBURL = "https://api.jsonbin.io/v3/b";
 const FIXED_BIN_ID = "6a55dbf6f5f4af5e298c27ac";
 
 const cloudSave = async (data) => {
-  try {
-    // Unica proteccion: nunca guardar array vacio
-    if(!data||!Array.isArray(data)||data.length===0) return;
-    await fetch(JBURL+"/"+FIXED_BIN_ID, {
-      method:"PUT",
-      headers:{"Content-Type":"application/json","X-Master-Key":JBKEY},
-      body: JSON.stringify({projects:data, ts:Date.now()})
-    });
-  } catch(e){}
+  // Unica proteccion: nunca guardar array vacio
+  if(!data||!Array.isArray(data)||data.length===0) return;
+  console.log("[OV] Guardando en nube:", data.length, "proyectos...");
+  const r = await fetch(JBURL+"/"+FIXED_BIN_ID, {
+    method:"PUT",
+    headers:{"Content-Type":"application/json","X-Master-Key":JBKEY},
+    body: JSON.stringify({projects:data, ts:Date.now()})
+  });
+  if(!r.ok) { console.error("[OV] cloudSave error HTTP:",r.status); throw new Error("cloudSave HTTP "+r.status); }
+  console.log("[OV] Guardado en nube OK");
 };
 
 const cloudLoad = async () => {
   try {
+    console.log("[OV] Cargando datos desde la nube...");
     const r = await fetch(JBURL+"/"+FIXED_BIN_ID+"/latest",{
       headers:{"X-Master-Key":JBKEY,"X-Bin-Meta":"false"}
     });
+    if(!r.ok){console.warn("[OV] cloudLoad HTTP error:",r.status);return null;}
     const j = await r.json();
-    return Array.isArray(j.projects) ? j.projects : null;
-  } catch(e){ return null; }
+    const result = Array.isArray(j.projects) ? j.projects : null;
+    console.log("[OV] cloudLoad OK, proyectos en nube:", result?result.length:"(none)", result?result.map(p=>p.name).join(", "):"");
+    return result;
+  } catch(e){ console.error("[OV] cloudLoad error:",e.message); return null; }
 };
 
 const DEFAULT_HITOS = ["Originación y due diligence","Firma compraventa del suelo","Constitución sociedad / fondos propios","Entrega proyecto básico","Solicitud y concesión licencia de obra","Kick-off comercial","Prelanzamiento (F&F / permutas)","Lanzamiento oficial de ventas","Term sheet financiación promotora","Aprobación riesgos entidad","Firma escritura préstamo promotor","Entrega proyecto de ejecución","Adjudicación obra / constructora","Acta de replanteo e inicio de obra","Disposición inicial préstamo promotor","División horizontal / distribución hipoteca","Certificado Final de Obra","Licencia de primera ocupación","Inicio escrituración y entregas","Cancelación préstamo y cierre proyecto"];
@@ -2530,6 +2535,7 @@ export default function Overview(){
     return DEFAULT_PROJECTS;
   });
   const [cloudSynced,setCloudSynced]=useState(false);
+  const [cloudStatus,setCloudStatus]=useState("loading"); // "loading"|"ok"|"error"|"saving"
   const [view,setView]=useState("dashboard");
   const [activeId,setActiveId]=useState(null);
   const [tab,setTab]=useState("hitos");
@@ -2603,17 +2609,25 @@ export default function Overview(){
         }
         setProjects(merged);
         try{localStorage.setItem("ov11",JSON.stringify(merged));}catch{}
+        setCloudStatus("ok");
       } else if(localProjects){
-        // Cloud vacío pero hay datos locales — no machacamos nada
+        // Cloud vacío pero hay datos locales — subir locales al cloud
+        setCloudStatus("ok");
+      } else {
+        // Sin datos en ningún lado
+        setCloudStatus("error");
       }
       setCloudSynced(true);
-    }).catch(()=>setCloudSynced(true));
+    }).catch(()=>{setCloudSynced(true);setCloudStatus("error");});
   },[]);
 
   useEffect(()=>{
     if(!cloudSynced) return;
     try{localStorage.setItem("ov11",JSON.stringify(projects));}catch(e){}
-    cloudSave(projects);
+    if(projects&&projects.length>0){
+      setCloudStatus("saving");
+      cloudSave(projects).then(()=>setCloudStatus("ok")).catch(()=>setCloudStatus("error"));
+    }
   },[projects,cloudSynced]);
   useEffect(()=>{if(proj) setResumenLocal(proj.resumenSemanal||"");},[activeId]);
   const save=fn=>setProjects(prev=>fn(prev));
@@ -2673,7 +2687,10 @@ export default function Overview(){
   const clearViv=useCallback(()=>{if(!confirm("Eliminar todas las viviendas?")) return;upd(activeId,p=>({...p,viviendas:[]}));},[activeId,upd]);
 
   useEffect(()=>{if(!document.getElementById("sheetjs")){const sc=document.createElement("script");sc.id="sheetjs";sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";document.head.appendChild(sc);}},[]);
-  useEffect(()=>{if(!document.getElementById("outfit-font")){const lk=document.createElement("link");lk.id="outfit-font";lk.rel="stylesheet";lk.href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap";document.head.appendChild(lk);}},[]);
+  useEffect(()=>{
+    if(!document.getElementById("outfit-font")){const lk=document.createElement("link");lk.id="outfit-font";lk.rel="stylesheet";lk.href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap";document.head.appendChild(lk);}
+    if(!document.getElementById("ov-anim")){const st=document.createElement("style");st.id="ov-anim";st.textContent="@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}";document.head.appendChild(st);}
+  },[]);
 
   const handleVivFile=useCallback(e=>{
     const file=e.target.files[0];if(!file) return;
@@ -3268,7 +3285,9 @@ export default function Overview(){
                     const migrated=data.map(x=>({...x,viviendas:x.viviendas||[],bp:x.bp||null,marketing:x.marketing||null,master:x.master||null}));
                     setProjects(migrated);
                     try{localStorage.setItem("ov11",JSON.stringify(migrated));}catch{}
-                    alert("Datos restaurados correctamente");
+                    // También subir al cloud para que todos los compañeros puedan verlo
+                    setCloudStatus("saving");
+                    cloudSave(migrated).then(()=>{setCloudStatus("ok");alert("Datos restaurados y sincronizados con la nube correctamente.");}).catch(()=>{setCloudStatus("error");alert("Datos restaurados localmente. La sincronización con la nube falló, intentalo desde el botón 'Sin conexion'.");});
                   } else {alert("Archivo no valido");}
                 }catch{alert("Error al leer el archivo");}
               };
@@ -3277,9 +3296,49 @@ export default function Overview(){
             }}/>
           </label>
           <div style={{width:1,height:16,background:"#DDD8CF"}}/>
-          <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(76,169,154,0.08)",border:"1px solid rgba(76,169,154,0.25)",color:"#4ca99a",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
-            <div style={{width:5,height:5,background:"#4ca99a",borderRadius:"50%"}}/>En vivo
-          </div>
+          {cloudStatus==="loading"&&(
+            <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(201,168,108,0.08)",border:"1px solid rgba(201,168,108,0.25)",color:"#c9a86c",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
+              <div style={{width:5,height:5,background:"#c9a86c",borderRadius:"50%",animation:"pulse 1s infinite"}}/>Conectando...
+            </div>
+          )}
+          {cloudStatus==="saving"&&(
+            <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(201,168,108,0.08)",border:"1px solid rgba(201,168,108,0.25)",color:"#c9a86c",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
+              <div style={{width:5,height:5,background:"#c9a86c",borderRadius:"50%",animation:"pulse 1s infinite"}}/>Guardando...
+            </div>
+          )}
+          {cloudStatus==="ok"&&(
+            <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(76,169,154,0.08)",border:"1px solid rgba(76,169,154,0.25)",color:"#4ca99a",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20}}>
+              <div style={{width:5,height:5,background:"#4ca99a",borderRadius:"50%"}}/>Sincronizado
+            </div>
+          )}
+          {cloudStatus==="error"&&(
+            <button onClick={()=>{
+              setCloudStatus("loading");
+              setCloudSynced(false);
+              cloudLoad().then(cloudData=>{
+                if(cloudData&&Array.isArray(cloudData)&&cloudData.length>0){
+                  setProjects(prev=>{
+                    const merged=cloudData.map(cx=>{
+                      const lx=prev.find(l=>l.id===cx.id);
+                      if(!lx) return cx;
+                      const mergeArr=(a,b)=>{const aa=Array.isArray(a)?a:[];const bb=Array.isArray(b)?b:[];return aa.length>=bb.length?aa:bb;};
+                      return {...cx,hitos:mergeArr(cx.hitos,lx.hitos),blockers:mergeArr(cx.blockers,lx.blockers),viviendas:mergeArr(cx.viviendas,lx.viviendas),tareas:[...new Map([...(lx.tareas||[]),...(cx.tareas||[])].map(t=>[String(t.id),t])).values()]};
+                    });
+                    const cloudIds=new Set(cloudData.map(c=>c.id));
+                    prev.filter(l=>!cloudIds.has(l.id)).forEach(l=>merged.push(l));
+                    try{localStorage.setItem("ov11",JSON.stringify(merged));}catch{}
+                    return merged;
+                  });
+                  setCloudStatus("ok");
+                } else {
+                  setCloudStatus("error");
+                }
+                setCloudSynced(true);
+              }).catch(()=>{setCloudSynced(true);setCloudStatus("error");});
+            }} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(224,90,90,0.08)",border:"1px solid rgba(224,90,90,0.3)",color:"#e05a5a",fontSize:"0.65rem",fontWeight:700,letterSpacing:"0.09em",textTransform:"uppercase",padding:"4px 10px",borderRadius:20,cursor:"pointer",fontFamily:"inherit"}} title="Error de conexion con la nube. Haz clic para reintentar.">
+              <div style={{width:5,height:5,background:"#e05a5a",borderRadius:"50%"}}/>Sin conexion — Reintentar
+            </button>
+          )}
           <div style={{fontSize:"0.76rem",color:"#6B7A8A",textTransform:"capitalize"}}>{today}</div>
         </div>
       </div>
