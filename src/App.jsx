@@ -1315,44 +1315,76 @@ const CronogramaTab = ({proj, activeId, upd}) => {
       return null;
     };
 
-    // Buscar fila de cabecera (contiene 'Hito' o 'hito')
-    let headerRow = 9; // default: fila 10 (0-indexed 9)
+    // Buscar fila de cabecera (contiene 'Hito') y detectar offset de columna
+    // 'Hito' es siempre la 4ª columna de datos (offset+3), así que retrocedemos 3
+    let headerRow = 9; // default (0-indexed), cubre ambos formatos conocidos
+    let colOffset = 2; // default: datos empiezan en columna C (índice 2)
     for (let i=0;i<Math.min(rows.length,20);i++){
       const r=rows[i]||[];
-      if(r.some(c=>c&&String(c).toLowerCase().trim()==='hito')){headerRow=i;break;}
+      for (let j=0;j<r.length;j++){
+        if(r[j]&&String(r[j]).toLowerCase().trim()==='hito'){
+          headerRow=i; colOffset=Math.max(0,j-3); break;
+        }
+      }
+      if(headerRow!==9) break;
     }
+
+    // Calcular salud RAG desde fechas (independiente de fórmulas Excel)
+    const calcSalud = (estado, fechaForecast, fechaReal, fechaLimite) => {
+      if(estado==='Completado'||estado==='No aplica') return 'Cerrado';
+      if(!fechaForecast) return 'Sin fecha';
+      const hoy=new Date(); hoy.setHours(0,0,0,0);
+      const fF=new Date(fechaForecast);
+      const fL=fechaLimite?new Date(fechaLimite):null;
+      const diasForecast=Math.round((fF-hoy)/(1000*86400));
+      if(fL&&fF>fL) return 'Rojo'; // forecast ya supera el límite
+      if(diasForecast<0) return 'Rojo'; // forecast en el pasado sin completar
+      if(diasForecast<=14) return 'Ámbar'; // menos de 2 semanas
+      return 'Verde';
+    };
 
     const hitos = [];
     for (let i=headerRow+1;i<rows.length;i++){
       const r=rows[i]||[];
-      const num=r[2];
+      const o=colOffset;
+      const num=r[o];
       if(num==null) continue;
-      const hito=r[5]?String(r[5]).trim():'';
+      const hito=r[o+3]?String(r[o+3]).trim():'';
       if(!hito) continue;
+      const estado=r[o+14]?String(r[o+14]).trim():'';
+      const fechaForecast=toDateStr(r[o+8]);
+      const fechaReal=toDateStr(r[o+9]);
+      const fechaLimite=toDateStr(r[o+10]);
+      // Salud: leer del Excel solo si es un valor conocido, si no recalcular
+      const saludExcel=r[o+15]?String(r[o+15]).trim():'';
+      const SALUDES_VALIDAS=['Verde','Ámbar','Rojo','Cerrado','Sin fecha','N/A','Sin Forecast'];
+      const salud=SALUDES_VALIDAS.includes(saludExcel)
+        ? saludExcel
+        : calcSalud(estado, fechaForecast, fechaReal, fechaLimite);
       hitos.push({
         num: String(num).trim(),
-        macrofase: r[3]?String(r[3]).trim():'',
-        fase: r[4]?String(r[4]).trim():'',
+        macrofase: r[o+1]?String(r[o+1]).trim():'',
+        fase: r[o+2]?String(r[o+2]).trim():'',
         hito,
-        tipo: r[6]?String(r[6]).trim():'',
-        clave: r[7]?String(r[7]).trim():'',
-        criticidad: r[8]?String(r[8]).trim():'',
-        fechaBase: toDateStr(r[9]),
-        fechaForecast: toDateStr(r[10]),
-        fechaReal: toDateStr(r[11]),
-        fechaLimite: toDateStr(r[12]),
-        desvBase: r[13]!=null?Number(r[13]):null,
-        holgura: r[14]!=null?Number(r[14]):null,
-        diasForecast: r[15]!=null?Number(r[15]):null,
-        estado: r[16]?String(r[16]).trim():'',   // 'Completado','En curso','No iniciado','No aplica'
-        salud: r[17]?String(r[17]).trim():'',    // 'Verde','Ámbar','Rojo','Cerrado','Sin fecha','N/A'
-        responsable: r[18]?String(r[18]).trim():'',
-        proximaAccion: r[19]?String(r[19]).trim():'',
-        responsableAccion: r[20]?String(r[20]).trim():'',
-        fechaCompromiso: toDateStr(r[21]),
-        impacta: r[22]?String(r[22]).trim():'',
-        comentarios: r[23]?String(r[23]).trim():'',
-        ultimaActualizacion: toDateStr(r[24]),
+        tipo: r[o+4]?String(r[o+4]).trim():'',
+        clave: r[o+5]?String(r[o+5]).trim():'',
+        criticidad: r[o+6]?String(r[o+6]).trim():'',
+        fechaBase: toDateStr(r[o+7]),
+        fechaForecast,
+        fechaReal,
+        fechaLimite,
+        desvBase: r[o+11]!=null&&!String(r[o+11]).startsWith('=')?Number(r[o+11]):null,
+        holgura: r[o+12]!=null&&!String(r[o+12]).startsWith('=')?Number(r[o+12]):null,
+        diasForecast: r[o+13]!=null&&!String(r[o+13]).startsWith('=')?Number(r[o+13]):null,
+        estado,                                    // 'Completado','En curso','No iniciado','No aplica'
+        salud,                                     // 'Verde','Ámbar','Rojo','Cerrado','Sin fecha','N/A'
+        responsable: r[o+16]?String(r[o+16]).trim():'',
+        proximaAccion: r[o+17]?String(r[o+17]).trim():'',
+        responsableAccion: r[o+18]?String(r[o+18]).trim():'',
+        fechaCompromiso: toDateStr(r[o+19]),
+        impacta: r[o+20]?String(r[o+20]).trim():'',
+        comentarios: r[o+21]?String(r[o+21]).trim():'',
+        ultimaActualizacion: toDateStr(r[o+22]),
       });
     }
     return {hitos, fecha: new Date().toISOString().substring(0,10), source: shName};
