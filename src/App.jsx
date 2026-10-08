@@ -1675,64 +1675,142 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
 
   const parseInformePosventa = (wb) => {
     if (!wb || !wb.Sheets) return null;
-    // Buscar la hoja de viviendas — puede no ser la primera
-    const sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('ESCRIT') || n.toUpperCase().includes('VIVIEN'))
+
+    // Buscar la hoja: nuevo formato = 'Master Posventa'; antiguo = hoja con ESCRIT/VIVIEN
+    const sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('MASTER') && n.toUpperCase().includes('POSV'))
+                   || wb.SheetNames.find(n => n.toUpperCase().includes('ESCRIT') || n.toUpperCase().includes('VIVIEN'))
                    || wb.SheetNames[0];
     const ws = wb.Sheets[sheetName];
-    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
-    let headerIdx = -1;
-    for (let i = 0; i < Math.min(rows.length, 10); i++) {
-      const rowStr = (rows[i]||[]).map(c => c ? String(c).toUpperCase() : '').join(' ');
-      if (rowStr.includes('ESCRIT') && rowStr.includes('VIV')) { headerIdx = i; break; }
-    }
-    // fallback: buscar cualquier fila con "ESCRITURADA"
-    if (headerIdx < 0) {
-      for (let i = 0; i < Math.min(rows.length, 15); i++) {
-        if ((rows[i]||[]).some(c => c && String(c).toUpperCase().includes('ESCRITURADA'))) { headerIdx = i; break; }
+    const rows = window.XLSX.utils.sheet_to_json(ws, {header:1, defval:null, cellDates:true});
+
+    // ── Detectar formato ──────────────────────────────────────────────────────
+    // Nuevo formato: fila 0 tiene 'Tipologia' en col A y 'ESTADO POSVENTA' en col S (18)
+    // Antiguo formato: cabecera en fila 2-3 con 'VIV. ESCRITURADAS' y 'ESTADO' en col N (13)
+    const fila0str = (rows[0]||[]).map(c => c ? String(c).toUpperCase() : '').join('|');
+    const esNuevoFormato = fila0str.includes('TIPOLOGIA') || fila0str.includes('ESTADO POSVENTA');
+
+    // ── Normalización de estados (nuevo → canónico interno) ──────────────────
+    // Nuevo Excel            → Estado interno (= lo que usa la UI)
+    // TRABAJOS COMPLETADOS   → FINALIZADA
+    // PTE. COMPLETAR         → PENDIENTE TERMINAR
+    // PTE. INICIO            → PENDIENTE DE ENTRAR
+    // PTE. VISITA            → AGENDAR VISITA
+    // SIN REPASOS            → SIN REPASOS  (se mantiene como estado propio)
+    // NO ESCRITURADA         → NO ESCRITURADA
+    const normEstado = (raw) => {
+      const s = raw ? String(raw).trim().toUpperCase() : '';
+      if (s === 'TRABAJOS COMPLETADOS') return 'FINALIZADA';
+      if (s === 'SIN REPASOS') return 'SIN REPASOS';
+      if (s === 'PTE. COMPLETAR' || s === 'PTE COMPLETAR')     return 'PENDIENTE TERMINAR';
+      if (s === 'PTE. INICIO'    || s === 'PTE INICIO')        return 'PENDIENTE DE ENTRAR';
+      if (s === 'PTE. VISITA'    || s === 'PTE VISITA' || s === 'AGENDAR VISITA') return 'AGENDAR VISITA';
+      if (s === 'NO ESCRITURADA')  return 'NO ESCRITURADA';
+      return s || 'SIN ESTADO';
+    };
+
+    const toMesStr = (v) => {
+      if (!v) return null;
+      if (v instanceof Date) return v.toISOString().substring(0,7);
+      const s = String(v);
+      if (s.length >= 7) return s.substring(0,7);
+      return null;
+    };
+
+    const viviendas = [];
+    const parkings  = [];
+    const trasteros = [];
+    const refsVistas = new Set();
+
+    if (esNuevoFormato) {
+      // ── NUEVO FORMATO (Master Posventa) ──────────────────────────────────
+      // Columnas: A=Tipologia B=Ref C=Garaje D=Trastero E=Cliente F=Email G=Tel
+      // H=Escriturada I=FechaEscritura J=ComIncid K=FechaRecep L=VisitaTecnica
+      // M=FechaVisita N=Tecnico O=PlanRadar P=NIncid Q=Alarma R=Llave
+      // S=EstadoPosventa T=FechaInicioTrabS ...
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] || [];
+        const tipo = row[0] ? String(row[0]).trim().toUpperCase() : null;
+        const ref  = row[1] ? String(row[1]).trim() : null;
+        if (!tipo || !ref) continue;
+        if (refsVistas.has(ref)) continue;
+        refsVistas.add(ref);
+        const estadoRaw = row[18] ? String(row[18]).trim() : '';
+        const estado = normEstado(estadoRaw);
+        const alarmaVal = row[16] ? String(row[16]).trim().toUpperCase() : '';
+        const llaveVal  = row[17] ? String(row[17]).trim() : null;
+        const repasos   = row[23] ? String(row[23]).trim() : null; // REPASOS PENDIENTES (col X)
+        const fechaEscrit = toMesStr(row[8]); // FECHA ESCRITURA (col I)
+        const tieneVisita = !!(row[12]); // FECHA VISITA (col M)
+        const tieneComun  = !!(row[9] && String(row[9]).trim()); // COMUNICACIÓN INCIDENCIAS
+        const item = {
+          ref, estado,
+          repasos: repasos && repasos !== 'None' ? repasos : null,
+          propietario: row[4] ? String(row[4]).trim() : null,
+          llave:    llaveVal,
+          alarma:   alarmaVal === 'SI' || alarmaVal === 'SÍ' ? 'Sí' : (alarmaVal === 'NO' ? 'No' : alarmaVal),
+          parte:    null, // no existe en nuevo formato
+          formulario: tieneComun,   // COMUNICACIÓN INCIDENCIAS equivale a formulario
+          visita:   tieneVisita,
+          fechaEscrit,
+          garaje:   row[2] ? String(row[2]).trim() : null,
+          trastero: row[3] ? String(row[3]).trim() : null,
+          nIncidencias: row[15] ? Number(row[15]) : null,
+          oficioPendiente: row[22] ? String(row[22]).trim() : null,
+        };
+        if (tipo === 'PK') parkings.push(item);
+        else if (tipo === 'TR') trasteros.push(item);
+        else viviendas.push(item); // VIV (o cualquier otro valor)
+      }
+    } else {
+      // ── FORMATO ANTIGUO (VIVIENDAS ESCRITURADAS VS FINALIZADAS) ──────────
+      // Cabecera en fila 2 (índice 2): VIV. ESCRITURADAS / PARKING / TRASTERO / ESTADO
+      // Datos desde fila 3 (índice 3)
+      let headerIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 10); i++) {
+        const rowStr = (rows[i]||[]).map(c => c ? String(c).toUpperCase() : '').join(' ');
+        if (rowStr.includes('ESCRIT') && rowStr.includes('VIV')) { headerIdx = i; break; }
+      }
+      if (headerIdx < 0) {
+        for (let i = 0; i < Math.min(rows.length, 15); i++) {
+          if ((rows[i]||[]).some(c => c && String(c).toUpperCase().includes('ESCRITURADA'))) { headerIdx = i; break; }
+        }
+      }
+      if (headerIdx < 0) return null;
+      const SUMMARY_KEYWORDS = ['TOTAL','VIVIENDAS','ESCRITURADAS','FORMULARIO','RELLENAN','TECNICA','FINALIZADAS','PENDIENTE','REPASAN'];
+      const isResumenRow = (ref) => SUMMARY_KEYWORDS.some(kw => ref.toUpperCase().includes(kw));
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        const ref = row[1] ? String(row[1]).trim() : null;
+        if (!ref || ref === ' ' || ref === 'ACTUALIZAR') continue;
+        if (ref.length > 20 || isResumenRow(ref)) continue;
+        if (refsVistas.has(ref)) continue;
+        refsVistas.add(ref);
+        const estadoRaw = row[13] ? String(row[13]).trim() : 'SIN ESTADO';
+        const estado = normEstado(estadoRaw);
+        const repasos = row[14] ? String(row[14]).trim() : null;
+        const formulario = row[8] ? String(row[8]).trim() : null;
+        const tieneFormulario = !!(formulario && formulario !== '-' && formulario !== 'None');
+        const visitaVal = row[10] ? String(row[10]).trim() : null;
+        const tieneVisita = !!(visitaVal && visitaVal !== '-' && visitaVal !== 'None' && visitaVal !== '');
+        const item = {
+          ref, estado,
+          repasos: repasos && repasos !== 'None' ? repasos : null,
+          propietario: row[17] ? String(row[17]).trim() : null,
+          llave:   row[16] || null,
+          alarma:  row[15] || null,
+          parte:   row[11] || null,
+          formulario: tieneFormulario,
+          visita:  tieneVisita,
+          fechaEscrit: toMesStr(row[6]),
+        };
+        const refU = ref.toUpperCase();
+        if (refU.startsWith('PK-') || refU.startsWith('PARK')) parkings.push(item);
+        else if (refU.startsWith('TR-') || refU.startsWith('TRAST')) trasteros.push(item);
+        else viviendas.push(item);
       }
     }
-    if (headerIdx < 0) return null;
-    // Palabras clave que indican fila de resumen (no vivienda real)
-    const SUMMARY_KEYWORDS = ['TOTAL','VIVIENDAS','ESCRITURADAS','FORMULARIO','RELLENAN','TECNICA','FINALIZADAS','PENDIENTE','REPASAN'];
-    const isResumenRow = (ref) => SUMMARY_KEYWORDS.some(kw => ref.toUpperCase().includes(kw));
-    const viviendas = []; // solo viviendas (no PK ni TR)
-    const parkings  = []; // parkings (PK-)
-    const trasteros = []; // trasteros (TR-)
-    const refsVistas = new Set(); // para deduplicar — el Excel tiene referencias duplicadas al final
-    const parseItem = (row, ref) => {
-      const estado  = row[13] ? String(row[13]).trim() : 'SIN ESTADO';
-      const repasos = row[14] ? String(row[14]).trim() : null;
-      const formulario = row[8] ? String(row[8]).trim() : null;
-      const tieneFormulario = !!(formulario && formulario !== '-' && formulario !== 'None');
-      const visitaVal = row[10] ? String(row[10]).trim() : null;
-      const tieneVisita = !!(visitaVal && visitaVal !== '-' && visitaVal !== 'None' && visitaVal !== '');
-      return {
-        ref, estado,
-        repasos: repasos && repasos !== 'None' ? repasos : null,
-        propietario: row[17] ? String(row[17]).trim() : null,
-        llave:   row[16] || null,
-        alarma:  row[15] || null,
-        parte:   row[11] || null,
-        formulario: tieneFormulario,
-        visita:  tieneVisita,
-        fechaEscrit: row[6] != null ? (row[6] instanceof Date ? row[6].toISOString().substring(0,7) : String(row[6]).substring(0,7)) : null,
-      };
-    };
-    for (let i = headerIdx + 1; i < rows.length; i++) {
-      const row = rows[i];
-      const ref = row[1] ? String(row[1]).trim() : null;
-      if (!ref || ref === ' ' || ref === 'ACTUALIZAR') continue;
-      if (ref.length > 20 || isResumenRow(ref)) continue;
-      if (refsVistas.has(ref)) continue;
-      refsVistas.add(ref);
-      const refU = ref.toUpperCase();
-      const item = parseItem(row, ref);
-      if (refU.startsWith('PK-') || refU.startsWith('PARK')) parkings.push(item);
-      else if (refU.startsWith('TR-') || refU.startsWith('TRAST')) trasteros.push(item);
-      else viviendas.push(item);
-    }
-    // Estados: normalizar variantes del Excel
-    // "PENDIENTE TERMINAR" y "PTE TERMINAR" → ambos tratados como pteTerminar
+
+    // ── Estadísticas (igual para ambos formatos, usando estados normalizados) ─
     const esPteTerminar = (v) => v.estado === 'PENDIENTE TERMINAR' || v.estado === 'PTE TERMINAR';
     const finalizadas  = viviendas.filter(v => v.estado === 'FINALIZADA').length;
     const pteTerminar  = viviendas.filter(esPteTerminar).length;
@@ -1740,14 +1818,11 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     const agendar      = viviendas.filter(v => v.estado === 'AGENDAR VISITA').length;
     const noRepasa     = viviendas.filter(v => v.estado === 'NO REPASA' || v.estado === 'NO REPASAN').length;
     const conRepasos   = viviendas.filter(v => v.repasos).length;
-    const conAlarma    = viviendas.filter(v => v.alarma && String(v.alarma).trim() === 'Sí').length;
-    // Con formulario: col 8 = "Completado" (o cualquier valor distinto de "-"/vacío)
+    const conAlarma    = viviendas.filter(v => v.alarma && (String(v.alarma).trim() === 'Sí' || String(v.alarma).trim().toUpperCase() === 'SI')).length;
     const visitasRealizadas = viviendas.filter(v => v.visita).length;
     const conFormulario     = viviendas.filter(v => v.formulario).length;
     const sinFormulario     = viviendas.length - conFormulario;
-    // Sin formulario pero finalizadas (visitadas por correo, sin parte)
     const sinFormularioFinaliz = viviendas.filter(v => v.estado === 'FINALIZADA' && !v.formulario).length;
-    // Finalizadas con formulario y sin formulario por separado
     const finalizadasConForm = viviendas.filter(v => v.estado === 'FINALIZADA' && v.formulario).length;
     // Desglose por mes de escritura para pteTerminar y pteEntrar
     // Claves: mar=03 abr=04 may=05 jun=06 jul=07 ago=08 sep=09 oct=10
