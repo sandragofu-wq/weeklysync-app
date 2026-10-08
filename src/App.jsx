@@ -1817,6 +1817,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     const pteEntrar    = viviendas.filter(v => v.estado === 'PENDIENTE DE ENTRAR').length;
     const agendar      = viviendas.filter(v => v.estado === 'AGENDAR VISITA').length;
     const noRepasa     = viviendas.filter(v => v.estado === 'NO REPASA' || v.estado === 'NO REPASAN').length;
+    const sinRepasos   = viviendas.filter(v => v.estado === 'SIN REPASOS').length;
     const conRepasos   = viviendas.filter(v => v.repasos).length;
     const conAlarma    = viviendas.filter(v => v.alarma && (String(v.alarma).trim() === 'Sí' || String(v.alarma).trim().toUpperCase() === 'SI')).length;
     const visitasRealizadas = viviendas.filter(v => v.visita).length;
@@ -1846,7 +1847,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
       totalParkings: parkings.filter(v=>v.fechaEscrit != null).length,
       totalTrasteros: trasteros.filter(v=>v.fechaEscrit != null).length,
       finalizadas, finalizadasConForm, pteTerminar, pteEntrar, agendar,
-      noRepasa, conRepasos, conAlarma,
+      noRepasa, sinRepasos, conRepasos, conAlarma,
       visitasRealizadas, visitasPendientes: viviendas.length - visitasRealizadas,
       conFormulario, sinFormulario, sinFormularioFinaliz,
       pteTerminarPorMes, pteEntrarPorMes,
@@ -1989,7 +1990,8 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
             // Valores editables manualmente tienen prioridad sobre los del parser
             const totalEscrit = proj.posventaEscrituradas ?? inf.total;
             const noRepasaVal = proj.posventaNoRepasa ?? inf.noRepasa;
-            const sinClasificar = proj.posventaSinClasificar ?? (totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+noRepasaVal));
+            const sinRepasos = inf.sinRepasos ?? 0;
+            const sinClasificar = proj.posventaSinClasificar ?? (totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+noRepasaVal+sinRepasos));
             const conForm = inf.conFormulario ?? 0;
             const sinFormFin = inf.sinFormularioFinaliz ?? 0;
             // inf.finalizadas = TOTAL FINALIZADA (con + sin formulario) = 187
@@ -2090,7 +2092,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                   <div style={{background:"#FFFFFF",borderRadius:10,border:"1px solid #DDD8CF",overflow:"hidden",flex:1}}>
                     <div style={{padding:"6px 14px",background:"rgba(221,185,106,0.08)",fontSize:"0.62rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#c9a86c",display:"flex",alignItems:"center",gap:6}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:"#ddb96a",display:"inline-block"}}/>
-                      Sin finalizar — <span style={{fontSize:"0.88rem",fontWeight:800}}>{totalEscrit - totFinalizadas}</span>
+                      Sin finalizar — <span style={{fontSize:"0.88rem",fontWeight:800}}>{inf.pteTerminar + inf.pteEntrar + sinFinSinForm + inf.agendar}</span>
                     </div>
                     <div style={{padding:"8px 14px"}}>
                       <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>Con formulario</div>
@@ -2109,7 +2111,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                     <div style={{flex:1,minWidth:130}}>
                       <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Sin clasificar</div>
                       <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <input type="number" defaultValue={proj.posventaSinClasificar ?? ''} placeholder={String(Math.max(0,totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+noRepasaVal)))}
+                        <input type="number" defaultValue={proj.posventaSinClasificar ?? ''} placeholder={String(Math.max(0,totalEscrit-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+noRepasaVal+sinRepasos)))}
                           onBlur={e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)&&v>=0) upd(activeId,'posventaSinClasificar',v);}}
                           style={{width:52,fontSize:"1.3rem",fontWeight:800,color:"#e05a5a",border:"none",background:"transparent",outline:"none",padding:0}}/>
                         <span style={{fontSize:"0.65rem",color:"#9BA8B4"}}>✎</span>
@@ -2126,6 +2128,13 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                       </div>
                       <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>no repasan</div>
                     </div>
+                    {sinRepasos > 0 && (
+                      <div style={{flex:1,minWidth:130}}>
+                        <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Sin repasos</div>
+                        <div style={{fontSize:"1.3rem",fontWeight:800,color:"#4ca99a"}}>{sinRepasos}</div>
+                        <div style={{fontSize:"0.68rem",color:"#6B7A8A"}}>trabajos sin repaso</div>
+                      </div>
+                    )}
                     <div style={{flex:1,minWidth:130}}>
                       <div style={{fontSize:"0.68rem",fontWeight:700,color:"#6B7A8A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Visitas pendientes</div>
                       <div style={{fontSize:"1.3rem",fontWeight:800,color:"#ddb96a"}}>{visitasPend}</div>
@@ -2318,7 +2327,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
               {l:"Finalizadas",       v:inf.finalizadas,  p:prev?.finalizadas,  mejor:true,  pct:inf.pctFinalizada+"%"},
               {l:"Agendar visita",    v:inf.agendar,      p:prev?.agendar,      mejor:false},
               {l:"Con repasos",       v:inf.conRepasos,   p:prev?.conRepasos,   mejor:false},
-              {l:"Sin clasificar",    v:inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa), p:prev?(prev.total-(prev.finalizadas+prev.pteTerminar+prev.pteEntrar+prev.agendar+(prev.noRepasa||0))):null, mejor:false},
+              {l:"Sin clasificar",    v:inf.total-(inf.finalizadas+inf.pteTerminar+inf.pteEntrar+inf.agendar+inf.noRepasa+(inf.sinRepasos||0)), p:prev?(prev.total-(prev.finalizadas+prev.pteTerminar+prev.pteEntrar+prev.agendar+(prev.noRepasa||0)+(prev.sinRepasos||0))):null, mejor:false},
               {l:"Con alarma activa", v:inf.conAlarma,    p:prev?.conAlarma,    mejor:null},
             ].map(k => {
               const d = k.p != null ? k.v - k.p : null;
@@ -2350,7 +2359,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                   <div style={{position:"absolute",top:0,left:0,height:"100%",width:pct+"%",background:"#4ca99a",borderRadius:5}}/>
                 </div>
                 {(()=>{
-                  const clasificadas = inf.finalizadas + inf.pteTerminar + inf.pteEntrar + inf.agendar + inf.noRepasa;
+                  const clasificadas = inf.finalizadas + inf.pteTerminar + inf.pteEntrar + inf.agendar + inf.noRepasa + (inf.sinRepasos||0);
                   const sinClasificar = inf.total - clasificadas;
                   return (
                     <div style={{marginTop:8}}>
@@ -2359,7 +2368,8 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
                         <span>🔴 Pte. terminar: {inf.pteTerminar}</span>
                         <span>🟡 Pte. entrar: {inf.pteEntrar}</span>
                         <span>🟠 Agendar: {inf.agendar}</span>
-                        {inf.noRepasa>0&&<span>⬜ Sin repasos: {inf.noRepasa}</span>}
+                        {(inf.sinRepasos||0)>0&&<span>🟩 Sin repasos: {inf.sinRepasos}</span>}
+                        {inf.noRepasa>0&&<span>⬜ No repasan: {inf.noRepasa}</span>}
                       </div>
                       {sinClasificar>0&&(
                         <div style={{marginTop:6,fontSize:"0.67rem",color:"#e05a5a",fontWeight:600}}>
