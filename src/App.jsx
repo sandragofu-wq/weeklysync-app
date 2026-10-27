@@ -1686,8 +1686,16 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
     // ── Detectar formato ──────────────────────────────────────────────────────
     // Nuevo formato: fila 0 tiene 'Tipologia' en col A y 'ESTADO POSVENTA' en col S (18)
     // Antiguo formato: cabecera en fila 2-3 con 'VIV. ESCRITURADAS' y 'ESTADO' en col N (13)
-    const fila0str = (rows[0]||[]).map(c => c ? String(c).toUpperCase() : '').join('|');
-    const esNuevoFormato = fila0str.includes('TIPOLOGIA') || fila0str.includes('ESTADO POSVENTA');
+    // Buscar la fila de cabecera en las primeras 5 filas (puede haber título en fila 0)
+    let headerRowIdx = 0;
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      const r = (rows[i]||[]).map(c => c ? String(c).toUpperCase() : '').join('|');
+      if (r.includes('ESTADO POSVENTA') || r.includes('TIPOLOGIA') || r.includes('BLOQUES')) {
+        headerRowIdx = i; break;
+      }
+    }
+    const headerStr = (rows[headerRowIdx]||[]).map(c => c ? String(c).toUpperCase() : '').join('|');
+    const esNuevoFormato = headerStr.includes('ESTADO POSVENTA') || headerStr.includes('TIPOLOGIA') || headerStr.includes('BLOQUES');
 
     // ── Normalización de estados (nuevo → canónico interno) ──────────────────
     // Nuevo Excel            → Estado interno (= lo que usa la UI)
@@ -1705,6 +1713,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
       if (s === 'PTE. INICIO'    || s === 'PTE INICIO')        return 'PENDIENTE DE ENTRAR';
       if (s === 'PTE. VISITA'    || s === 'PTE VISITA' || s === 'AGENDAR VISITA') return 'AGENDAR VISITA';
       if (s === 'NO ESCRITURADA')  return 'NO ESCRITURADA';
+      if (s === 'RECHAZADA')        return 'RECHAZADA';
       return s || 'SIN ESTADO';
     };
 
@@ -1727,7 +1736,7 @@ const PosventaTab = ({proj, activeId, upd, fmt}) => {
       // H=Escriturada I=FechaEscritura J=ComIncid K=FechaRecep L=VisitaTecnica
       // M=FechaVisita N=Tecnico O=PlanRadar P=NIncid Q=Alarma R=Llave
       // S=EstadoPosventa T=FechaInicioTrabS ...
-      for (let i = 1; i < rows.length; i++) {
+      for (let i = headerRowIdx + 1; i < rows.length; i++) {
         const row = rows[i] || [];
         const tipo = row[0] ? String(row[0]).trim().toUpperCase() : null;
         const ref  = row[1] ? String(row[1]).trim() : null;
